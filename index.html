@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusDocs AI</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography,forms"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #111827; /* gray-900 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #4f46e5; /* indigo-600 */
+        border-radius: 4px;
+        border: 2px solid #111827; /* gray-900 */
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6366f1; /* indigo-500 */
+      }
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: #4f46e5 #111827;
+      }
+    </style>
+</head>
+<body class="bg-gray-900">
+    <div id="root"></div>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.24.0"
+      }
+    }
+    </script>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>

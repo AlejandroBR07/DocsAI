@@ -1,0 +1,5 @@
+{
+  "name": "NexusDocs AI",
+  "description": "An application to automate the creation of technical and support documentation directly in Google Docs, using AI (Gemini) to generate complete, dynamic, and standardized content for different teams.",
+  "requestFramePermissions": []
+}
