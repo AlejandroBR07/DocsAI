@@ -66,7 +66,6 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
   const handleSave = () => {
       const newContent = contentRef.current ? contentRef.current.innerHTML : document.content;
       onUpdateContent(document.id, { title: currentTitle, content: newContent });
-      setIsEditing(false);
   }
 
   const handleCancel = () => {

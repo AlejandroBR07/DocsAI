@@ -99,10 +99,18 @@ const App = () => {
   };
   
   const handleDocumentUpdate = (docId, updates) => {
-    const updatedDocs = documents.map(doc =>
-      doc.id === docId ? { ...doc, ...updates } : doc
-    );
+    let updatedDocument = null;
+    const updatedDocs = documents.map(doc => {
+      if (doc.id === docId) {
+        updatedDocument = { ...doc, ...updates };
+        return updatedDocument;
+      }
+      return doc;
+    });
     setDocuments(updatedDocs);
+    if (updatedDocument && selectedDocument && selectedDocument.id === docId) {
+      setSelectedDocument(updatedDocument);
+    }
   };
   
   const handleRequestDelete = (doc) => {
