@@ -1,6 +1,6 @@
 import React from 'react';
-import { Team } from '../types';
-import { TeamIcon } from './Icons';
+import { Team } from '../types.ts';
+import { TeamIcon } from './Icons.js';
 
 interface HeaderProps {
   currentTeam: Team;

@@ -1,8 +1,8 @@
 import React, { useState, ClipboardEvent } from 'react';
-import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon } from './Icons';
-import { Team } from '../types';
-import { DOCUMENT_STRUCTURES } from '../constants';
-import { GenerationParams } from '../services/geminiService';
+import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon } from './Icons.js';
+import { Team } from '../types.ts';
+import { DOCUMENT_STRUCTURES } from '../constants.ts';
+import { GenerationParams } from '../services/geminiService.ts';
 
 interface CreationModalProps {
   onClose: () => void;

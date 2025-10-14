@@ -50,52 +50,62 @@ export const CodeIcon = () => (
 );
 
 export const JsonIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l-3 3 3 3m8-6l3 3-3 3" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 20.5l4-17" />
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 7.5l-4.5 4.5 4.5 4.5m7.5-9l-4.5 4.5 4.5 4.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 4.5l-4.5 15" />
     </svg>
 );
 
+
 export const BrainIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75h-10.5a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V7.5a.75.75 0 0 0-.75-.75z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 3.75v3m-4.5-3v3m-3.75 5.25h3m-3 4.5h3m11.25-4.5h-3m3 4.5h-3" />
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8" />
+        <path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8" />
+        <path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-1.5" />
+        <path d="M15 8a3.5 3.5 0 0 1 -3.5 -3.5v-1a3.5 3.5 0 0 1 7 0v1.8" />
+        <path d="M9 8a3.5 3.5 0 0 0 3.5 -3.5v-1a3.5 3.5 0 0 0 -7 0v1.8" />
+        <path d="M6.5 16a3.5 3.5 0 0 1 0 -7h1.5" />
     </svg>
 );
 
 export const DeveloperIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 21.75h4.5" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 2.25h4.5" />
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <path d="M7 8l-4 4l4 4" />
+      <path d="M17 8l4 4l-4 4" />
+      <path d="M14 4l-4 16" />
     </svg>
 );
 
 export const UXUIIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15a7 7 0 0 0 7-7H5a7 7 0 0 0 7 7z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15V3" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15l-3.5 6.062" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15l3.5 6.062" />
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <path d="M6.5 10l-3 4l3 4" />
+        <path d="M17.5 10l3 4l-3 4" />
+        <path d="M14 20h-4" />
+        <path d="M12 4v16" />
+        <path d="M9 7l6 0" />
     </svg>
 );
 
 export const AutomationIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-        <circle cx="12" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/>
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <path d="M12 6l-8.5 4.5l8.5 4.5l8.5 -4.5l-8.5 -4.5" />
+        <path d="M12 12l-8.5 4.5l8.5 4.5l8.5 -4.5l-8.5 -4.5" />
     </svg>
 );
 
 export const AIIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v3.75" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 18.75h4.5" />
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+       <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+       <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+       <path d="M21 21l-6 -6" />
+       <path d="M10 13a3 3 0 1 0 0 -6a3 3 0 0 0 0 6z" />
     </svg>
 );
+
 
 export const FileIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

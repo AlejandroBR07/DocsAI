@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Team } from '../types';
-import { DeveloperIcon, UXUIIcon, AutomationIcon, AIIcon } from './Icons';
+import { Team } from '../types.ts';
+import { DeveloperIcon, UXUIIcon, AutomationIcon, AIIcon } from './Icons.js';
 
 interface OnboardingProps {
   onComplete: (selectedTeam: Team) => void;

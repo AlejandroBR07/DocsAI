@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import CreationModal from './components/CreationModal';
-import DocumentPreview from './components/DocumentPreview';
-import Onboarding from './components/Onboarding';
-import { PlusIcon, DocumentIcon } from './components/Icons';
-import { Team, Document } from './types';
-import { generateDocumentContent } from './services/geminiService';
+import Header from './components/Header.js';
+import CreationModal from './components/CreationModal.js';
+import DocumentPreview from './components/DocumentPreview.js';
+import Onboarding from './components/Onboarding.js';
+import { PlusIcon, DocumentIcon } from './components/Icons.js';
+import { Team, Document } from './types.ts';
+import { generateDocumentContent } from './services/geminiService.ts';
 
 const App: React.FC = () => {
   const [currentTeam, setCurrentTeam] = useState<Team>(Team.Developers);

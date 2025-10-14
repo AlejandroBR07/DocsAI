@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Document } from '../types';
-import { BackIcon, CopyIcon } from './Icons';
+import { Document } from '../types.ts';
+import { BackIcon, CopyIcon } from './Icons.js';
 
 interface DocumentPreviewProps {
   document: Document;
