@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon } from './Icons.js';
 import { Team } from '../types.js';
 import { DOCUMENT_STRUCTURES } from '../constants.js';
@@ -29,13 +29,62 @@ const fileToText = (file) => {
     });
 }
 
+const shuffleArray = (array) => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
+const LOADING_MESSAGES = {
+  general: [
+    'Sintetizando informações...',
+    'Estruturando o documento...',
+    'Conectando com o modelo de IA...',
+    'Estabelecendo o contexto...',
+    'Analisando os requisitos...',
+  ],
+  code: [
+    'Analisando a estrutura do código...',
+    'Identificando os componentes principais...',
+    'Interpretando a lógica de negócio...',
+    'Analisando dependências...',
+    'Mapeando os endpoints da API...',
+    'Verificando o esquema do banco de dados...',
+  ],
+  images: [
+    'Processando os dados das imagens...',
+    'Identificando componentes de UI...',
+    'Analisando fluxos de usuário visuais...',
+    'Extraindo a paleta de cores...',
+    'Reconhecendo a tipografia...',
+  ],
+  json: [
+    'Interpretando o esquema JSON...',
+    'Mapeando os nós da automação...',
+    'Analisando a lógica condicional...',
+    'Identificando integrações externas...',
+  ],
+  writing: [
+    'Rascunhando a introdução...',
+    'Elaborando as seções técnicas...',
+    'Detalhando a arquitetura...',
+    'Escrevendo os guias de configuração...',
+    'Revisando a clareza e coesão...',
+    'Verificando a precisão técnica...',
+    'Gerando a seção de suporte...',
+  ],
+};
+
 
 const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [docType, setDocType] = useState('tech');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingWithImages, setIsGeneratingWithImages] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
   const [error, setError] = useState('');
 
   // Team specific state
@@ -66,7 +115,9 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   // Team Automations
   const [triggerInfo, setTriggerInfo] = useState('');
   const [externalApis, setExternalApis] = useState('');
-
+  
+  const loadingMessageIndex = useRef(0);
+  
   useEffect(() => {
     if (pastedJson.trim() === '') {
       setIsJsonValid(true);
@@ -79,6 +130,47 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
       setIsJsonValid(false);
     }
   }, [pastedJson]);
+
+  // Loading message effect
+  useEffect(() => {
+    if (!isLoading) {
+      loadingMessageIndex.current = 0;
+      return;
+    }
+
+    const hasImages = currentTeam === Team.UXUI && uploadedImages.length > 0;
+    const hasCode = currentTeam === Team.Developers && (pastedCode.length > 0 || codeFiles.length > 0);
+    const hasJson = currentTeam === Team.Automations && (pastedJson.length > 0 || jsonFiles.length > 0);
+
+    let messagePool = [...LOADING_MESSAGES.general, ...LOADING_MESSAGES.writing];
+    if (hasCode) messagePool.push(...LOADING_MESSAGES.code);
+    if (hasImages) messagePool.push(...LOADING_MESSAGES.images);
+    if (hasJson) messagePool.push(...LOADING_MESSAGES.json);
+
+    const finalMessageQueue = [
+      'Iniciando conexão com a IA...',
+      ...shuffleArray(messagePool),
+      'Formatando o documento final...',
+      'Quase pronto...',
+    ];
+    
+    setLoadingMessage(finalMessageQueue[0]);
+
+    const cycleMessages = () => {
+      loadingMessageIndex.current = (loadingMessageIndex.current + 1) % finalMessageQueue.length;
+      setLoadingMessage(finalMessageQueue[loadingMessageIndex.current]);
+      
+      const nextInterval = 2000 + Math.random() * 1500; // Random interval between 2s and 3.5s
+      timeoutId = setTimeout(cycleMessages, nextInterval);
+    };
+
+    let timeoutId = setTimeout(cycleMessages, 2000);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isLoading, currentTeam, uploadedImages.length, pastedCode.length, codeFiles.length, pastedJson.length, jsonFiles.length]);
+
 
   const handleFileChange = async (e) => {
       const files = e.target.files;
@@ -136,8 +228,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
       return;
     }
     
-    const hasImages = currentTeam === Team.UXUI && uploadedImages.length > 0;
-    setIsGeneratingWithImages(hasImages);
     setIsLoading(true);
     setError('');
 
@@ -164,7 +254,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
             userFlows,
         };
       
-      if (hasImages) {
+      if (currentTeam === Team.UXUI && uploadedImages.length > 0) {
         teamData.images = await Promise.all(
           uploadedImages.map(img => fileToBase64(img.file))
         );
@@ -185,7 +275,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
       setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
     } finally {
       setIsLoading(false);
-      setIsGeneratingWithImages(false);
     }
   };
 
@@ -370,13 +459,18 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                 React.createElement('button', {
                     onClick: handleGenerate,
                     disabled: !canGenerate() || isLoading || !isJsonValid,
-                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px]"
+                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed min-w-[250px]"
                   },
                   isLoading 
-                    ? React.createElement(React.Fragment, null, 
-                        React.createElement(LoadingSpinner, null), 
-                        React.createElement('span', { className: "ml-2" }, isGeneratingWithImages ? "Analisando imagens..." : "Gerando...")
-                      ) 
+                    ? React.createElement('div', { className: "flex items-center justify-center" },
+                        React.createElement(LoadingSpinner, null),
+                        React.createElement('div', { className: "relative ml-3 w-56 h-6 overflow-hidden text-left" },
+                            React.createElement('span', {
+                                key: loadingMessage,
+                                className: "absolute inset-0 flex items-center text-sm animate-slide-up-fade-in"
+                            }, loadingMessage)
+                        )
+                      )
                     : 'Gerar com IA'
                 ),
                  React.createElement('button', { onClick: onClose, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors" }, "Cancelar")
