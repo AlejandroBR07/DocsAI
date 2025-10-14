@@ -6,7 +6,6 @@ const DocumentPreview = ({ document, onBack, onUpdateContent }) => {
   const [saveStatus, setSaveStatus] = useState('Salvo');
   
   const [currentTitle, setCurrentTitle] = useState(document.title);
-  const [currentContent, setCurrentContent] = useState(document.content);
   
   const contentRef = useRef(null);
   const saveTimeoutRef = useRef(null);
@@ -14,19 +13,57 @@ const DocumentPreview = ({ document, onBack, onUpdateContent }) => {
 
   // Sync state and imperative DOM when the document prop changes
   useEffect(() => {
+    isComponentMounted.current = true;
+    
     setCurrentTitle(document.title);
-    setCurrentContent(document.content);
-    // When the document ID changes, we need to update the content of our editable div
+
     if (contentRef.current) {
         contentRef.current.innerHTML = document.content;
     }
 
-    isComponentMounted.current = true;
     return () => {
         isComponentMounted.current = false;
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     }
-  }, [document.id]);
+  }, [document.id, document.title, document.content]); // Rerun if content changes from parent
+
+  // Add event listeners for copy buttons
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const copyButtons = contentRef.current.querySelectorAll('.copy-code-btn');
+    
+    const handleCodeCopy = (e) => {
+        const button = e.target;
+        const pre = button.nextElementSibling;
+        if (pre && pre.tagName === 'PRE') {
+            const code = pre.querySelector('code');
+            if (code) {
+                navigator.clipboard.writeText(code.innerText).then(() => {
+                    button.textContent = 'Copiado!';
+                    button.classList.add('copied');
+                    setTimeout(() => {
+                        button.textContent = 'Copiar';
+                        button.classList.remove('copied');
+                    }, 2000);
+                }).catch(err => {
+                    button.textContent = 'Erro';
+                    console.error('Falha ao copiar código: ', err);
+                });
+            }
+        }
+    };
+
+    copyButtons.forEach(button => {
+      button.addEventListener('click', handleCodeCopy);
+    });
+
+    return () => {
+      copyButtons.forEach(button => {
+        button.removeEventListener('click', handleCodeCopy);
+      });
+    };
+  }, [document.content]); // Rerun when content is set
 
 
   // Debounced save function
@@ -37,7 +74,7 @@ const DocumentPreview = ({ document, onBack, onUpdateContent }) => {
     
     const updates = {
         title: currentTitle,
-        content: currentContent
+        content: contentRef.current ? contentRef.current.innerHTML : document.content
     };
 
     onUpdateContent(document.id, updates);
@@ -57,11 +94,6 @@ const DocumentPreview = ({ document, onBack, onUpdateContent }) => {
       setCurrentTitle(e.target.value);
       handleInput();
   }
-  
-  const handleContentChange = (e) => {
-      setCurrentContent(e.currentTarget.innerHTML);
-      handleInput();
-  }
 
   const handleBack = () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -74,7 +106,7 @@ const DocumentPreview = ({ document, onBack, onUpdateContent }) => {
 
   const handleCopy = () => {
     if (contentRef.current) {
-      const contentHtml = `<h1>${currentTitle}</h1>${currentContent}`;
+      const contentHtml = `<h1>${currentTitle}</h1>${contentRef.current.innerHTML}`;
       const plainText = `${currentTitle}\n\n${contentRef.current.innerText}`;
       
       navigator.clipboard.write([
@@ -133,9 +165,9 @@ const DocumentPreview = ({ document, onBack, onUpdateContent }) => {
                 React.createElement('article', {
                   ref: contentRef,
                   contentEditable: true,
-                  onInput: handleContentChange,
+                  onInput: handleInput,
                   suppressContentEditableWarning: true,
-                  className: "prose prose-invert max-w-none prose-h2:text-2xl prose-h2:font-semibold prose-h2:border-b prose-h2:border-gray-600 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3 prose-p:leading-relaxed prose-a:text-indigo-400 hover:prose-a:text-indigo-300 prose-code:bg-gray-900 prose-code:text-amber-300 prose-code:font-mono prose-code:p-1 prose-code:rounded prose-pre:bg-gray-900 prose-pre:p-4 prose-pre:rounded-lg prose-strong:text-white prose-ul:list-disc prose-ul:pl-6 prose-li:my-1 prose-ol:list-decimal prose-ol:pl-6 prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md p-2 -m-2"
+                  className: "prose prose-invert max-w-none prose-h2:text-2xl prose-h2:font-semibold prose-h2:border-b prose-h2:border-gray-600 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3 prose-p:leading-relaxed prose-a:text-indigo-400 hover:prose-a:text-indigo-300 prose-code:text-amber-300 prose-code:font-mono prose-pre:bg-gray-900 prose-strong:text-white prose-ul:list-disc prose-ul:pl-6 prose-li:my-1 prose-ol:list-decimal prose-ol:pl-6 prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md p-2 -m-2"
                 })
             )
         )

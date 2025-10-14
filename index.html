@@ -43,6 +43,37 @@
       .animate-slide-up {
         animation: slideUp 0.4s ease-out forwards;
       }
+      /* Styles for code block copy button */
+      .prose .code-block-wrapper {
+        position: relative;
+      }
+      .prose .copy-code-btn {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        color: #d1d5db; /* gray-300 */
+        background-color: #374151; /* gray-700 */
+        border: 1px solid #4b5563; /* gray-600 */
+        border-radius: 0.375rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+      }
+      .prose .code-block-wrapper:hover .copy-code-btn {
+        opacity: 1;
+      }
+      .prose .copy-code-btn:hover {
+        background-color: #4b5563; /* gray-600 */
+      }
+      .prose .copy-code-btn.copied {
+        background-color: #059669; /* green-600 */
+        color: white;
+      }
+      .prose pre {
+        padding-top: 2.5rem; /* Make space for the button */
+      }
     </style>
 </head>
 <body class="bg-gray-900">

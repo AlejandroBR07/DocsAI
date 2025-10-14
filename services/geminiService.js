@@ -29,11 +29,12 @@ const markdownToHtml = (text) => {
       .replace(/^## (.*$)/gm, '<h2>$1</h2>')
       .replace(/^# (.*$)/gm, '<h1>$1</h1>');
 
-    // Code blocks
+    // Code blocks with copy button
     htmlContent = htmlContent.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
         const languageClass = lang ? ` class="language-${lang}"` : '';
         const cleanedCode = code.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<pre><code${languageClass}>${cleanedCode}</code></pre>`;
+        const copyButton = `<button class="copy-code-btn" title="Copiar código">Copiar</button>`;
+        return `<div class="code-block-wrapper">${copyButton}<pre><code${languageClass}>${cleanedCode}</code></pre></div>`;
     });
 
     // Inline elements
@@ -64,7 +65,7 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent.replace(/\n/g, '<br />');
 
     // Cleanup: remove <br> around block elements
-    const blockElements = ['h1', 'h2', 'h3', 'ul', 'ol', 'pre', 'li'];
+    const blockElements = ['h1', 'h2', 'h3', 'ul', 'ol', 'pre', 'li', 'div'];
     blockElements.forEach(tag => {
         const reBefore = new RegExp(`<br \\/>(\\s*<${tag}[^>]*>)`, 'g');
         const reAfter = new RegExp(`(</${tag}>\\s*)<br \\/>`, 'g');
