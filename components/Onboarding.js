@@ -13,13 +13,13 @@ const Onboarding = ({ onComplete }) => {
   const [selectedTeam, setSelectedTeam] = useState(null);
 
   return (
-    React.createElement('div', { className: "flex-grow flex items-center justify-center p-4" },
-      React.createElement('div', { className: "text-center p-8 max-w-3xl mx-auto bg-gray-800/50 rounded-lg" },
+    React.createElement('div', { className: "flex-grow flex items-center justify-center p-4 animate-fade-in" },
+      React.createElement('div', { className: "text-center p-8 max-w-3xl mx-auto bg-gray-800/50 rounded-lg animate-slide-up" },
         React.createElement('h1', { className: "text-4xl font-bold text-white mb-3" },
-          "Bem-vindo ao ", React.createElement('span', { className: "text-indigo-400" }, "NexusDocs"), " AI"
+          "Bem-vindo ao ", React.createElement('span', { className: "text-indigo-400" }, "Synapse"), " Docs"
         ),
         React.createElement('p', { className: "text-lg text-gray-300 mb-8" },
-          "Sua central de documentos inteligente. Para começar, selecione sua equipe principal."
+          "Sua central de documentos inteligente. Comece gerando documentação rica e completa com IA. Para começar, selecione sua equipe principal."
         ),
         
         React.createElement('div', { className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" },

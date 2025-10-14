@@ -14,7 +14,7 @@ const ApiKeySetup = ({ onApiKeySet }) => {
     React.createElement('div', { className: "min-h-screen bg-gray-900 flex items-center justify-center p-4 text-white" },
       React.createElement('div', { className: "w-full max-w-lg bg-gray-800 p-8 rounded-lg shadow-2xl border border-gray-700" },
         React.createElement('div', { className: "text-center mb-8" },
-            React.createElement('h1', { className: "text-3xl font-bold text-white" }, "Configurar ", React.createElement('span', { className: "text-indigo-400" }, "NexusDocs"), " AI"),
+            React.createElement('h1', { className: "text-3xl font-bold text-white" }, "Configurar ", React.createElement('span', { className: "text-indigo-400" }, "Synapse"), " Docs"),
             React.createElement('p', { className: "text-gray-400 mt-2" }, "Para começar, você precisa de uma chave de API do Google Gemini.")
         ),
         React.createElement('form', { onSubmit: handleSubmit, className: "space-y-6" },

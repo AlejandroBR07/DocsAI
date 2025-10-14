@@ -7,7 +7,7 @@ const Header = ({ currentTeam, onTeamChange }) => {
     React.createElement('header', { className: "bg-gray-800/50 backdrop-blur-sm p-4 sticky top-0 z-20 border-b border-gray-700" },
       React.createElement('div', { className: "container mx-auto flex justify-between items-center" },
         React.createElement('h1', { className: "text-2xl font-bold text-white" },
-          React.createElement('span', { className: "text-indigo-400" }, "NexusDocs"), " AI"
+          React.createElement('span', { className: "text-indigo-400" }, "Synapse"), " Docs"
         ),
         React.createElement('div', { className: "relative" },
           React.createElement('div', { className: "flex items-center space-x-2 text-gray-300" },

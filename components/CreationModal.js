@@ -38,9 +38,11 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [error, setError] = useState('');
 
   // Team specific state
-  const [codeFile, setCodeFile] = useState(null);
-  const [jsonFile, setJsonFile] = useState(null);
+  const [codeFiles, setCodeFiles] = useState([]);
+  const [jsonFiles, setJsonFiles] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]);
+  const [pastedCode, setPastedCode] = useState('');
+  const [pastedJson, setPastedJson] = useState('');
 
   // Team AI
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -56,31 +58,26 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   // Team UX/UI
   const [personas, setPersonas] = useState('');
   const [userFlows, setUserFlows] = useState('');
-
+  
   // Team Automations
   const [triggerInfo, setTriggerInfo] = useState('');
   const [externalApis, setExternalApis] = useState('');
 
   const handleFileChange = async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+      const files = e.target.files;
+      if (!files) return;
 
       try {
-          const textContent = await fileToText(file);
-          const newFile = { name: file.name, content: textContent };
-          if (currentTeam === Team.Developers) setCodeFile(newFile);
-          if (currentTeam === Team.Automations) setJsonFile(newFile);
-      } catch (err) {
-          setError('Falha ao ler o arquivo.');
-      }
-  }
-  
-  const handleCodePaste = (e) => {
-    setCodeFile({ name: 'código_colado.txt', content: e.target.value });
-  }
+          const newFilesPromises = Array.from(files).map(file => 
+            fileToText(file).then(content => ({ name: file.name, content }))
+          );
+          const newFiles = await Promise.all(newFilesPromises);
 
-  const handleJsonPaste = (e) => {
-    setJsonFile({ name: 'automacao_colada.json', content: e.target.value });
+          if (currentTeam === Team.Developers) setCodeFiles(prev => [...prev, ...newFiles]);
+          if (currentTeam === Team.Automations) setJsonFiles(prev => [...prev, ...newFiles]);
+      } catch (err) {
+          setError('Falha ao ler um ou mais arquivos.');
+      }
   }
 
   const addImages = (files) => {
@@ -112,21 +109,27 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setError('');
 
     try {
-      let teamData = {
-        code: codeFile?.content,
-        databaseSchema,
-        dependencies,
-        json: jsonFile?.content,
-        triggerInfo,
-        externalApis,
-        systemPrompt,
-        workflow,
-        tools,
-        exampleIO,
-        guardrails,
-        personas,
-        userFlows,
-      };
+        const codeFromFiles = codeFiles.map(f => `--- Código do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
+        const allCode = [pastedCode, codeFromFiles].filter(Boolean).join('\n\n');
+
+        const jsonFromFiles = jsonFiles.map(f => `--- JSON do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
+        const allJson = [pastedJson, jsonFromFiles].filter(Boolean).join('\n\n');
+
+        let teamData = {
+            code: allCode || undefined,
+            databaseSchema,
+            dependencies,
+            json: allJson || undefined,
+            triggerInfo,
+            externalApis,
+            systemPrompt,
+            workflow,
+            tools,
+            exampleIO,
+            guardrails,
+            personas,
+            userFlows,
+        };
       
       if (currentTeam === Team.UXUI && uploadedImages.length > 0) {
         teamData.images = await Promise.all(
@@ -142,8 +145,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         teamData,
       };
 
-      const content = await generateContent(params);
-      onDocumentCreate(projectName, content);
+      const { title, content } = await generateContent(params);
+      onDocumentCreate(title, content);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
@@ -185,16 +188,15 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                 React.createElement(React.Fragment, null,
                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
                     React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(CodeIcon, null), " Contexto de Código (Opcional)"),
-                    codeFile ? React.createElement(FileChip, { file: codeFile, onRemove: () => setCodeFile(null) }) : (
-                      React.createElement(React.Fragment, null,
-                        React.createElement('textarea', { rows: 6, onChange: handleCodePaste, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o código fonte aqui..." }),
-                        React.createElement('div', { className: "text-center text-sm text-gray-400" }, "ou"),
-                        React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
-                            React.createElement(UploadIcon, null),
-                            React.createElement('span', null, "Enviar Arquivo de Código"),
-                            React.createElement('input', { type: "file", className: "hidden", onChange: handleFileChange, accept: ".js,.ts,.tsx,.py,.java,.cs,.go,.rs,.php,.html,.css,.scss" })
-                        )
-                      )
+                    React.createElement('div', { className: "space-y-2" },
+                        codeFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setCodeFiles(prev => prev.filter((_, i) => i !== index)) }))
+                    ),
+                    React.createElement('textarea', { rows: 6, value: pastedCode, onChange: e => setPastedCode(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o código fonte aqui..." }),
+                    React.createElement('div', { className: "text-center text-sm text-gray-400" }, "e/ou"),
+                    React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
+                        React.createElement(UploadIcon, null),
+                        React.createElement('span', null, "Enviar Arquivo(s) de Código"),
+                        React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleFileChange, accept: ".js,.ts,.tsx,.py,.java,.cs,.go,.rs,.php,.html,.css,.scss" })
                     )
                   ),
                    React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
@@ -232,17 +234,16 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                 React.createElement(React.Fragment, null,
                    React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
                       React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(JsonIcon, null), " Estrutura da Automação (Opcional)"),
-                       jsonFile ? React.createElement(FileChip, { file: jsonFile, onRemove: () => setJsonFile(null) }) : (
-                        React.createElement(React.Fragment, null,
-                          React.createElement('textarea', { rows: 6, onChange: handleJsonPaste, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o JSON dos nós (N8N) aqui..." }),
-                          React.createElement('div', { className: "text-center text-sm text-gray-400" }, "ou"),
-                           React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
-                              React.createElement(UploadIcon, null),
-                              React.createElement('span', null, "Enviar Arquivo JSON"),
-                              React.createElement('input', { type: "file", className: "hidden", onChange: handleFileChange, accept: ".json" })
-                          )
+                       React.createElement('div', { className: "space-y-2" },
+                        jsonFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setJsonFiles(prev => prev.filter((_, i) => i !== index)) }))
+                       ),
+                        React.createElement('textarea', { rows: 6, value: pastedJson, onChange: e => setPastedJson(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o JSON dos nós (N8N) aqui..." }),
+                        React.createElement('div', { className: "text-center text-sm text-gray-400" }, "e/ou"),
+                         React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
+                            React.createElement(UploadIcon, null),
+                            React.createElement('span', null, "Enviar Arquivo(s) JSON"),
+                            React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleFileChange, accept: ".json" })
                         )
-                       )
                   ),
                    React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
                      React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
@@ -269,8 +270,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
 
 
   return (
-    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
-      React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col", onClick: (e) => e.stopPropagation() },
+    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
+      React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col animate-slide-up", onClick: (e) => e.stopPropagation() },
         React.createElement('div', { className: "p-6 border-b border-gray-700" },
           React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, "Criar Documento para ", React.createElement('span', { className: "text-indigo-400" }, currentTeam))
         ),

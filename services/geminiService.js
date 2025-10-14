@@ -9,6 +9,7 @@ export const initializeGemini = (apiKey) => {
     console.error("A chave de API é necessária para inicializar o Gemini.");
     return false;
   }
+  // A inicialização acontece aqui, usando a chave fornecida pelo usuário.
   ai = new GoogleGenAI({ apiKey });
   return true;
 };
@@ -38,7 +39,7 @@ const markdownToHtml = (text) => {
     // Inline elements
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\*(.*?)\*/g, '<em></em>')
       .replace(/`([^`]+)`/g, '<code>$1</code>');
 
     // Lists (unordered and ordered)
@@ -171,13 +172,36 @@ export const generateDocumentContent = async (params) => {
       throw new Error("A resposta da IA estava vazia.");
     }
     
-    const htmlContent = markdownToHtml(text);
-    return htmlContent;
+    // Separate title from content
+    const lines = text.trim().split('\n');
+    let title = projectName;
+    let contentMarkdown = text.trim();
+
+    if (lines[0].startsWith('# ')) {
+        const extractedTitle = lines[0].substring(2).trim();
+        // Check if the extracted title contains the team name, e.g., "Documentação Técnica: My Project"
+        const titleParts = extractedTitle.split(':');
+        title = titleParts.length > 1 ? titleParts[1].trim() : extractedTitle;
+        contentMarkdown = lines.slice(1).join('\n');
+    }
+
+    const htmlContent = markdownToHtml(contentMarkdown);
+    return { title, content: htmlContent };
+
   } catch (error) {
     console.error("Erro ao gerar conteúdo com a API Gemini:", error);
-    if (error instanceof Error && error.message.includes('SAFETY')) {
-        return '<h2>Conteúdo Bloqueado</h2><p>A geração de conteúdo foi bloqueada pelas políticas de segurança. Por favor, ajuste o prompt e tente novamente.</p>';
+    let userMessage = "Ocorreu uma falha inesperada ao tentar gerar o documento. Por favor, tente novamente mais tarde.";
+
+    if (error instanceof Error) {
+        if (error.message.includes('API key not valid')) {
+            userMessage = "Sua chave de API do Gemini é inválida. Por favor, verifique-a na tela de configuração.";
+        } else if (error.message.includes('SAFETY')) {
+            userMessage = "A geração de conteúdo foi bloqueada pelas políticas de segurança da IA. Tente ajustar o conteúdo fornecido (textos, imagens, etc.) e tente novamente.";
+        } else {
+            userMessage = `Erro da IA: ${error.message}`;
+        }
     }
-    throw new Error("Falha ao gerar o conteúdo do documento. Verifique os dados e tente novamente.");
+    
+    throw new Error(userMessage);
   }
 };
