@@ -1,9 +1,18 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { DOCUMENT_STRUCTURES } from "../constants.js";
 import { Team } from "../types.js";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai = null;
+
+export const initializeGemini = (apiKey) => {
+  if (!apiKey) {
+    console.error("A chave de API é necessária para inicializar o Gemini.");
+    return false;
+  }
+  ai = new GoogleGenAI({ apiKey });
+  return true;
+};
+
 
 const markdownToHtml = (text) => {
     let htmlContent = text
@@ -68,6 +77,10 @@ const markdownToHtml = (text) => {
 }
 
 export const generateDocumentContent = async (params) => {
+  if (!ai) {
+    throw new Error("A API Gemini não foi inicializada. Por favor, configure sua chave de API na tela inicial.");
+  }
+
   const { projectName, description, team, includeSupportSection, teamData } = params;
   try {
     const baseStructure = DOCUMENT_STRUCTURES[team].replace(/NOME_DO_PROJETO/g, projectName);
@@ -134,8 +147,6 @@ export const generateDocumentContent = async (params) => {
       **Sua Resposta (apenas o markdown preenchido):**
     `;
 
-    // FIX: Re-structured the request payload creation to avoid TypeScript errors
-    // with constant object modification.
     let contents;
 
     if (team === Team.UXUI && teamData.images && teamData.images.length > 0) {

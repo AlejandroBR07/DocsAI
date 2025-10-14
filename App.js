@@ -3,9 +3,10 @@ import Header from './components/Header.js';
 import CreationModal from './components/CreationModal.js';
 import DocumentPreview from './components/DocumentPreview.js';
 import Onboarding from './components/Onboarding.js';
+import ApiKeySetup from './components/ApiKeySetup.js';
 import { PlusIcon, DocumentIcon } from './components/Icons.js';
 import { Team } from './types.js';
-import { generateDocumentContent } from './services/geminiService.js';
+import { generateDocumentContent, initializeGemini } from './services/geminiService.js';
 
 const App = () => {
   const [currentTeam, setCurrentTeam] = useState(Team.Developers);
@@ -13,10 +14,16 @@ const App = () => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [isApiInitialized, setIsApiInitialized] = useState(false);
 
   // Load state from localStorage on mount
   useEffect(() => {
     try {
+      const savedApiKey = localStorage.getItem('nexusdocs-apikey');
+      if (savedApiKey && initializeGemini(savedApiKey)) {
+        setIsApiInitialized(true);
+      }
+
       const savedDocs = localStorage.getItem('nexusdocs-documents');
       const savedTeam = localStorage.getItem('nexusdocs-team');
       const hasOnboarded = localStorage.getItem('nexusdocs-onboarded');
@@ -48,6 +55,16 @@ const App = () => {
     }
   }, [documents, currentTeam, showOnboarding]);
 
+  const handleApiKeySet = (apiKey) => {
+    localStorage.setItem('nexusdocs-apikey', apiKey);
+    if (initializeGemini(apiKey)) {
+      setIsApiInitialized(true);
+    } else {
+        // You could add some user-facing error handling here
+        console.error("Failed to initialize API with provided key.");
+    }
+  };
+
   const handleDocumentCreate = (title, content) => {
     const newDocument = {
       id: new Date().toISOString(),
@@ -66,6 +83,10 @@ const App = () => {
   }
 
   const filteredDocuments = documents.filter((doc) => doc.team === currentTeam);
+
+  if (!isApiInitialized) {
+      return React.createElement(ApiKeySetup, { onApiKeySet: handleApiKeySet });
+  }
 
   if (showOnboarding) {
     return (
