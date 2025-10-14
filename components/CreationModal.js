@@ -9,7 +9,6 @@ const fileToBase64 = (file) => {
     reader.readAsDataURL(file);
     reader.onload = () => {
       const result = reader.result;
-      // FIX: Check if reader.result is a string before calling split, as it can also be an ArrayBuffer.
       if (typeof result === 'string') {
         const data = result.split(',')[1];
         resolve({ mimeType: file.type, data });
@@ -84,8 +83,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setJsonFile({ name: 'automacao_colada.json', content: e.target.value });
   }
 
-  // FIX: Add type annotation for the 'files' parameter to ensure correct type inference for 'file' inside.
-  const addImages = (files: FileList | null) => {
+  const addImages = (files) => {
       if (!files) return;
       const imageFiles = Array.from(files)
         .filter(file => file.type.startsWith('image/'))
@@ -114,8 +112,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setError('');
 
     try {
-      // FIX: Changed 'const' to 'let' and added 'any' type to allow conditional addition of the 'images' property.
-      let teamData: any = {
+      let teamData = {
         code: codeFile?.content,
         databaseSchema,
         dependencies,
@@ -170,100 +167,100 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   }
   
   const FileChip = ({ file, onRemove }) => (
-    <div className="bg-gray-700 p-2 rounded-md flex items-center justify-between">
-      <div className="flex items-center gap-2 text-gray-300">
-        <FileIcon />
-        <span className="text-sm font-mono truncate">{file.name}</span>
-      </div>
-      <button onClick={onRemove} className="text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500">
-        <CloseIcon />
-      </button>
-    </div>
+    React.createElement('div', { className: "bg-gray-700 p-2 rounded-md flex items-center justify-between" },
+      React.createElement('div', { className: "flex items-center gap-2 text-gray-300" },
+        React.createElement(FileIcon, null),
+        React.createElement('span', { className: "text-sm font-mono truncate" }, file.name)
+      ),
+      React.createElement('button', { onClick: onRemove, className: "text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500" },
+        React.createElement(CloseIcon, null)
+      )
+    )
   );
 
   const renderTeamSpecificInputs = () => {
       switch (currentTeam) {
           case Team.Developers:
               return (
-                <>
-                  <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                    <h3 className="flex items-center gap-2 text-sm font-medium text-indigo-300"><CodeIcon /> Contexto de Código (Opcional)</h3>
-                    {codeFile ? <FileChip file={codeFile} onRemove={() => setCodeFile(null)} /> : (
-                      <>
-                        <textarea rows={6} onChange={handleCodePaste} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" placeholder="Cole o código fonte aqui..."></textarea>
-                        <div className="text-center text-sm text-gray-400">ou</div>
-                        <label className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600">
-                            <UploadIcon />
-                            <span>Enviar Arquivo de Código</span>
-                            <input type="file" className="hidden" onChange={handleFileChange} accept=".js,.ts,.tsx,.py,.java,.cs,.go,.rs,.php,.html,.css,.scss" />
-                        </label>
-                      </>
-                    )}
-                  </div>
-                   <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                     <h3 className="text-sm font-medium text-indigo-300">Contexto Adicional (Opcional)</h3>
-                     <textarea rows={3} value={databaseSchema} onChange={e => setDatabaseSchema(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Cole o esquema do banco de dados (SQL, Prisma, etc)..."></textarea>
-                     <textarea rows={3} value={dependencies} onChange={e => setDependencies(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Liste as dependências ou bibliotecas mais importantes..."></textarea>
-                  </div>
-                </>
+                React.createElement(React.Fragment, null,
+                  React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                    React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(CodeIcon, null), " Contexto de Código (Opcional)"),
+                    codeFile ? React.createElement(FileChip, { file: codeFile, onRemove: () => setCodeFile(null) }) : (
+                      React.createElement(React.Fragment, null,
+                        React.createElement('textarea', { rows: 6, onChange: handleCodePaste, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o código fonte aqui..." }),
+                        React.createElement('div', { className: "text-center text-sm text-gray-400" }, "ou"),
+                        React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
+                            React.createElement(UploadIcon, null),
+                            React.createElement('span', null, "Enviar Arquivo de Código"),
+                            React.createElement('input', { type: "file", className: "hidden", onChange: handleFileChange, accept: ".js,.ts,.tsx,.py,.java,.cs,.go,.rs,.php,.html,.css,.scss" })
+                        )
+                      )
+                    )
+                  ),
+                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
+                     React.createElement('textarea', { rows: 3, value: databaseSchema, onChange: e => setDatabaseSchema(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Cole o esquema do banco de dados (SQL, Prisma, etc)..." }),
+                     React.createElement('textarea', { rows: 3, value: dependencies, onChange: e => setDependencies(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as dependências ou bibliotecas mais importantes..." })
+                  )
+                )
               )
           case Team.UXUI:
               return (
-                <>
-                   <div onPaste={handleImagePaste} className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                      <h3 className="flex items-center gap-2 text-sm font-medium text-indigo-300"><UploadIcon /> Imagens da Interface (Opcional)</h3>
-                      <label className="w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 border-2 border-dashed border-gray-500">
-                          <UploadIcon />
-                          <span>Clique para enviar ou cole imagens aqui</span>
-                          <input type="file" multiple className="hidden" onChange={handleImageChange} accept="image/*" />
-                      </label>
-                      {uploadedImages.length > 0 && (
-                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                              {uploadedImages.map((img, index) => <img key={index} src={img.preview} alt="preview" className="w-full h-20 object-cover rounded" />)}
-                          </div>
-                      )}
-                  </div>
-                  <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                     <h3 className="text-sm font-medium text-indigo-300">Contexto Adicional (Opcional)</h3>
-                     <textarea rows={3} value={personas} onChange={e => setPersonas(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Descreva as personas dos usuários..."></textarea>
-                     <textarea rows={3} value={userFlows} onChange={e => setUserFlows(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Descreva os principais fluxos de usuário em texto..."></textarea>
-                  </div>
-                </>
+                React.createElement(React.Fragment, null,
+                   React.createElement('div', { onPaste: handleImagePaste, className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                      React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(UploadIcon, null), " Imagens da Interface (Opcional)"),
+                      React.createElement('label', { className: "w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 border-2 border-dashed border-gray-500" },
+                          React.createElement(UploadIcon, null),
+                          React.createElement('span', null, "Clique para enviar ou cole imagens aqui"),
+                          React.createElement('input', { type: "file", multiple: true, className: "hidden", onChange: handleImageChange, accept: "image/*" })
+                      ),
+                      uploadedImages.length > 0 && (
+                          React.createElement('div', { className: "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" },
+                              uploadedImages.map((img, index) => React.createElement('img', { key: index, src: img.preview, alt: "preview", className: "w-full h-20 object-cover rounded" }))
+                          )
+                      )
+                  ),
+                  React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
+                     React.createElement('textarea', { rows: 3, value: personas, onChange: e => setPersonas(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva as personas dos usuários..." }),
+                     React.createElement('textarea', { rows: 3, value: userFlows, onChange: e => setUserFlows(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva os principais fluxos de usuário em texto..." })
+                  )
+                )
               )
           case Team.Automations:
               return (
-                <>
-                   <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                      <h3 className="flex items-center gap-2 text-sm font-medium text-indigo-300"><JsonIcon /> Estrutura da Automação (Opcional)</h3>
-                       {jsonFile ? <FileChip file={jsonFile} onRemove={() => setJsonFile(null)} /> : (
-                        <>
-                          <textarea rows={6} onChange={handleJsonPaste} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" placeholder="Cole o JSON dos nós (N8N) aqui..."></textarea>
-                          <div className="text-center text-sm text-gray-400">ou</div>
-                           <label className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600">
-                              <UploadIcon />
-                              <span>Enviar Arquivo JSON</span>
-                              <input type="file" className="hidden" onChange={handleFileChange} accept=".json" />
-                          </label>
-                        </>
-                       )}
-                  </div>
-                   <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                     <h3 className="text-sm font-medium text-indigo-300">Contexto Adicional (Opcional)</h3>
-                     <textarea rows={3} value={triggerInfo} onChange={e => setTriggerInfo(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Descreva o gatilho (trigger) da automação..."></textarea>
-                     <textarea rows={3} value={externalApis} onChange={e => setExternalApis(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Liste as APIs externas envolvidas..."></textarea>
-                  </div>
-                </>
+                React.createElement(React.Fragment, null,
+                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                      React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(JsonIcon, null), " Estrutura da Automação (Opcional)"),
+                       jsonFile ? React.createElement(FileChip, { file: jsonFile, onRemove: () => setJsonFile(null) }) : (
+                        React.createElement(React.Fragment, null,
+                          React.createElement('textarea', { rows: 6, onChange: handleJsonPaste, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o JSON dos nós (N8N) aqui..." }),
+                          React.createElement('div', { className: "text-center text-sm text-gray-400" }, "ou"),
+                           React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
+                              React.createElement(UploadIcon, null),
+                              React.createElement('span', null, "Enviar Arquivo JSON"),
+                              React.createElement('input', { type: "file", className: "hidden", onChange: handleFileChange, accept: ".json" })
+                          )
+                        )
+                       )
+                  ),
+                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
+                     React.createElement('textarea', { rows: 3, value: triggerInfo, onChange: e => setTriggerInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o gatilho (trigger) da automação..." }),
+                     React.createElement('textarea', { rows: 3, value: externalApis, onChange: e => setExternalApis(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as APIs externas envolvidas..." })
+                  )
+                )
               )
           case Team.AI:
               return (
-                   <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                       <h3 className="flex items-center gap-2 text-sm font-medium text-indigo-300"><BrainIcon /> Componentes da IA (Opcional)</h3>
-                       <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="System Prompt..."></textarea>
-                       <textarea value={workflow} onChange={e => setWorkflow(e.target.value)} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Fluxo de Trabalho / Conversa..."></textarea>
-                       <textarea value={tools} onChange={e => setTools(e.target.value)} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ferramentas (Tools)..."></textarea>
-                       <textarea value={exampleIO} onChange={e => setExampleIO(e.target.value)} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Exemplos de Entrada/Saída..."></textarea>
-                       <textarea value={guardrails} onChange={e => setGuardrails(e.target.value)} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Guardrails e Regras de Segurança..."></textarea>
-                  </div>
+                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
+                       React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(BrainIcon, null), " Componentes da IA (Opcional)"),
+                       React.createElement('textarea', { value: systemPrompt, onChange: e => setSystemPrompt(e.target.value), rows: 4, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "System Prompt..." }),
+                       React.createElement('textarea', { value: workflow, onChange: e => setWorkflow(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Fluxo de Trabalho / Conversa..." }),
+                       React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas (Tools)..." }),
+                       React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos de Entrada/Saída..." }),
+                       React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails e Regras de Segurança..." })
+                  )
               )
           default:
               return null;
@@ -272,55 +269,56 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-700">
-          <h2 id="modal-title" className="text-2xl font-bold text-white">Criar Documento para <span className="text-indigo-400">{currentTeam}</span></h2>
-        </div>
-        <div className="p-6 space-y-4 overflow-y-auto">
-            {/* Common Inputs */}
-            <div>
-              <label htmlFor="project-name" className="block text-sm font-medium text-gray-300 mb-2">Nome do Projeto</label>
-              <input type="text" id="project-name" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Novo Sistema de Autenticação" />
-            </div>
-             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">Descrição Breve ou Objetivo</label>
-              <textarea id="description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Descreva o objetivo principal do projeto ou da funcionalidade..."></textarea>
-            </div>
-             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de Documentação</label>
-              <div className="flex gap-4">
-                 <label className="flex items-center space-x-2 text-gray-300"><input type="radio" name="docType" value="tech" checked={docType === 'tech'} onChange={() => setDocType('tech')} className="form-radio text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500" /><span>Técnica (para equipe)</span></label>
-                <label className="flex items-center space-x-2 text-gray-300"><input type="radio" name="docType" value="tech_support" checked={docType === 'tech_support'} onChange={() => setDocType('tech_support')} className="form-radio text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500" /><span>Técnica + Suporte (para usuário)</span></label>
-              </div>
-            </div>
-             <hr className="border-gray-600" />
-            {/* Team Specific Inputs */}
-            {renderTeamSpecificInputs()}
-        </div>
+    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
+      React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col", onClick: (e) => e.stopPropagation() },
+        React.createElement('div', { className: "p-6 border-b border-gray-700" },
+          React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, "Criar Documento para ", React.createElement('span', { className: "text-indigo-400" }, currentTeam))
+        ),
+        React.createElement('div', { className: "p-6 space-y-4 overflow-y-auto" },
+            // Common Inputs
+            React.createElement('div', null,
+              React.createElement('label', { htmlFor: "project-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nome do Projeto"),
+              React.createElement('input', { type: "text", id: "project-name", value: projectName, onChange: (e) => setProjectName(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ex: Novo Sistema de Autenticação" })
+            ),
+             React.createElement('div', null,
+              React.createElement('label', { htmlFor: "description", className: "block text-sm font-medium text-gray-300 mb-2" }, "Descrição Breve ou Objetivo"),
+              React.createElement('textarea', { id: "description", rows: 3, value: description, onChange: (e) => setDescription(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o objetivo principal do projeto ou da funcionalidade..." })
+            ),
+             React.createElement('div', null,
+              React.createElement('label', { className: "block text-sm font-medium text-gray-300 mb-2" }, "Tipo de Documentação"),
+              React.createElement('div', { className: "flex gap-4" },
+                 React.createElement('label', { className: "flex items-center space-x-2 text-gray-300" }, React.createElement('input', { type: "radio", name: "docType", value: "tech", checked: docType === 'tech', onChange: () => setDocType('tech'), className: "form-radio text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500" }), React.createElement('span', null, "Técnica (para equipe)")),
+                React.createElement('label', { className: "flex items-center space-x-2 text-gray-300" }, React.createElement('input', { type: "radio", name: "docType", value: "tech_support", checked: docType === 'tech_support', onChange: () => setDocType('tech_support'), className: "form-radio text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500" }), React.createElement('span', null, "Técnica + Suporte (para usuário)"))
+              )
+            ),
+             React.createElement('hr', { className: "border-gray-600" }),
+            // Team Specific Inputs
+            renderTeamSpecificInputs()
+        ),
 
-          {error && <p className="text-red-400 text-sm text-center px-6 pb-4">{error}</p>}
+          error && React.createElement('p', { className: "text-red-400 text-sm text-center px-6 pb-4" }, error),
 
-          <div className="flex flex-col sm:flex-row justify-between items-center mt-auto p-6 bg-gray-800/50 border-t border-gray-700 gap-4">
-            <button 
-                onClick={handleUseBlankTemplate}
-                disabled={!projectName || isLoading}
-                className="w-full sm:w-auto py-2 px-4 rounded-md text-indigo-400 border border-indigo-500 hover:bg-indigo-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                Usar Template Vazio
-            </button>
-            <div className="w-full sm:w-auto flex flex-col sm:flex-row-reverse gap-4">
-                <button
-                onClick={handleGenerate}
-                disabled={!canGenerate() || isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px]"
-                >
-                {isLoading ? <><LoadingSpinner /><span className="ml-2">Gerando...</span></> : 'Gerar com IA'}
-                </button>
-                 <button onClick={onClose} className="w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors">Cancelar</button>
-            </div>
-          </div>
-      </div>
-    </div>
+          React.createElement('div', { className: "flex flex-col sm:flex-row justify-between items-center mt-auto p-6 bg-gray-800/50 border-t border-gray-700 gap-4" },
+            React.createElement('button', {
+                onClick: handleUseBlankTemplate,
+                disabled: !projectName || isLoading,
+                className: "w-full sm:w-auto py-2 px-4 rounded-md text-indigo-400 border border-indigo-500 hover:bg-indigo-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              },
+                "Usar Template Vazio"
+            ),
+            React.createElement('div', { className: "w-full sm:w-auto flex flex-col sm:flex-row-reverse gap-4" },
+                React.createElement('button', {
+                    onClick: handleGenerate,
+                    disabled: !canGenerate() || isLoading,
+                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px]"
+                  },
+                  isLoading ? React.createElement(React.Fragment, null, React.createElement(LoadingSpinner, null), React.createElement('span', { className: "ml-2" }, "Gerando...")) : 'Gerar com IA'
+                ),
+                 React.createElement('button', { onClick: onClose, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors" }, "Cancelar")
+            )
+          )
+      )
+    )
   );
 };
 
