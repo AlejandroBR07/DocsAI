@@ -1,50 +1,47 @@
-import React, { useState, ClipboardEvent } from 'react';
+import React, { useState } from 'react';
 import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon } from './Icons.js';
-import { Team } from '../types.ts';
-import { DOCUMENT_STRUCTURES } from '../constants.ts';
-import { GenerationParams } from '../services/geminiService.ts';
+import { Team } from '../types.js';
+import { DOCUMENT_STRUCTURES } from '../constants.js';
 
-interface CreationModalProps {
-  onClose: () => void;
-  onDocumentCreate: (title: string, content: string) => void;
-  generateContent: (params: GenerationParams) => Promise<string>;
-  currentTeam: Team;
-}
-
-const fileToBase64 = (file: File): Promise<{ mimeType: string; data: string }> => {
+const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
-      const result = reader.result as string;
-      const data = result.split(',')[1];
-      resolve({ mimeType: file.type, data });
+      const result = reader.result;
+      // FIX: Check if reader.result is a string before calling split, as it can also be an ArrayBuffer.
+      if (typeof result === 'string') {
+        const data = result.split(',')[1];
+        resolve({ mimeType: file.type, data });
+      } else {
+        reject(new Error('Failed to read file as data URL string.'));
+      }
     };
     reader.onerror = error => reject(error);
   });
 };
 
-const fileToText = (file: File): Promise<string> => {
+const fileToText = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsText(file);
-        reader.onload = () => resolve(reader.result as string);
+        reader.onload = () => resolve(reader.result);
         reader.onerror = error => reject(error);
     });
 }
 
 
-const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
+const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
-  const [docType, setDocType] = useState<'tech' | 'tech_support'>('tech');
+  const [docType, setDocType] = useState('tech');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Team specific state
-  const [codeFile, setCodeFile] = useState<{name: string, content: string} | null>(null);
-  const [jsonFile, setJsonFile] = useState<{name: string, content: string} | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<{file: File, preview: string}[]>([]);
+  const [codeFile, setCodeFile] = useState(null);
+  const [jsonFile, setJsonFile] = useState(null);
+  const [uploadedImages, setUploadedImages] = useState([]);
 
   // Team AI
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -65,7 +62,7 @@ const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate
   const [triggerInfo, setTriggerInfo] = useState('');
   const [externalApis, setExternalApis] = useState('');
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -79,14 +76,15 @@ const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate
       }
   }
   
-  const handleCodePaste = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleCodePaste = (e) => {
     setCodeFile({ name: 'código_colado.txt', content: e.target.value });
   }
 
-  const handleJsonPaste = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleJsonPaste = (e) => {
     setJsonFile({ name: 'automacao_colada.json', content: e.target.value });
   }
 
+  // FIX: Add type annotation for the 'files' parameter to ensure correct type inference for 'file' inside.
   const addImages = (files: FileList | null) => {
       if (!files) return;
       const imageFiles = Array.from(files)
@@ -98,9 +96,9 @@ const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate
       setUploadedImages(prev => [...prev, ...imageFiles]);
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => addImages(e.target.files);
+  const handleImageChange = (e) => addImages(e.target.files);
   
-  const handleImagePaste = (e: ClipboardEvent<HTMLDivElement>) => {
+  const handleImagePaste = (e) => {
       addImages(e.clipboardData.files);
   }
 
@@ -116,7 +114,8 @@ const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate
     setError('');
 
     try {
-      const teamData: GenerationParams['teamData'] = {
+      // FIX: Changed 'const' to 'let' and added 'any' type to allow conditional addition of the 'images' property.
+      let teamData: any = {
         code: codeFile?.content,
         databaseSchema,
         dependencies,
@@ -138,7 +137,7 @@ const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate
         );
       }
       
-      const params: GenerationParams = {
+      const params = {
         projectName,
         description,
         team: currentTeam,
@@ -170,7 +169,7 @@ const CreationModal: React.FC<CreationModalProps> = ({ onClose, onDocumentCreate
     onClose();
   }
   
-  const FileChip = ({ file, onRemove }: { file: {name: string}, onRemove: () => void }) => (
+  const FileChip = ({ file, onRemove }) => (
     <div className="bg-gray-700 p-2 rounded-md flex items-center justify-between">
       <div className="flex items-center gap-2 text-gray-300">
         <FileIcon />

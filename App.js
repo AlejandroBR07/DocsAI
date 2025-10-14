@@ -4,13 +4,13 @@ import CreationModal from './components/CreationModal.js';
 import DocumentPreview from './components/DocumentPreview.js';
 import Onboarding from './components/Onboarding.js';
 import { PlusIcon, DocumentIcon } from './components/Icons.js';
-import { Team, Document } from './types.ts';
-import { generateDocumentContent } from './services/geminiService.ts';
+import { Team } from './types.js';
+import { generateDocumentContent } from './services/geminiService.js';
 
-const App: React.FC = () => {
-  const [currentTeam, setCurrentTeam] = useState<Team>(Team.Developers);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+const App = () => {
+  const [currentTeam, setCurrentTeam] = useState(Team.Developers);
+  const [documents, setDocuments] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
 
@@ -18,7 +18,7 @@ const App: React.FC = () => {
   useEffect(() => {
     try {
       const savedDocs = localStorage.getItem('nexusdocs-documents');
-      const savedTeam = localStorage.getItem('nexusdocs-team') as Team;
+      const savedTeam = localStorage.getItem('nexusdocs-team');
       const hasOnboarded = localStorage.getItem('nexusdocs-onboarded');
 
       if (savedDocs) {
@@ -48,8 +48,8 @@ const App: React.FC = () => {
     }
   }, [documents, currentTeam, showOnboarding]);
 
-  const handleDocumentCreate = (title: string, content: string) => {
-    const newDocument: Document = {
+  const handleDocumentCreate = (title, content) => {
+    const newDocument = {
       id: new Date().toISOString(),
       title,
       content,
@@ -60,7 +60,7 @@ const App: React.FC = () => {
     setSelectedDocument(newDocument); // Automatically open the new document
   };
   
-  const handleCompleteOnboarding = (selectedTeam: Team) => {
+  const handleCompleteOnboarding = (selectedTeam) => {
     setCurrentTeam(selectedTeam);
     setShowOnboarding(false);
   }

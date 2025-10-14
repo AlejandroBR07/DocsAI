@@ -1,6 +1,6 @@
-import { Team } from './types';
+import { Team } from './types.js';
 
-export const DOCUMENT_STRUCTURES: Record<Team, string> = {
+export const DOCUMENT_STRUCTURES = {
   [Team.Developers]: `
 # 📝 Documentação Técnica: NOME_DO_PROJETO
 

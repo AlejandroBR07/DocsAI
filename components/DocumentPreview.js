@@ -1,15 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Document } from '../types.ts';
 import { BackIcon, CopyIcon } from './Icons.js';
 
-interface DocumentPreviewProps {
-  document: Document;
-  onBack: () => void;
-}
-
-const DocumentPreview: React.FC<DocumentPreviewProps> = ({ document, onBack }) => {
+const DocumentPreview = ({ document, onBack }) => {
   const [copyStatus, setCopyStatus] = useState('Copiar Conteúdo');
-  const contentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef(null);
 
   const handleCopy = () => {
     if (contentRef.current) {

@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
-import { Team } from '../types.ts';
+import { Team } from '../types.js';
 import { DeveloperIcon, UXUIIcon, AutomationIcon, AIIcon } from './Icons.js';
-
-interface OnboardingProps {
-  onComplete: (selectedTeam: Team) => void;
-}
 
 const teamOptions = [
   { team: Team.Developers, icon: <DeveloperIcon />, label: 'Desenvolvedores' },
@@ -13,8 +9,8 @@ const teamOptions = [
   { team: Team.AI, icon: <AIIcon />, label: 'IA' },
 ];
 
-const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+const Onboarding = ({ onComplete }) => {
+  const [selectedTeam, setSelectedTeam] = useState(null);
 
   return (
     <div className="flex-grow flex items-center justify-center p-4">

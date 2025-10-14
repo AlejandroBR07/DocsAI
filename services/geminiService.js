@@ -1,10 +1,11 @@
-import { GoogleGenAI, GenerateContentRequest } from "@google/genai";
-import { DOCUMENT_STRUCTURES } from "../constants";
-import { Team } from "../types";
+
+import { GoogleGenAI } from "@google/genai";
+import { DOCUMENT_STRUCTURES } from "../constants.js";
+import { Team } from "../types.js";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const markdownToHtml = (text: string): string => {
+const markdownToHtml = (text) => {
     let htmlContent = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -66,33 +67,7 @@ const markdownToHtml = (text: string): string => {
     return htmlContent;
 }
 
-export interface GenerationParams {
-  projectName: string;
-  description: string;
-  team: Team;
-  includeSupportSection: boolean;
-  teamData: {
-    code?: string;
-    dependencies?: string;
-    databaseSchema?: string;
-    
-    images?: { mimeType: string; data: string }[];
-    userFlows?: string;
-    personas?: string;
-
-    json?: string;
-    triggerInfo?: string;
-    externalApis?: string;
-
-    systemPrompt?: string;
-    workflow?: string;
-    tools?: string;
-    exampleIO?: string;
-    guardrails?: string;
-  };
-}
-
-export const generateDocumentContent = async (params: GenerationParams): Promise<string> => {
+export const generateDocumentContent = async (params) => {
   const { projectName, description, team, includeSupportSection, teamData } = params;
   try {
     const baseStructure = DOCUMENT_STRUCTURES[team].replace(/NOME_DO_PROJETO/g, projectName);
@@ -159,9 +134,9 @@ export const generateDocumentContent = async (params: GenerationParams): Promise
       **Sua Resposta (apenas o markdown preenchido):**
     `;
 
-    const request: GenerateContentRequest = {
-        model: "gemini-2.5-flash",
-    };
+    // FIX: Re-structured the request payload creation to avoid TypeScript errors
+    // with constant object modification.
+    let contents;
 
     if (team === Team.UXUI && teamData.images && teamData.images.length > 0) {
         const imageParts = teamData.images.map(img => ({
@@ -170,12 +145,15 @@ export const generateDocumentContent = async (params: GenerationParams): Promise
                 data: img.data,
             }
         }));
-        request.contents = { parts: [{ text: fullPrompt }, ...imageParts] };
+        contents = { parts: [{ text: fullPrompt }, ...imageParts] };
     } else {
-        request.contents = fullPrompt;
+        contents = fullPrompt;
     }
     
-    const response = await ai.models.generateContent(request);
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+    });
     const text = response.text;
 
     if (!text) {

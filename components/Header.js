@@ -1,13 +1,8 @@
 import React from 'react';
-import { Team } from '../types.ts';
+import { Team } from '../types.js';
 import { TeamIcon } from './Icons.js';
 
-interface HeaderProps {
-  currentTeam: Team;
-  onTeamChange: (team: Team) => void;
-}
-
-const Header: React.FC<HeaderProps> = ({ currentTeam, onTeamChange }) => {
+const Header = ({ currentTeam, onTeamChange }) => {
   return (
     <header className="bg-gray-800/50 backdrop-blur-sm p-4 sticky top-0 z-20 border-b border-gray-700">
       <div className="container mx-auto flex justify-between items-center">
@@ -19,7 +14,7 @@ const Header: React.FC<HeaderProps> = ({ currentTeam, onTeamChange }) => {
             <TeamIcon />
             <select
               value={currentTeam}
-              onChange={(e) => onTeamChange(e.target.value as Team)}
+              onChange={(e) => onTeamChange(e.target.value)}
               className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 appearance-none pr-8"
               aria-label="Selecionar equipe"
             >
