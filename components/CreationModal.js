@@ -67,6 +67,13 @@ const LOADING_MESSAGES = {
     'Analisando a lógica condicional...',
     'Identificando integrações externas...',
   ],
+  ai: [
+    'Analisando o System Prompt...',
+    'Mapeando as ferramentas (Tools)...',
+    'Compreendendo o fluxo de trabalho...',
+    'Avaliando os exemplos de I/O...',
+    'Verificando as guardrails de segurança...',
+  ],
   writing: [
     'Rascunhando a introdução...',
     'Elaborando as seções técnicas...',
@@ -141,11 +148,14 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     const hasImages = currentTeam === Team.UXUI && uploadedImages.length > 0;
     const hasCode = currentTeam === Team.Developers && (pastedCode.length > 0 || codeFiles.length > 0);
     const hasJson = currentTeam === Team.Automations && (pastedJson.length > 0 || jsonFiles.length > 0);
+    const hasAiContext = currentTeam === Team.AI && (systemPrompt || workflow || tools || exampleIO || guardrails);
 
     let messagePool = [...LOADING_MESSAGES.general, ...LOADING_MESSAGES.writing];
     if (hasCode) messagePool.push(...LOADING_MESSAGES.code);
     if (hasImages) messagePool.push(...LOADING_MESSAGES.images);
     if (hasJson) messagePool.push(...LOADING_MESSAGES.json);
+    if (hasAiContext) messagePool.push(...LOADING_MESSAGES.ai);
+
 
     const finalMessageQueue = [
       'Iniciando conexão com a IA...',
@@ -169,7 +179,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [isLoading, currentTeam, uploadedImages.length, pastedCode.length, codeFiles.length, pastedJson.length, jsonFiles.length]);
+  }, [isLoading, currentTeam, uploadedImages.length, pastedCode.length, codeFiles.length, pastedJson.length, jsonFiles.length, systemPrompt, workflow, tools, exampleIO, guardrails]);
 
 
   const handleFileChange = async (e) => {
@@ -464,11 +474,11 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                   isLoading 
                     ? React.createElement('div', { className: "flex items-center justify-center" },
                         React.createElement(LoadingSpinner, null),
-                        React.createElement('div', { className: "relative ml-3 w-56 h-6 overflow-hidden text-left" },
+                        React.createElement('div', { className: "relative ml-3 w-56 h-10 overflow-hidden text-left" },
                             React.createElement('span', {
                                 key: loadingMessage,
                                 className: "absolute inset-0 flex items-center text-sm animate-slide-up-fade-in"
-                            }, loadingMessage)
+                            }, React.createElement('span', null, loadingMessage))
                         )
                       )
                     : 'Gerar com IA'
