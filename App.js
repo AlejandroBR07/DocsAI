@@ -20,6 +20,9 @@ const App = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
 
+  const [lastViewedDocId, setLastViewedDocId] = useState(null);
+  const [isExitingPreview, setIsExitingPreview] = useState(false);
+
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -60,6 +63,18 @@ const App = () => {
     }
   }, [documents, currentTeam, showOnboarding]);
 
+  // Effect to clear the highlight on the document list after a delay
+  useEffect(() => {
+    let timer;
+    if (!selectedDocument && lastViewedDocId) {
+        timer = setTimeout(() => {
+            setLastViewedDocId(null);
+        }, 2500); // Keep highlight for 2.5 seconds
+    }
+    return () => clearTimeout(timer);
+  }, [selectedDocument, lastViewedDocId]);
+
+
   const handleApiKeySet = (apiKey) => {
     localStorage.setItem('synapsedocs-apikey', apiKey);
     if (initializeGemini(apiKey)) {
@@ -78,8 +93,9 @@ const App = () => {
       team: currentTeam,
       createdAt: new Date().toLocaleString('pt-BR'),
     };
-    setDocuments([newDocument, ...documents]);
-    setSelectedDocument(newDocument); // Automatically open the new document
+    const newDocs = [newDocument, ...documents];
+    setDocuments(newDocs);
+    handleSelectDocument(newDocument); // Automatically open the new document
   };
   
   const handleDocumentUpdate = (docId, updates) => {
@@ -100,6 +116,19 @@ const App = () => {
     }
     setIsDeleteConfirmOpen(false);
     setDocToDelete(null);
+  };
+  
+  const handleSelectDocument = (doc) => {
+      setSelectedDocument(doc);
+      setLastViewedDocId(doc.id);
+  };
+
+  const handleBackFromPreview = () => {
+      setIsExitingPreview(true);
+      setTimeout(() => {
+          setSelectedDocument(null);
+          setIsExitingPreview(false);
+      }, 300); // Match animation duration
   };
 
 
@@ -125,8 +154,9 @@ const App = () => {
   if (selectedDocument) {
     return React.createElement(DocumentPreview, { 
         document: selectedDocument, 
-        onBack: () => setSelectedDocument(null),
+        onBack: handleBackFromPreview,
         onUpdateContent: handleDocumentUpdate,
+        isExiting: isExitingPreview,
     });
   }
 
@@ -155,11 +185,11 @@ const App = () => {
                 filteredDocuments.map((doc) => (
                   React.createElement('div', {
                     key: doc.id,
-                    onClick: () => setSelectedDocument(doc),
-                    className: "bg-gray-800 p-6 rounded-lg shadow-lg cursor-pointer hover:bg-gray-700/50 hover:border-indigo-500 border-2 border-transparent transition-all group relative",
+                    onClick: () => handleSelectDocument(doc),
+                    className: `bg-gray-800 p-6 rounded-lg shadow-lg cursor-pointer hover:bg-gray-700/50 hover:border-indigo-500 border-2 transition-all group relative ${doc.id === lastViewedDocId ? 'border-indigo-500 bg-gray-700/50' : 'border-transparent'}`,
                     role: "button",
                     tabIndex: 0,
-                    onKeyPress: (e) => e.key === 'Enter' && setSelectedDocument(doc)
+                    onKeyPress: (e) => e.key === 'Enter' && handleSelectDocument(doc)
                   },
                     React.createElement('div', { className: "flex items-center space-x-3 mb-3" },
                       React.createElement(DocumentIcon, null),
