@@ -1,204 +1,251 @@
 import { Team } from './types.js';
 
-export const DOCUMENT_STRUCTURES = {
-  [Team.Developers]: `
-# 📝 Documentação Técnica: NOME_DO_PROJETO
+export const TEMPLATES = {
+  [Team.Developers]: [
+    {
+      name: 'API Endpoint Detalhada',
+      description: 'Documentação completa para um endpoint de API, incluindo autenticação, parâmetros e exemplos.',
+      content: {
+        description: `Este documento detalha o endpoint \`[MÉTODO] /api/v1/[URL]\`.
 
-## 1. Visão Geral
-### 1.1. O Problema
-[Descreva em detalhes o problema de negócio ou técnico que este projeto resolve. Qual era a dor ou a necessidade antes desta solução?]
+**Objetivo:** [Descreva em uma frase o que o endpoint faz, ex: "Registra um novo usuário no sistema."].
 
-### 1.2. A Solução
-[Apresente um resumo de alto nível de como o projeto atende à necessidade descrita. Qual é o principal valor que ele entrega?]
+**Autenticação:** [Requerida/Opcional/Nenhuma]. Se requerida, especifique o tipo (ex: "Bearer Token com permissão de 'admin'").
 
-## 2. Arquitetura da Solução
-[Detalhe a arquitetura (ex: Microsserviços, Serverless, Monolito). Use texto ou links para diagramas. Mencione os principais padrões de design aplicados e justifique as escolhas tecnológicas.]
+**Parâmetros da Rota (Path Parameters):**
+- \`id\` (string): [Descrição do parâmetro, ex: "ID do usuário a ser atualizado."].
 
-- **Tecnologias Principais:** [Frameworks, Linguagens, etc.]
-- **Plataforma de Cloud:** [AWS, GCP, Azure, etc.]
-- **Padrões de Arquitetura:** [Event-Driven, MVC, etc.]
-
-## 3. Configuração do Ambiente de Desenvolvimento
-### 3.1. Pré-requisitos
-[Liste todo o software necessário para rodar o projeto localmente (ex: Node.js v18+, Docker, Python v3.10+).]
-
-### 3.2. Instalação
-[Forneça um guia passo a passo para instalar as dependências.]
-\`\`\`bash
-# Exemplo
-npm install
-\`\`\`
-
-### 3.3. Variáveis de Ambiente
-[Liste todas as variáveis de ambiente necessárias. Use um arquivo \`.env.example\` como modelo.]
-- \`DATABASE_URL\`: String de conexão com o banco de dados.
-- \`API_KEY_SECRET\`: Chave para um serviço externo.
-
-## 4. API (se aplicável)
-[Liste e descreva os principais endpoints da API.]
-
-### Endpoint: \`POST /api/exemplo\`
-- **Descrição:** [O que este endpoint faz?]
-- **Autenticação:** [Obrigatória (Bearer Token), Opcional, Nenhuma]
-- **Body (Request):**
-\`\`\`json
+**Parâmetros de Consulta (Query Parameters):**
+- \`page\` (integer, opcional, default: 1): [Descrição, ex: "Número da página para paginação."].
+- \`limit\` (integer, opcional, default: 10): [Descrição, ex: "Quantidade de itens por página."].
+`,
+        pastedCode: `// Exemplo de Request Body (application/json)
 {
-  "exemploChave": "exemploValor"
+  "name": "John Doe",
+  "email": "john.doe@example.com"
 }
-\`\`\`
-- **Resposta (200 OK):**
-\`\`\`json
+
+// Exemplo de Resposta de Sucesso (200 OK)
 {
-  "id": "uuid",
-  "status": "sucesso"
+  "id": "user_12345",
+  "message": "Usuário criado com sucesso."
 }
-\`\`\`
 
-## 5. Estrutura do Banco de Dados
-[Descreva o esquema do banco de dados, as tabelas principais e seus relacionamentos. Pode ser um script SQL, um diagrama ou uma descrição textual.]
-
-## 6. Processo de Deploy
-[Explique como o deploy é feito (ex: CI/CD com GitHub Actions, deploy manual). Inclua os comandos ou passos necessários.]
-
-## 7. Observações Técnicas Adicionais
-[Qualquer outra informação relevante: estratégias de cache, tratamento de erros, bibliotecas importantes, etc.]
-`,
-  [Team.UXUI]: `
-# 🎨 Documentação de UX/UI: NOME_DO_PROJETO
-
-## 1. Contexto e Objetivos
-### 1.1. O Desafio do Usuário
-[Qual é o problema ou necessidade fundamental do usuário que esta interface busca resolver? Descreva o cenário do usuário.]
-
-### 1.2. Objetivos de Negócio e de Usabilidade
-[Liste os principais objetivos de negócio (ex: aumentar a conversão em 10%) e de usabilidade (ex: reduzir o tempo para completar a tarefa X).]
-
-## 2. Pesquisa e Personas
-[Resuma os principais insights da pesquisa com usuários. Apresente as personas primárias e secundárias para as quais o projeto foi desenhado.]
-
-## 3. Arquitetura da Informação e Fluxos
-[Descreva a organização do conteúdo e a estrutura de navegação. Insira links para diagramas de fluxo de usuário, sitemaps ou wireflows.]
-
-- **Link do Fluxo no Miro/Figma:** [URL]
-
-## 4. Wireframes e Protótipos
-[Forneça links para os wireframes (baixa fidelidade) e o protótipo interativo final (alta fidelidade).]
-
-- **Wireframes (Lo-Fi):** [URL]
-- **Protótipo Interativo (Hi-Fi):** [URL]
-
-## 5. Design System e Componentes Visuais
-### 5.1. Paleta de Cores
-[Apresente a paleta de cores, incluindo primárias, secundárias, de feedback (sucesso, erro, aviso) e neutras.]
-
-- **Primária:** #HEXCODE
-- **Sucesso:** #HEXCODE
-
-### 5.2. Tipografia
-[Detalhe a família tipográfica, pesos e a escala tipográfica utilizada (tamanhos para H1, H2, Body, etc.).]
-
-- **Fonte Principal:** [Nome da Fonte]
-- **Base Size:** 16px
-
-### 5.3. Componentes Chave
-[Descreva e mostre exemplos dos componentes mais importantes (ex: botões, cards, formulários), incluindo seus diferentes estados (default, hover, disabled).]
-
-## 6. Diretrizes de Acessibilidade (WCAG)
-[Liste as principais diretrizes de acessibilidade consideradas no projeto (ex: contraste de cores, navegação por teclado, texto alternativo para imagens).]
-
-## 7. Animações e Microinterações
-[Descreva as principais animações que guiam a experiência, como transições de página ou feedback de ações do usuário.]
-`,
-  [Team.Automations]: `
-# ⚙️ Documentação de Automação: NOME_DO_PROJETO
-
-## 1. Propósito da Automação
-[Descreva o processo de negócio que está sendo automatizado. Qual era o processo manual antes? Qual o ganho esperado com a automação (economia de tempo, redução de erros)?]
-
-## 2. Visão Geral do Fluxo
-[Apresente um resumo de alto nível do que a automação faz, desde o gatilho inicial até o resultado final. Se possível, inclua um link para um diagrama do fluxo.]
-
-- **Plataforma:** [N8N, Zapier, Make, etc.]
-- **Link do Workflow:** [URL do workflow, se aplicável]
-
-## 3. Gatilhos (Triggers)
-[Detalhe o que inicia a automação.]
-- **Tipo de Gatilho:** [Webhook, Agendado (Schedule), Manual]
-- **Frequência (se agendado):** [Ex: A cada 15 minutos, toda segunda-feira às 9h]
-- **Payload do Webhook (se aplicável):** [Mostre um exemplo do JSON esperado]
-
-## 4. Detalhamento dos Passos (Nós)
-[Liste e descreva os nós ou passos mais críticos da automação.]
-
-- **Nó 1: [Nome do Nó]**
-  - **Função:** [O que ele faz?]
-  - **Sistemas Envolvidos:** [API do Sistema X, Banco de Dados Y]
-- **Nó 2: [Nome do Nó]**
-  - **Função:** [O que ele faz?]
-  - **Lógica Condicional:** [Descreva qualquer lógica "if/else" importante aqui.]
-
-## 5. Sistemas Integrados e Credenciais
-[Liste todas as APIs e sistemas de terceiros utilizados. Explique como as credenciais são gerenciadas (ex: Credenciais do N8N, Variáveis de Ambiente).]
-
-## 6. Tratamento de Erros e Notificações
-[Descreva o que acontece quando ocorre um erro. Existe um fluxo de tratamento de erros? Alguém é notificado?]
-
-## 7. Variáveis de Ambiente e Inputs
-[Liste as variáveis de ambiente ou inputs necessários para a automação funcionar.]
-- \`API_KEY_SISTEMA_X\`: [Descrição da chave]
-- \`USER_ID_DEFAULT\`: [Descrição da variável]
-
-## 8. Monitoramento e Logs
-[Explique como monitorar a execução da automação e onde encontrar os logs para depuração.]
-`,
-  [Team.AI]: `
-# 🤖 Documentação de IA / Agente: NOME_DO_PROJETO
-
-## 1. Objetivo do Agente
-[Descreva a principal função do modelo ou agente de IA. Que tarefa ele executa? Qual problema ele resolve para o usuário ou para o negócio?]
-
-## 2. Arquitetura e Modelo
-### 2.1. Modelo de Linguagem (LLM)
-[Especifique o modelo base utilizado.]
-- **Modelo:** [Gemini 1.5 Flash, GPT-4o, etc.]
-- **Provedor:** [Google, OpenAI, etc.]
-
-### 2.2. Instrução de Sistema (System Prompt)
-[Apresente o prompt de sistema completo que define a persona, o objetivo e as restrições do agente.]
-\`\`\`
-[Cole o prompt base aqui]
-\`\`\`
-
-## 3. Ferramentas (Tools / Functions)
-[Liste e descreva todas as ferramentas ou funções que o agente pode invocar para interagir com sistemas externos.]
-
-### Ferramenta: \`nomeDaFuncao\`
-- **Descrição:** [O que a função faz, na perspectiva do modelo.]
-- **Parâmetros:**
-  - \`param1\`: [Tipo de dado] - [Descrição do parâmetro]
-  - \`param2\`: [Tipo de dado] - [Descrição do parâmetro]
-- **Retorno:** [O que a função retorna para o modelo.]
-
-## 4. Fluxo de Execução e Lógica
-[Descreva a lógica principal do agente. Como ele decide qual ferramenta usar? Existe algum fluxo de conversa pré-definido ou ele é totalmente reativo?]
-
-## 5. Estrutura de Resposta
-[Detalhe o formato esperado da resposta final da IA, especialmente se for uma estrutura específica como JSON. Forneça um exemplo claro.]
-
-### Exemplo de Resposta (JSON):
-\`\`\`json
+// Exemplo de Resposta de Erro (400 Bad Request)
 {
-  "key": "value",
-  "analysis": {
-    "sentiment": "positive"
+  "error": "O e-mail fornecido já está em uso."
+}`,
+        databaseSchema: 'N/A',
+        dependencies: '',
+      }
+    },
+    {
+      name: 'Componente React Avançado',
+      description: 'Documenta um componente React, incluindo props, estado, hooks e interações.',
+      content: {
+        description: `Documentação para o componente React \`<[NomeDoComponente] />\`.
+
+**Finalidade:** [Descreva a responsabilidade principal e o local de uso do componente].
+
+**Props (Propriedades):**
+- \`propNome\` (\`tipo\`, obrigatória): [Descrição da prop e seu impacto no componente].
+- \`onAction\` (\`(data: any) => void\`, opcional): [Descrição do callback, ex: "Função chamada quando o usuário clica no botão principal."].
+
+**Estado Interno (State):**
+- \`[nomeDoEstado]\`: [Descrição do estado e por que ele é necessário].
+
+**Hooks Utilizados:**
+- \`useEffect\`: [Descrição do efeito colateral, ex: "Busca dados da API quando o componente é montado."].
+- \`useContext\`: [Descrição do contexto consumido, ex: "Acessa o tema atual da aplicação."].
+`,
+        pastedCode: `import React, { useState, useEffect } from 'react';
+
+const [NomeDoComponente] = ({ propNome, onAction }) => {
+  const [internalState, setInternalState] = useState(null);
+
+  useEffect(() => {
+    // Lógica do hook aqui
+  }, [propNome]);
+
+  return (
+    <div onClick={() => onAction?.(internalState)}>
+      {/* Lógica de renderização */}
+    </div>
+  );
+};
+
+export default [NomeDoComponente];`,
+        databaseSchema: '',
+        dependencies: 'react, prop-types',
+      }
+    },
+     {
+      name: 'Arquitetura de Feature',
+      description: 'Visão geral da arquitetura para uma nova funcionalidade completa (backend + frontend).',
+      content: {
+        description: `Este documento descreve a arquitetura da feature **[Nome da Feature]**.
+
+**Problema a ser Resolvido:** [Descreva o problema de negócio ou a necessidade do usuário que esta feature aborda].
+
+**Solução Proposta:** [Descreva em alto nível como a feature resolverá o problema].
+
+**Componentes Principais:**
+1.  **Frontend:** [Liste os principais componentes de UI a serem criados ou modificados, ex: "Nova página de perfil, Modal de edição de dados"].
+2.  **Backend:** [Liste os novos endpoints de API, workers ou serviços a serem criados].
+3.  **Banco de Dados:** [Descreva as novas tabelas, colunas ou alterações de esquema necessárias].
+
+**Fluxo de Dados:** [Descreva como os dados fluem entre o frontend, backend e banco de dados].
+`,
+        pastedCode: `// Cole aqui trechos de código relevantes de diferentes partes da feature
+// Ex: Controller do backend
+// Ex: Serviço de frontend que consome a API`,
+        databaseSchema: `ALTER TABLE "users" ADD COLUMN "new_feature_flag" BOOLEAN DEFAULT false;`,
+        dependencies: 'prisma, next.js, zod',
+      }
+    }
+  ],
+  [Team.UXUI]: [
+    {
+      name: 'Análise de Fluxo de Usuário',
+      description: 'Detalha um fluxo de usuário, incluindo pontos de dor e oportunidades de melhoria.',
+      content: {
+        description: `Análise do fluxo de usuário para a tarefa de **[Nome da Tarefa, ex: "Realizar o primeiro login"]**.
+
+**Persona Alvo:** [Nome da Persona] - [Breve descrição da persona e seus objetivos].
+
+**Objetivo do Usuário no Fluxo:** [O que o usuário quer alcançar ao final deste fluxo?].
+
+**Passos do Fluxo (Mapeamento):**
+1.  **Ponto de Entrada:** [Onde o usuário inicia, ex: "Página inicial do app"].
+2.  **Ação 1:** [Ex: "Clica em 'Entrar'"]. -> **Tela/Componente:** [Ex: "Modal de Login"].
+3.  **Ação 2:** [Ex: "Preenche e-mail e senha"]. -> **Feedback:** [Ex: "Validação em tempo real dos campos"].
+4.  ...
+5.  **Ponto de Saída/Sucesso:** [Como o fluxo termina com sucesso, ex: "Redirecionado para o dashboard principal"].
+
+**Pontos de Fricção e Oportunidades:**
+- **Ponto de Fricção:** [Descreva uma dificuldade encontrada pelo usuário, ex: "O erro de senha incorreta é genérico."].
+- **Oportunidade de Melhoria:** [Sugira uma solução, ex: "Adicionar um link 'Esqueci minha senha' mais visível."].`,
+        personas: '[Cole aqui a descrição completa da persona, se aplicável].',
+        userFlows: 'Os fluxos detalhados estão descritos acima.',
+      }
+    },
+    {
+        name: 'Componente (Design System)',
+        description: 'Documenta um componente para o Design System, com foco em uso, variações e acessibilidade.',
+        content: {
+            description: `Documentação para o componente de Design System: **[NOME DO COMPONENTE, ex: "Botão Primário"]**.
+
+**Quando Usar:** [Descreva o cenário de uso ideal. Ex: "Para a ação principal e mais importante em uma página ou modal."].
+**Quando NÃO Usar:** [Descreva cenários onde outro componente seria mais adequado. Ex: "Para ações secundárias ou links de navegação, use o Botão Secundário ou um Link."].
+
+**Variações de Estado:**
+- **Padrão:** [Estado normal do componente].
+- **Hover:** [Feedback visual ao passar o mouse].
+- **Pressionado (Active):** [Feedback visual durante o clique].
+- **Desabilitado (Disabled):** [Aparência e comportamento quando inativo].
+- **Carregando (Loading):** [Feedback visual para ações assíncronas].
+
+**Diretrizes de Acessibilidade (WCAG AA):**
+- **Contraste:** [Garanta que o contraste de cores entre texto e fundo atende ao mínimo de 4.5:1].
+- **Foco:** [O componente deve ter um estado de foco visível e claro para navegação por teclado].
+- **Rótulos (Labels):** [Use \`aria-label\` para botões que contêm apenas ícones].`,
+            personas: '',
+            userFlows: '',
+        }
+    }
+  ],
+  [Team.Automations]: [
+    {
+        name: 'Fluxo de Automação (N8N/Make)',
+        description: 'Documenta uma automação complexa, detalhando cada passo, lógica e sistemas envolvidos.',
+        content: {
+            description: `Documentação do fluxo de automação: **[NOME DA AUTOMAÇÃO]**.
+
+**Objetivo de Negócio:** [O que esta automação resolve? Ex: "Automatizar a qualificação e distribuição de leads inbound para a equipe de vendas."].
+
+**Gatilho (Trigger):**
+- **Tipo:** [Ex: Webhook, Agendado (Schedule), Evento de App].
+- **Origem:** [Ex: Formulário do site, RD Station, Disparo a cada 15 minutos].
+
+**Etapas Principais do Fluxo:**
+1.  **Recebimento e Validação:** [Nó que recebe os dados e verifica se são válidos].
+2.  **Enriquecimento de Dados:** [Consulta a uma API externa (ex: Clearbit) para obter mais informações sobre o lead].
+3.  **Lógica de Roteamento (IF/Switch):** [Como a automação decide para qual vendedor enviar o lead (ex: com base na região ou no tamanho da empresa)].
+4.  **Criação no CRM:** [Criação do negócio (Deal) no Pipedrive com os dados enriquecidos].
+5.  **Notificação:** [Envio de uma mensagem no Slack para o vendedor responsável].
+6.  **Tratamento de Erros:** [O que acontece se uma etapa falhar? Ex: "Envia um e-mail para a equipe de TI e tenta novamente."].`,
+            triggerInfo: 'Webhook URL: https://n8n.example.com/webhook/123-abc-xyz',
+            externalApis: '- Pipedrive API\n- Slack API\n- Clearbit API',
+            pastedJson: 'Cole o JSON exportado do N8N/Make aqui para que a IA possa analisar a estrutura completa.',
+        }
+    },
+    {
+      name: 'Monitoramento e Alertas',
+      description: 'Documenta uma automação focada em monitorar sistemas e enviar alertas.',
+      content: {
+        description: `Documentação da automação de monitoramento: **[NOME DO MONITOR]**.
+
+**Objetivo:** [Ex: "Verificar a cada 5 minutos se o site principal está online e respondendo corretamente."].
+
+**Processo de Verificação:**
+1.  **Requisição HTTP:** [Faz uma requisição GET para a URL [URL_DO_SITE]].
+2.  **Validação de Status:** [Verifica se o código de status da resposta é 200 OK].
+3.  **Validação de Conteúdo:** [Verifica se o corpo da resposta contém o texto "[TEXTO_ESPERADO]"].
+
+**Lógica de Alerta (Condicional):**
+- **SE** a validação falhar 3 vezes consecutivas, **ENTÃO** execute as ações de alerta.
+
+**Ações de Alerta:**
+1.  **Slack:** [Envia uma mensagem de emergência para o canal #devops].
+2.  **E-mail:** [Envia um e-mail de alta prioridade para o grupo de administradores].
+3.  **Log:** [Registra o incidente em uma planilha do Google Sheets para histórico].`,
+        triggerInfo: 'Agendado (Schedule) para rodar a cada 5 minutos.',
+        externalApis: '- Slack API\n- Google Sheets API',
+        pastedJson: '',
+      }
+    }
+  ],
+  [Team.AI]: [
+    {
+        name: 'Agente de IA (LLM)',
+        description: 'Arquitetura completa de um agente de IA, incluindo prompt, ferramentas e exemplos.',
+        content: {
+            description: `Documentação do agente de IA: **[NOME DO AGENTE]**.
+
+**Missão Principal:** [Descreva o objetivo do agente em uma única frase. Ex: "Atuar como um assistente de onboarding para novos clientes, respondendo a perguntas frequentes e guiando-os pelos primeiros passos."].`,
+            systemPrompt: `Você é o **[NOME DO AGENTE]**, um assistente de IA amigável e especialista na plataforma Synapse. Sua principal função é ajudar novos usuários a terem uma ótima primeira experiência.
+
+**REGRAS DE OURO:**
+- **Seja Proativo:** Não espere o usuário perguntar tudo. Se ele perguntar sobre "criar um projeto", ofereça também um link para o tutorial em vídeo.
+- **Mantenha a Simplicidade:** Use uma linguagem clara e evite jargões técnicos.
+- **Segurança em Primeiro Lugar:** NUNCA peça ou forneça informações sensíveis como senhas ou chaves de API. Se o usuário perguntar algo que você não sabe, direcione-o para o suporte humano usando a ferramenta \`escalate_to_human\`.`,
+            workflow: `1.  **Saudação Inicial:** O agente se apresenta e pergunta como pode ajudar.
+2.  **Análise de Intenção:** O agente usa o LLM para identificar a intenção principal do usuário (ex: "dúvida sobre faturamento", "problema técnico", "feedback").
+3.  **Seleção de Ferramenta:** Com base na intenção, o agente decide se pode responder diretamente com seu conhecimento, se precisa usar uma ferramenta (ex: \`get_documentation_link\`) ou se deve escalar para um humano.
+4.  **Geração de Resposta:** O agente formula uma resposta útil, combinando o resultado da ferramenta (se usada) com seu prompt de sistema.`,
+            tools: `[
+  {
+    "name": "get_documentation_link",
+    "description": "Busca na base de conhecimento um link de documentação relevante para um determinado tópico.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "query": { "type": "STRING", "description": "O tópico ou palavra-chave a ser pesquisado." }
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "escalate_to_human",
+    "description": "Cria um ticket de suporte e transfere a conversa para um agente humano.",
+    "parameters": { "type": "OBJECT", "properties": {} }
   }
-}
-\`\`\`
-
-## 6. Estratégias de Validação e Guardrails
-[Descreva como a qualidade e a segurança das respostas são garantidas. Existem passos de validação? Como o agente lida com tópicos fora de escopo ou perigosos?]
-
-## 7. Observações e Limitações
-[Inclua informações sobre limitações conhecidas, considerações de custo, latência ou estratégias de fallback caso a IA falhe.]
-`,
+]`,
+            exampleIO: `**Entrada do Usuário:** "Não estou conseguindo adicionar um novo membro à minha equipe"
+**Resposta Ideal do Agente:** "Claro, posso ajudar com isso! Para adicionar um novo membro, você precisa ir em 'Configurações' > 'Equipe' e clicar no botão 'Convidar Membro'. Aqui está um link para o nosso guia com imagens que mostra o passo a passo: [link gerado pela ferramenta get_documentation_link]. Se precisar de mais alguma coisa, é só avisar!"`,
+            guardrails: `- Se o usuário usar linguagem ofensiva, emita um aviso. Na segunda vez, encerre a conversa.
+- Se a pergunta for sobre os planos futuros da empresa, responda: "Não tenho acesso a informações sobre futuros lançamentos, mas aprecio sua curiosidade!".`,
+        }
+    }
+  ]
 };

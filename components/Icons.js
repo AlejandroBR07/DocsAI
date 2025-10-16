@@ -176,3 +176,9 @@ export const ListOlIcon = () => (
       React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01" })
     )
 );
+
+export const TemplateIcon = () => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", strokeWidth: 2, stroke: "currentColor" },
+      React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M4 4h6v6H4zm0 10h6v6H4zm10-10h6v6h-6zm0 10h6v6h-6z" })
+    )
+);

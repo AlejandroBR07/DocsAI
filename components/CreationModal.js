@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon } from './Icons.js';
+import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon } from './Icons.js';
 import { Team } from '../types.js';
-import { DOCUMENT_STRUCTURES } from '../constants.js';
+import { TEMPLATES } from '../constants.js';
 
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
@@ -125,14 +125,23 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   // Team UX/UI
   const [personas, setPersonas] = useState('');
   const [userFlows, setUserFlows] = useState('');
-  
+
   // Team Automations
   const [triggerInfo, setTriggerInfo] = useState('');
   const [externalApis, setExternalApis] = useState('');
   
   const loadingMessageIndex = useRef(0);
   const generationStage = useRef('main'); // 'main' or 'finalizing'
-  
+  const isCancelled = useRef(false);
+  const [activeTemplate, setActiveTemplate] = useState(null);
+
+  // Handle cancellation
+  useEffect(() => {
+    return () => {
+      isCancelled.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (pastedJson.trim() === '') {
       setIsJsonValid(true);
@@ -271,6 +280,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     
     setIsLoading(true);
     setError('');
+    isCancelled.current = false;
 
     try {
         const codeFromFiles = codeFiles.map(f => `--- Código do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
@@ -310,29 +320,42 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
       };
 
       const { title, content } = await generateContent(params);
-      onDocumentCreate(title, content);
-      onClose();
+      
+      if (!isCancelled.current) {
+        onDocumentCreate(title, content);
+        onClose();
+      }
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
+      if (!isCancelled.current) {
+        setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!isCancelled.current) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleUseBlankTemplate = () => {
-    if (!projectName) {
-      setError('Por favor, forneça um nome para o projeto.');
-      return;
-    }
-    const blankContent = DOCUMENT_STRUCTURES[currentTeam]
-        .replace(/NOME_DO_PROJETO/g, projectName)
-        .replace(/\[(.*?)\]/g, '...')
-        .replace(/\n/g, '<br />');
+  const handleSelectTemplate = (template) => {
+    setActiveTemplate(template.name);
+    // Set state based on template content, using empty string as fallback
+    setDescription(template.content.description || '');
+    setPastedCode(template.content.pastedCode || '');
+    setDatabaseSchema(template.content.databaseSchema || '');
+    setDependencies(template.content.dependencies || '');
+    setPersonas(template.content.personas || '');
+    setUserFlows(template.content.userFlows || '');
+    setPastedJson(template.content.pastedJson || '');
+    setTriggerInfo(template.content.triggerInfo || '');
+    setExternalApis(template.content.externalApis || '');
+    setSystemPrompt(template.content.systemPrompt || '');
+    setWorkflow(template.content.workflow || '');
+    setTools(template.content.tools || '');
+    setExampleIO(template.content.exampleIO || '');
+    setGuardrails(template.content.guardrails || '');
+  };
 
-    onDocumentCreate(projectName, blankContent);
-    onClose();
-  }
-  
   const FileChip = ({ file, onRemove }) => (
     React.createElement('div', { className: "bg-gray-700 p-2 rounded-md flex items-center justify-between" },
       React.createElement('div', { className: "flex items-center gap-2 text-gray-300" },
@@ -457,6 +480,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
       }
   }
 
+  const teamTemplates = TEMPLATES[currentTeam] || [];
 
   return (
     React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
@@ -474,7 +498,22 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
               React.createElement('label', { htmlFor: "description", className: "block text-sm font-medium text-gray-300 mb-2" }, "Descrição Breve ou Objetivo"),
               React.createElement('textarea', { id: "description", rows: 3, value: description, onChange: (e) => setDescription(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o objetivo principal do projeto ou da funcionalidade..." })
             ),
-             React.createElement('div', null,
+            
+            // Templates section
+            teamTemplates.length > 0 && React.createElement('div', { className: "space-y-3" },
+                React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(TemplateIcon, null), "Começar com um Template (Opcional)"),
+                React.createElement('div', { className: "flex flex-wrap gap-2" },
+                    teamTemplates.map(template => (
+                        React.createElement('button', {
+                            key: template.name,
+                            onClick: () => handleSelectTemplate(template),
+                            className: `px-3 py-1.5 text-sm rounded-full transition-colors ${activeTemplate === template.name ? 'bg-indigo-600 text-white font-semibold' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`
+                        }, template.name)
+                    ))
+                )
+            ),
+
+             React.createElement('div', { className: "pt-2" },
                 React.createElement('label', { className: "flex items-center space-x-3 text-gray-300 cursor-pointer" },
                     React.createElement('input', { 
                         type: "checkbox", 
@@ -493,14 +532,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
           error && React.createElement('p', { className: "text-red-400 text-sm text-center px-6 pb-4" }, error),
 
           React.createElement('div', { className: "flex flex-col sm:flex-row justify-between items-center mt-auto p-6 bg-gray-800/50 border-t border-gray-700 gap-4" },
-            React.createElement('button', {
-                onClick: handleUseBlankTemplate,
-                disabled: !projectName || isLoading,
-                className: "w-full sm:w-auto py-2 px-4 rounded-md text-indigo-400 border border-indigo-500 hover:bg-indigo-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              },
-                "Usar Template Vazio"
-            ),
-            React.createElement('div', { className: "w-full sm:w-auto flex flex-col sm:flex-row-reverse gap-4" },
+            React.createElement('div', { className: "w-full sm:w-auto flex flex-col sm:flex-row-reverse gap-4 ml-auto" },
                 React.createElement('button', {
                     onClick: handleGenerate,
                     disabled: !canGenerate() || isLoading || !isJsonValid,

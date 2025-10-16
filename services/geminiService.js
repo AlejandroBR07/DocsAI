@@ -1,5 +1,4 @@
 import { GoogleGenAI } from "@google/genai";
-import { DOCUMENT_STRUCTURES } from "../constants.js";
 import { Team } from "../types.js";
 
 let ai = null;
@@ -23,8 +22,11 @@ const markdownToHtml = (text) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
 
-    // Headings (including numbered ones like 1.1)
+    // Headings (process from most specific to least specific)
     htmlContent = htmlContent
+      .replace(/^###### (.*$)/gm, '<h6>$1</h6>')
+      .replace(/^##### (.*$)/gm, '<h5>$1</h5>')
+      .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
       .replace(/^### (.*$)/gm, '<h3>$1</h3>')
       .replace(/^## (.*$)/gm, '<h2>$1</h2>')
       .replace(/^# (.*$)/gm, '<h1>$1</h1>');
@@ -65,7 +67,7 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent.replace(/\n/g, '<br />');
 
     // Cleanup: remove <br> around block elements
-    const blockElements = ['h1', 'h2', 'h3', 'ul', 'ol', 'pre', 'li', 'div'];
+    const blockElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'pre', 'li', 'div'];
     blockElements.forEach(tag => {
         const reBefore = new RegExp(`<br \\/>(\\s*<${tag}[^>]*>)`, 'g');
         const reAfter = new RegExp(`(</${tag}>\\s*)<br \\/>`, 'g');
@@ -85,7 +87,57 @@ export const generateDocumentContent = async (params) => {
 
   const { projectName, description, team, includeSupportSection, teamData } = params;
   try {
-    const baseStructure = DOCUMENT_STRUCTURES[team].replace(/NOME_DO_PROJETO/g, projectName);
+    
+    let persona = 'Você é um assistente de IA especialista em criar documentação técnica e de negócios.';
+    switch (team) {
+      case Team.Developers:
+        persona = 'Aja como um engenheiro de software sênior e arquiteto de soluções.';
+        break;
+      case Team.UXUI:
+         persona = 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento.';
+        break;
+      case Team.Automations:
+        persona = 'Aja como um especialista em automação de processos (RPA e integrações).';
+        break;
+      case Team.AI:
+        persona = 'Aja como um engenheiro de IA especialista em arquitetura de agentes e large language models.';
+        break;
+    }
+
+    let teamContext = '';
+    teamContext += teamData.code ? `**Código Fonte para Análise:**\n\`\`\`\n${teamData.code}\n\`\`\`\nUse o código acima como a principal fonte de verdade para preencher a documentação.\n` : '';
+    teamContext += teamData.databaseSchema ? `**Esquema do Banco de Dados:**\n${teamData.databaseSchema}\n` : '';
+    teamContext += teamData.dependencies ? `**Dependências e Bibliotecas:**\n${teamData.dependencies}\n` : '';
+    teamContext += (teamData.images && teamData.images.length > 0) ? 'Analise as imagens de interface fornecidas para descrever os componentes, fluxos e design system.\n' : '';
+    teamContext += teamData.personas ? `**Personas:**\n${teamData.personas}\n` : '';
+    teamContext += teamData.userFlows ? `**Fluxos de Usuário (descrição textual):**\n${teamData.userFlows}\n` : '';
+    teamContext += teamData.json ? `**Estrutura da Automação (JSON - ex: N8N):**\n\`\`\`json\n${teamData.json}\n\`\`\`\nInterprete a estrutura JSON acima para detalhar os nós e a lógica.\n` : '';
+    teamContext += teamData.triggerInfo ? `**Informações do Gatilho (Trigger):**\n${teamData.triggerInfo}\n` : '';
+    teamContext += teamData.externalApis ? `**APIs Externas Envolvidas:**\n${teamData.externalApis}\n` : '';
+    teamContext += teamData.systemPrompt ? `**System Prompt:**\n${teamData.systemPrompt}\n` : '';
+    teamContext += teamData.workflow ? `**Fluxo de Trabalho/Conversa:**\n${teamData.workflow}\n` : '';
+    teamContext += teamData.tools ? `**Ferramentas (Tools):**\n${teamData.tools}\n` : '';
+    teamContext += teamData.exampleIO ? `**Exemplos de Entrada/Saída:**\n${teamData.exampleIO}\n` : '';
+    teamContext += teamData.guardrails ? `**Guardrails e Regras de Segurança:**\n${teamData.guardrails}\n` : '';
+    
+
+    const mainPrompt = `
+      ${persona}
+      Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação abrangente e bem-estruturada para o projeto a seguir.
+
+      **Instruções Chave:**
+      1.  **Estrutura Dinâmica:** NÃO use um template fixo. Analise o contexto fornecido (descrição, código, JSON, etc.) e gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
+      2.  **Estilo Profissional:** A documentação deve ser clara, prática e bem-organizada. Use uma estrutura hierárquica e numerada quando fizer sentido (ex: 1.0, 2.1, 2.1.1).
+      3.  **Conteúdo Essencial:** Comece com a motivação ou o objetivo do projeto. Em seguida, detalhe o fluxo de funcionamento, a arquitetura e os componentes técnicos ou de processo mais importantes. Preencha todo o conteúdo de forma detalhada e profissional. O resultado final não deve conter placeholders.
+
+      **Informações do Projeto:**
+      - Nome do Projeto: ${projectName}
+      - Descrição/Objetivo Principal: ${description}
+      - Equipe Alvo da Documentação: ${team}
+
+      **Contexto Adicional Fornecido para sua Análise:**
+      ${teamContext || "Nenhum contexto adicional foi fornecido. Crie a estrutura e o conteúdo com base nas melhores práticas para um projeto com a descrição fornecida."}
+    `;
 
     let supportInstruction = '';
     if (includeSupportSection) {
@@ -93,60 +145,25 @@ export const generateDocumentContent = async (params) => {
 ---
 ## 📖 Seção de Suporte ao Usuário Final
 
-**Instrução Adicional:** Agora, gere uma seção de suporte detalhada e focada no **usuário final não técnico**. A linguagem deve ser extremamente simples, clara e direta, sem jargões. A estrutura principal desta seção **DEVE SER um guia de PASSO A PASSO** sobre como usar a funcionalidade principal da aplicação. Adicionalmente, inclua uma pequena seção de FAQ (Perguntas Frequentes) e um Guia de Solução de Problemas para as dúvidas mais comuns. O foco principal e a maior parte do conteúdo devem ser o guia passo a passo.
-`;
-    }
-    const finalStructure = baseStructure + supportInstruction;
+**Instrução Adicional:** Após a documentação técnica, adicione uma seção de suporte completa e dedicada ao **usuário final não técnico**. A linguagem deve ser extremamente simples, clara e direta.
 
-    let teamContext = '';
-    let persona = 'Você é um assistente de IA especialista em criar documentação técnica e de negócios.';
-    
-    switch (team) {
-      case Team.Developers:
-        persona = 'Aja como um engenheiro de software sênior e arquiteto de soluções.';
-        teamContext += teamData.code ? `**Código Fonte para Análise:**\n\`\`\`\n${teamData.code}\n\`\`\`\nUse o código acima como a principal fonte de verdade para preencher a documentação.\n` : '';
-        teamContext += teamData.databaseSchema ? `**Esquema do Banco de Dados:**\n${teamData.databaseSchema}\n` : '';
-        teamContext += teamData.dependencies ? `**Dependências e Bibliotecas:**\n${teamData.dependencies}\n` : '';
-        break;
-      case Team.UXUI:
-         persona = 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento.';
-        teamContext += (teamData.images && teamData.images.length > 0) ? 'Analise as imagens de interface fornecidas para descrever os componentes, fluxos e design system.\n' : '';
-        teamContext += teamData.personas ? `**Personas:**\n${teamData.personas}\n` : '';
-        teamContext += teamData.userFlows ? `**Fluxos de Usuário (descrição textual):**\n${teamData.userFlows}\n` : '';
-        break;
-      case Team.Automations:
-        persona = 'Aja como um especialista em automação de processos (RPA e integrações).';
-        teamContext += teamData.json ? `**Estrutura da Automação (JSON - ex: N8N):**\n\`\`\`json\n${teamData.json}\n\`\`\`\nInterprete a estrutura JSON acima para detalhar os nós e a lógica.\n` : '';
-        teamContext += teamData.triggerInfo ? `**Informações do Gatilho (Trigger):**\n${teamData.triggerInfo}\n` : '';
-        teamContext += teamData.externalApis ? `**APIs Externas Envolvidas:**\n${teamData.externalApis}\n` : '';
-        break;
-      case Team.AI:
-        persona = 'Aja como um engenheiro de IA especialista em arquitetura de agentes e large language models.';
-        teamContext += teamData.systemPrompt ? `**System Prompt:**\n${teamData.systemPrompt}\n` : '';
-        teamContext += teamData.workflow ? `**Fluxo de Trabalho/Conversa:**\n${teamData.workflow}\n` : '';
-        teamContext += teamData.tools ? `**Ferramentas (Tools):**\n${teamData.tools}\n` : '';
-        teamContext += teamData.exampleIO ? `**Exemplos de Entrada/Saída:**\n${teamData.exampleIO}\n` : '';
-        teamContext += teamData.guardrails ? `**Guardrails e Regras de Segurança:**\n${teamData.guardrails}\n` : '';
-        break;
+**Estrutura Obrigatória para a Seção de Suporte:**
+1.  **O que é?** Uma explicação curta e simples sobre o que é a funcionalidade e para que serve.
+2.  **Guia Passo a Passo:** Um guia detalhado sobre como usar a funcionalidade principal. Use uma lista numerada, frases curtas e verbos de ação. Seja o mais didático possível.
+3.  **Solução de Problemas Comuns (Troubleshooting):** Uma seção com 2-3 problemas comuns que um usuário pode enfrentar. Para cada problema, forneça a Causa provável e a Solução clara, neste formato:
+    - **Problema:** [Descrição do problema]
+    - **Causa:** [Explicação simples da causa]
+    - **Solução:** [Passos claros para resolver]
+
+Inspire-se em guias de usuário de alta qualidade para criar esta seção.
+`;
     }
 
     const fullPrompt = `
-      ${persona}
-      Sua tarefa é preencher a estrutura de markdown a seguir de forma detalhada e profissional, usando as informações fornecidas. Substitua todos os placeholders como "[Descreva...]" por conteúdo relevante e completo. Não deixe nenhum placeholder no resultado final.
-
-      **Informações do Projeto:**
-      - Nome do Projeto: ${projectName}
-      - Descrição/Objetivo Principal: ${description}
-      - Equipe Alvo da Documentação: ${team}
-
-      **Contexto Adicional Fornecido:**
-      ${teamContext || "Nenhum contexto adicional foi fornecido. Preencha a documentação com base nas melhores práticas para o tipo de projeto descrito."}
-
-      **Estrutura a ser preenchida:**
-      ---
-      ${finalStructure}
-
-      **Sua Resposta (apenas o markdown preenchido):**
+      ${mainPrompt}
+      ${supportInstruction}
+      
+      **Sua Resposta (gere apenas o markdown completo e preenchido, começando com o título principal como '# Nome do Projeto'):**
     `;
 
     let contents;
