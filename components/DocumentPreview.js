@@ -1,5 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BackIcon, CopyIcon, PencilIcon } from './Icons.js';
+import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon } from './Icons.js';
+
+const FormattingToolbar = ({ onCommand }) => (
+    React.createElement('div', { className: "bg-gray-700/50 rounded-md p-1 flex items-center gap-1 border border-gray-600" },
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('bold'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Negrito (Ctrl+B)" }, React.createElement(BoldIcon, null)),
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('italic'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Itálico (Ctrl+I)" }, React.createElement(ItalicIcon, null)),
+        React.createElement('div', { className: "w-[1px] h-6 bg-gray-600 mx-1" }),
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('insertUnorderedList'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Lista não ordenada" }, React.createElement(ListUlIcon, null)),
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('insertOrderedList'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Lista ordenada" }, React.createElement(ListOlIcon, null))
+    )
+);
 
 const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
   const [copyStatus, setCopyStatus] = useState('Copiar Conteúdo');
@@ -62,10 +72,76 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
     };
   }, [document.content, isEditing]); // Rerun when content is set or we enter/exit edit mode
 
+  const handleFormat = (command) => {
+    if (!isEditing || !contentRef.current) return;
+
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+
+    const applyInlineFormat = (tagName) => {
+        if (range.collapsed) return;
+        const element = window.document.createElement(tagName);
+        try {
+            range.surroundContents(element);
+        } catch (e) {
+            console.error(`Failed to apply ${tagName} format:`, e);
+            // As a fallback, wrap the text content
+            const selectedText = range.toString();
+            range.deleteContents();
+            element.textContent = selectedText;
+            range.insertNode(element);
+        }
+    };
+
+    const applyListFormat = (tagName) => {
+        const list = window.document.createElement(tagName);
+        const listItem = window.document.createElement('li');
+        
+        try {
+            if (range.collapsed) {
+                listItem.innerHTML = '<br />'; // Placeholder for empty item
+            } else {
+                const content = range.extractContents();
+                listItem.appendChild(content);
+            }
+            list.appendChild(listItem);
+            range.insertNode(list);
+            // Move cursor inside the new list item
+            const newRange = window.document.createRange();
+            newRange.selectNodeContents(listItem);
+            newRange.collapse(false); // to the end
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+        } catch (e) {
+            console.error(`Failed to apply ${tagName} format:`, e);
+        }
+    };
+
+    switch (command) {
+        case 'bold':
+            applyInlineFormat('strong');
+            break;
+        case 'italic':
+            applyInlineFormat('em');
+            break;
+        case 'insertUnorderedList':
+            applyListFormat('ul');
+            break;
+        case 'insertOrderedList':
+            applyListFormat('ol');
+            break;
+    }
+
+    contentRef.current.focus();
+  };
 
   const handleSave = () => {
       const newContent = contentRef.current ? contentRef.current.innerHTML : document.content;
       onUpdateContent(document.id, { title: currentTitle, content: newContent });
+      setIsEditing(false);
   }
 
   const handleCancel = () => {
@@ -146,26 +222,34 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
       
       React.createElement('div', { className: "flex-grow overflow-y-auto" },
         React.createElement('div', { className: "container mx-auto p-4 md:p-8" },
-            React.createElement('div', { className: `bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 ${isEditing ? 'ring-2 ring-indigo-500/50' : ''}` },
-                isEditing ? (
-                    React.createElement('input', {
-                        type: "text",
-                        value: currentTitle,
-                        onChange: (e) => setCurrentTitle(e.target.value),
-                        className: "w-full bg-gray-900/50 text-3xl font-bold text-indigo-400 mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-md p-2 -mx-2",
-                        "aria-label": "Título do Documento"
-                    })
-                ) : (
-                    React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, document.title)
+            React.createElement('div', { className: `bg-gray-800 rounded-lg shadow-lg ${isEditing ? 'ring-2 ring-indigo-500/50' : ''}` },
+                React.createElement('div', { className: "p-6 sm:p-8" },
+                    isEditing ? (
+                        React.createElement('input', {
+                            type: "text",
+                            value: currentTitle,
+                            onChange: (e) => setCurrentTitle(e.target.value),
+                            className: "w-full bg-gray-900/50 text-3xl font-bold text-indigo-400 mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-md p-2 -mx-2",
+                            "aria-label": "Título do Documento"
+                        })
+                    ) : (
+                        React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, document.title)
+                    )
+                ),
+                
+                isEditing && React.createElement('div', { className: 'sticky top-0 z-10 bg-gray-800/80 backdrop-blur-sm px-6 sm:px-8 py-2 border-y border-gray-700' },
+                    React.createElement(FormattingToolbar, { onCommand: handleFormat })
                 ),
 
-                React.createElement('article', {
-                  ref: contentRef,
-                  contentEditable: isEditing,
-                  suppressContentEditableWarning: true,
-                  dangerouslySetInnerHTML: { __html: document.content },
-                  className: `prose prose-invert max-w-none prose-h2:text-2xl prose-h2:font-semibold prose-h2:border-b prose-h2:border-gray-600 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3 prose-p:leading-relaxed prose-a:text-indigo-400 hover:prose-a:text-indigo-300 prose-code:text-amber-300 prose-code:font-mono prose-pre:bg-gray-900 prose-strong:text-white prose-ul:list-disc prose-ul:pl-6 prose-li:my-1 prose-ol:list-decimal prose-ol:pl-6 prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-300 ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md p-2 -m-2' : ''}`
-                })
+                React.createElement('div', { className: "p-6 sm:p-8" },
+                    React.createElement('article', {
+                      ref: contentRef,
+                      contentEditable: isEditing,
+                      suppressContentEditableWarning: true,
+                      dangerouslySetInnerHTML: { __html: document.content },
+                      className: `prose prose-invert max-w-none prose-h2:text-2xl prose-h2:font-semibold prose-h2:border-b prose-h2:border-gray-600 prose-h2:pb-2 prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3 prose-p:leading-relaxed prose-a:text-indigo-400 hover:prose-a:text-indigo-300 prose-code:text-amber-300 prose-code:font-mono prose-pre:bg-gray-900 prose-strong:text-white prose-ul:list-disc prose-ul:pl-6 prose-li:my-1 prose-ol:list-decimal prose-ol:pl-6 prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-300 ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md p-2 -m-2' : ''}`
+                    })
+                )
             )
         )
       )

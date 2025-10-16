@@ -40,7 +40,7 @@ const markdownToHtml = (text) => {
     // Inline elements
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em></em>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code>$1</code>');
 
     // Lists (unordered and ordered)
@@ -93,7 +93,7 @@ export const generateDocumentContent = async (params) => {
 ---
 ## 📖 Seção de Suporte ao Usuário Final
 
-**Instrução Adicional:** Agora, gere uma seção de suporte destinada ao **usuário final**, que não tem conhecimento técnico. Use uma linguagem simples, clara e direta. Evite jargões de programação ou de negócios. A seção deve ser útil e fácil de entender. Estruture em formato de FAQ (Perguntas Frequentes) e, se aplicável, um guia de "Passo a Passo para Solução de Problemas" para questões comuns.
+**Instrução Adicional:** Agora, gere uma seção de suporte detalhada e focada no **usuário final não técnico**. A linguagem deve ser extremamente simples, clara e direta, sem jargões. A estrutura principal desta seção **DEVE SER um guia de PASSO A PASSO** sobre como usar a funcionalidade principal da aplicação. Adicionalmente, inclua uma pequena seção de FAQ (Perguntas Frequentes) e um Guia de Solução de Problemas para as dúvidas mais comuns. O foco principal e a maior parte do conteúdo devem ser o guia passo a passo.
 `;
     }
     const finalStructure = baseStructure + supportInstruction;

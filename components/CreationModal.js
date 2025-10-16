@@ -83,13 +83,20 @@ const LOADING_MESSAGES = {
     'Verificando a precisão técnica...',
     'Gerando a seção de suporte...',
   ],
+  finalizing: [
+    'Finalizando a geração do documento...',
+    'Aplicando a formatação final e estilos...',
+    'Revisando a consistência e a coesão...',
+    'Polindo os últimos detalhes importantes...',
+    'Preparando tudo para a sua revisão...',
+  ],
 };
 
 
 const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
-  const [docType, setDocType] = useState('tech');
+  const [includeSupportSection, setIncludeSupportSection] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
   const [error, setError] = useState('');
@@ -124,6 +131,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [externalApis, setExternalApis] = useState('');
   
   const loadingMessageIndex = useRef(0);
+  const generationStage = useRef('main'); // 'main' or 'finalizing'
   
   useEffect(() => {
     if (pastedJson.trim() === '') {
@@ -142,6 +150,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   useEffect(() => {
     if (!isLoading) {
       loadingMessageIndex.current = 0;
+      generationStage.current = 'main';
       return;
     }
 
@@ -157,27 +166,49 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     if (hasAiContext) messagePool.push(...LOADING_MESSAGES.ai);
 
 
-    const finalMessageQueue = [
+    const mainMessageQueue = [
       'Iniciando conexão com a IA...',
       ...shuffleArray(messagePool),
       'Formatando o documento final...',
       'Quase pronto...',
     ];
+
+    const finalizingMessageQueue = shuffleArray(LOADING_MESSAGES.finalizing);
     
-    setLoadingMessage(finalMessageQueue[0]);
+    setLoadingMessage(mainMessageQueue[0]);
 
     const cycleMessages = () => {
-      loadingMessageIndex.current = (loadingMessageIndex.current + 1) % finalMessageQueue.length;
-      setLoadingMessage(finalMessageQueue[loadingMessageIndex.current]);
+      let timeoutId;
       
-      const nextInterval = 2000 + Math.random() * 1500; // Random interval between 2s and 3.5s
-      timeoutId = setTimeout(cycleMessages, nextInterval);
+      if (generationStage.current === 'main') {
+          const currentIndex = loadingMessageIndex.current;
+          const currentMessage = mainMessageQueue[currentIndex];
+          
+          if (currentMessage === 'Quase pronto...') {
+              generationStage.current = 'finalizing';
+              loadingMessageIndex.current = 0;
+              setLoadingMessage(finalizingMessageQueue[0]);
+              timeoutId = setTimeout(cycleMessages, 3500); // Slower interval for first finalizing message
+              return;
+          }
+
+          loadingMessageIndex.current = currentIndex + 1;
+          setLoadingMessage(mainMessageQueue[loadingMessageIndex.current]);
+          const nextInterval = 2000 + Math.random() * 1500;
+          timeoutId = setTimeout(cycleMessages, nextInterval);
+
+      } else { // 'finalizing' stage
+          loadingMessageIndex.current = (loadingMessageIndex.current + 1) % finalizingMessageQueue.length;
+          setLoadingMessage(finalizingMessageQueue[loadingMessageIndex.current]);
+          const nextInterval = 3500 + Math.random() * 2000; // Even slower and more variable interval
+          timeoutId = setTimeout(cycleMessages, nextInterval);
+      }
     };
 
-    let timeoutId = setTimeout(cycleMessages, 2000);
+    let initialTimeout = setTimeout(cycleMessages, 2000);
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(initialTimeout);
     };
   }, [isLoading, currentTeam, uploadedImages.length, pastedCode.length, codeFiles.length, pastedJson.length, jsonFiles.length, systemPrompt, workflow, tools, exampleIO, guardrails]);
 
@@ -274,7 +305,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         projectName,
         description,
         team: currentTeam,
-        includeSupportSection: docType === 'tech_support',
+        includeSupportSection,
         teamData,
       };
 
@@ -444,11 +475,15 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
               React.createElement('textarea', { id: "description", rows: 3, value: description, onChange: (e) => setDescription(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o objetivo principal do projeto ou da funcionalidade..." })
             ),
              React.createElement('div', null,
-              React.createElement('label', { className: "block text-sm font-medium text-gray-300 mb-2" }, "Tipo de Documentação"),
-              React.createElement('div', { className: "flex gap-4" },
-                 React.createElement('label', { className: "flex items-center space-x-2 text-gray-300" }, React.createElement('input', { type: "radio", name: "docType", value: "tech", checked: docType === 'tech', onChange: () => setDocType('tech'), className: "form-radio text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500" }), React.createElement('span', null, "Técnica (para equipe)")),
-                React.createElement('label', { className: "flex items-center space-x-2 text-gray-300" }, React.createElement('input', { type: "radio", name: "docType", value: "tech_support", checked: docType === 'tech_support', onChange: () => setDocType('tech_support'), className: "form-radio text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500" }), React.createElement('span', null, "Técnica + Suporte (para usuário)"))
-              )
+                React.createElement('label', { className: "flex items-center space-x-3 text-gray-300 cursor-pointer" },
+                    React.createElement('input', { 
+                        type: "checkbox", 
+                        checked: includeSupportSection, 
+                        onChange: (e) => setIncludeSupportSection(e.target.checked), 
+                        className: "form-checkbox h-5 w-5 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500" 
+                    }),
+                    React.createElement('span', { className: "text-sm font-medium" }, "Adicionar Seção de Suporte ao Usuário Final")
+                )
             ),
              React.createElement('hr', { className: "border-gray-600" }),
             // Team Specific Inputs
