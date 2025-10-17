@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon } from './Icons.js';
+import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon } from './Icons.js';
 import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
 
@@ -42,56 +42,89 @@ const LOADING_MESSAGES = {
   general: [
     'Sintetizando informações...',
     'Estruturando o documento...',
-    'Conectando com o modelo de IA...',
     'Estabelecendo o contexto...',
     'Analisando os requisitos...',
+    'Dando vida às suas ideias...',
+    'Organizando o conhecimento...',
+    'Construindo a estrutura...',
+    'Aplicando melhores práticas...',
   ],
   code: [
     'Analisando a estrutura do código...',
-    'Identificando os componentes principais...',
-    'Interpretando a lógica de negócio...',
-    'Analisando dependências...',
+    'Identificando componentes...',
+    'Interpretando a lógica do código...',
     'Mapeando os endpoints da API...',
-    'Verificando o esquema do banco de dados...',
+    'Rastreando dependências...',
+    'Construindo o grafo de chamadas...',
+    'Verificando esquema do BD...',
+    'Extraindo comentários do código...',
   ],
   images: [
     'Processando os dados das imagens...',
-    'Identificando componentes de UI...',
-    'Analisando fluxos de usuário visuais...',
-    'Extraindo a paleta de cores...',
-    'Reconhecendo a tipografia...',
+    'Analisando elementos da UI...',
+    'Identificando cores e fontes...',
+    'Analisando fluxos visuais...',
+    'Mapeando a jornada visual...',
+    'Criando hierarquia visual...',
+    'Inferindo intenções do design...',
   ],
   json: [
-    'Interpretando o esquema JSON...',
+    'Processando lógica do JSON...',
     'Mapeando os nós da automação...',
-    'Analisando a lógica condicional...',
-    'Identificando integrações externas...',
+    'Validando o fluxo de dados...',
+    'Simulando a automação...',
+    'Analisando lógica condicional...',
+    'Identificando APIs externas...',
   ],
   ai: [
     'Analisando o System Prompt...',
     'Mapeando as ferramentas (Tools)...',
-    'Compreendendo o fluxo de trabalho...',
-    'Avaliando os exemplos de I/O...',
+    'Interpretando as guardrails...',
+    'Analisando fluxo da conversa...',
+    'Criando cenários de teste...',
+    'Avaliando exemplos de I/O...',
     'Verificando as guardrails de segurança...',
   ],
   writing: [
     'Rascunhando a introdução...',
     'Elaborando as seções técnicas...',
     'Detalhando a arquitetura...',
-    'Escrevendo os guias de configuração...',
-    'Revisando a clareza e coesão...',
-    'Verificando a precisão técnica...',
+    'Adicionando exemplos práticos...',
+    'Garantindo a consistência...',
+    'Escrevendo os guias de uso...',
+    'Revisando clareza e coesão...',
     'Gerando a seção de suporte...',
+    'Criando exemplos de código...',
   ],
   finalizing: [
-    'Finalizando a geração do documento...',
-    'Aplicando a formatação final e estilos...',
-    'Revisando a consistência e a coesão...',
-    'Polindo os últimos detalhes importantes...',
-    'Preparando tudo para a sua revisão...',
+    'Finalizando a geração...',
+    'Aplicando formatação final...',
+    'Otimizando a legibilidade...',
+    'Polindo os últimos detalhes...',
+    'Preparando para a sua revisão...',
+    'Verificação final...',
   ],
 };
 
+// Helper function to process directory handle
+async function processDirectory(directoryHandle, path = '') {
+    const files = [];
+    for await (const entry of directoryHandle.values()) {
+        const currentPath = path ? `${path}/${entry.name}` : entry.name;
+        if (entry.kind === 'file') {
+            try {
+              const file = await entry.getFile();
+              const content = await file.text();
+              files.push({ path: currentPath, content });
+            } catch (e) {
+              console.warn(`Não foi possível ler o arquivo: ${currentPath}`, e);
+            }
+        } else if (entry.kind === 'directory') {
+            files.push(...await processDirectory(entry, currentPath));
+        }
+    }
+    return files;
+}
 
 const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
   const [projectName, setProjectName] = useState('');
@@ -99,17 +132,24 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [includeSupportSection, setIncludeSupportSection] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
+  const [displayedLoadingMessage, setDisplayedLoadingMessage] = useState('');
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [generationResult, setGenerationResult] = useState(null);
 
   // Team specific state
-  const [codeFiles, setCodeFiles] = useState([]);
   const [jsonFiles, setJsonFiles] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]);
-  const [pastedCode, setPastedCode] = useState('');
   const [pastedJson, setPastedJson] = useState('');
   const [isJsonValid, setIsJsonValid] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-
+  
+  // Team Devs
+  const [folderFiles, setFolderFiles] = useState([]);
+  const [uploadedCodeFiles, setUploadedCodeFiles] = useState([]);
+  const [pastedCode, setPastedCode] = useState('');
+  const [databaseSchema, setDatabaseSchema] = useState('');
+  const [dependencies, setDependencies] = useState('');
 
   // Team AI
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -118,10 +158,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [exampleIO, setExampleIO] = useState('');
   const [guardrails, setGuardrails] = useState('');
   
-  // Team Devs
-  const [databaseSchema, setDatabaseSchema] = useState('');
-  const [dependencies, setDependencies] = useState('');
-
   // Team UX/UI
   const [personas, setPersonas] = useState('');
   const [userFlows, setUserFlows] = useState('');
@@ -130,8 +166,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [triggerInfo, setTriggerInfo] = useState('');
   const [externalApis, setExternalApis] = useState('');
   
-  const loadingMessageIndex = useRef(0);
-  const generationStage = useRef('main'); // 'main' or 'finalizing'
   const isCancelled = useRef(false);
   const [activeTemplate, setActiveTemplate] = useState(null);
 
@@ -155,74 +189,135 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     }
   }, [pastedJson]);
 
-  // Loading message effect
+  // Effect for typing animation
   useEffect(() => {
     if (!isLoading) {
-      loadingMessageIndex.current = 0;
-      generationStage.current = 'main';
+      setDisplayedLoadingMessage('');
       return;
     }
 
+    let currentText = '';
+    let charIndex = 0;
+    // Reset message before starting to type
+    setDisplayedLoadingMessage('');
+
+    const intervalId = setInterval(() => {
+      if (charIndex < loadingMessage.length) {
+        currentText += loadingMessage.charAt(charIndex);
+        setDisplayedLoadingMessage(currentText);
+        charIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 50); // Typing speed in ms
+
+    return () => clearInterval(intervalId);
+  }, [loadingMessage, isLoading]);
+
+  // Loading message and progress effect
+  useEffect(() => {
+    if (!isLoading) {
+      setProgress(0);
+      setLoadingMessage('Iniciando...');
+      return;
+    }
+
+    isCancelled.current = false;
+    let timeoutId;
+
     const hasImages = currentTeam === Team.UXUI && uploadedImages.length > 0;
-    const hasCode = currentTeam === Team.Developers && (pastedCode.length > 0 || codeFiles.length > 0);
+    const hasCode = currentTeam === Team.Developers && (folderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0);
     const hasJson = currentTeam === Team.Automations && (pastedJson.length > 0 || jsonFiles.length > 0);
     const hasAiContext = currentTeam === Team.AI && (systemPrompt || workflow || tools || exampleIO || guardrails);
 
-    let messagePool = [...LOADING_MESSAGES.general, ...LOADING_MESSAGES.writing];
-    if (hasCode) messagePool.push(...LOADING_MESSAGES.code);
-    if (hasImages) messagePool.push(...LOADING_MESSAGES.images);
-    if (hasJson) messagePool.push(...LOADING_MESSAGES.json);
-    if (hasAiContext) messagePool.push(...LOADING_MESSAGES.ai);
+    const stages = [{
+        messages: ['Conectando com o modelo de IA...'],
+        duration: 2500,
+        progressTarget: 10
+    }];
 
-
-    const mainMessageQueue = [
-      'Iniciando conexão com a IA...',
-      ...shuffleArray(messagePool),
-      'Formatando o documento final...',
-      'Quase pronto...',
-    ];
-
-    const finalizingMessageQueue = shuffleArray(LOADING_MESSAGES.finalizing);
+    let contextMessages = [];
+    if (hasCode) contextMessages.push(...LOADING_MESSAGES.code);
+    if (hasImages) contextMessages.push(...LOADING_MESSAGES.images);
+    if (hasJson) contextMessages.push(...LOADING_MESSAGES.json);
+    if (hasAiContext) contextMessages.push(...LOADING_MESSAGES.ai);
+    if (contextMessages.length === 0) {
+      contextMessages.push(...LOADING_MESSAGES.general);
+    }
     
-    setLoadingMessage(mainMessageQueue[0]);
+    stages.push({
+      messages: shuffleArray(contextMessages).slice(0, 3), // Pick 3 random context messages
+      duration: 8000,
+      progressTarget: 45
+    });
 
-    const cycleMessages = () => {
-      let timeoutId;
-      
-      if (generationStage.current === 'main') {
-          const currentIndex = loadingMessageIndex.current;
-          const currentMessage = mainMessageQueue[currentIndex];
-          
-          if (currentMessage === 'Quase pronto...') {
-              generationStage.current = 'finalizing';
-              loadingMessageIndex.current = 0;
-              setLoadingMessage(finalizingMessageQueue[0]);
-              timeoutId = setTimeout(cycleMessages, 3500); // Slower interval for first finalizing message
-              return;
-          }
+    stages.push({
+      messages: shuffleArray(LOADING_MESSAGES.writing).slice(0, 4), // Pick 4 random writing messages
+      duration: 12000,
+      progressTarget: 90
+    });
 
-          loadingMessageIndex.current = currentIndex + 1;
-          setLoadingMessage(mainMessageQueue[loadingMessageIndex.current]);
-          const nextInterval = 2000 + Math.random() * 1500;
-          timeoutId = setTimeout(cycleMessages, nextInterval);
+    stages.push({
+      messages: shuffleArray(LOADING_MESSAGES.finalizing).slice(0, 2),
+      duration: 5000,
+      progressTarget: 95
+    });
+    
+    let currentStageIndex = 0;
+    let messageInStageIndex = 0;
 
-      } else { // 'finalizing' stage
-          loadingMessageIndex.current = (loadingMessageIndex.current + 1) % finalizingMessageQueue.length;
-          setLoadingMessage(finalizingMessageQueue[loadingMessageIndex.current]);
-          const nextInterval = 3500 + Math.random() * 2000; // Even slower and more variable interval
-          timeoutId = setTimeout(cycleMessages, nextInterval);
-      }
+    const runStages = () => {
+        if (isCancelled.current || currentStageIndex >= stages.length) {
+            return;
+        }
+
+        const stage = stages[currentStageIndex];
+        const message = stage.messages[messageInStageIndex];
+        setLoadingMessage(message);
+
+        const progressStartOfStage = currentStageIndex > 0 ? stages[currentStageIndex - 1].progressTarget : 0;
+        const progressTargetForStage = stage.progressTarget;
+        const messagesInStage = stage.messages.length;
+        const progressIncrement = (progressTargetForStage - progressStartOfStage) / messagesInStage;
+        
+        const currentProgress = progressStartOfStage + (progressIncrement * (messageInStageIndex + 1));
+        setProgress(currentProgress);
+
+        messageInStageIndex++;
+        if (messageInStageIndex >= stage.messages.length) {
+            currentStageIndex++;
+            messageInStageIndex = 0;
+        }
+
+        timeoutId = setTimeout(runStages, stage.duration / stage.messages.length);
     };
 
-    let initialTimeout = setTimeout(cycleMessages, 2000);
+    runStages();
 
     return () => {
-      clearTimeout(initialTimeout);
+      isCancelled.current = true;
+      clearTimeout(timeoutId);
     };
-  }, [isLoading, currentTeam, uploadedImages.length, pastedCode.length, codeFiles.length, pastedJson.length, jsonFiles.length, systemPrompt, workflow, tools, exampleIO, guardrails]);
+  }, [isLoading]);
+
+  // Effect to finish progress bar when generation is complete
+  useEffect(() => {
+    if (generationResult && !isCancelled.current) {
+      setLoadingMessage('Documento pronto!');
+      setProgress(100);
+    }
+  }, [generationResult]);
+  
+  // Effect to trigger document creation after animation and generation are complete
+  useEffect(() => {
+    if (progress >= 100 && generationResult && !isCancelled.current) {
+        onDocumentCreate(generationResult.title, generationResult.content);
+        onClose();
+    }
+  }, [progress, generationResult, onDocumentCreate, onClose]);
 
 
-  const handleFileChange = async (e) => {
+  const handleJsonFileChange = async (e) => {
       const files = e.target.files;
       if (!files) return;
 
@@ -232,12 +327,26 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
           );
           const newFiles = await Promise.all(newFilesPromises);
 
-          if (currentTeam === Team.Developers) setCodeFiles(prev => [...prev, ...newFiles]);
           if (currentTeam === Team.Automations) setJsonFiles(prev => [...prev, ...newFiles]);
       } catch (err) {
           setError('Falha ao ler um ou mais arquivos.');
       }
   }
+
+  const handleCodeFileChange = async (e) => {
+    const files = e.target.files;
+    if (!files) return;
+     try {
+        const newFilesPromises = Array.from(files).map(file => 
+          fileToText(file).then(content => ({ name: file.name, content }))
+        );
+        const newFiles = await Promise.all(newFilesPromises);
+        setUploadedCodeFiles(prev => [...prev, ...newFiles]);
+     } catch (err) {
+        setError('Falha ao ler um ou mais arquivos de código.');
+     }
+  };
+
 
   const addImages = (files) => {
       if (!files) return;
@@ -272,25 +381,44 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
 
   const canGenerate = () => !!projectName && !!description;
 
+  const handleSelectFolder = async () => {
+    try {
+        const directoryHandle = await window.showDirectoryPicker();
+        setError(''); // Clear previous errors
+        setLoadingMessage('Processando pasta...'); // Show feedback
+        const files = await processDirectory(directoryHandle);
+        const codeFileExtensions = ['.js', '.ts', '.tsx', '.py', '.java', '.cs', '.go', '.rs', '.php', '.html', '.css', '.scss', '.json', '.md', 'Dockerfile', '.yml', '.yaml'];
+        const filteredFiles = files.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
+        setFolderFiles(filteredFiles);
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error("Erro ao selecionar a pasta:", err);
+            setError("Não foi possível acessar a pasta selecionada.");
+        }
+    } finally {
+        setLoadingMessage('');
+    }
+  };
+
   const handleGenerate = async () => {
-    if (!canGenerate()) {
+    if (!canGenerate() || isLoading) {
       setError('Por favor, preencha o nome do projeto e a descrição.');
       return;
     }
     
     setIsLoading(true);
     setError('');
+    setGenerationResult(null);
     isCancelled.current = false;
 
     try {
-        const codeFromFiles = codeFiles.map(f => `--- Código do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
-        const allCode = [pastedCode, codeFromFiles].filter(Boolean).join('\n\n');
-
         const jsonFromFiles = jsonFiles.map(f => `--- JSON do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
         const allJson = [pastedJson, jsonFromFiles].filter(Boolean).join('\n\n');
 
         let teamData = {
-            code: allCode || undefined,
+            folderFiles: folderFiles.length > 0 ? folderFiles : undefined,
+            uploadedCodeFiles: uploadedCodeFiles.length > 0 ? uploadedCodeFiles : undefined,
+            pastedCode: pastedCode || undefined,
             databaseSchema,
             dependencies,
             json: allJson || undefined,
@@ -319,20 +447,16 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         teamData,
       };
 
-      const { title, content } = await generateContent(params);
+      const result = await generateContent(params);
       
       if (!isCancelled.current) {
-        onDocumentCreate(title, content);
-        onClose();
+        setGenerationResult(result);
       }
 
     } catch (err) {
       if (!isCancelled.current) {
         setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
-      }
-    } finally {
-      if (!isCancelled.current) {
-        setIsLoading(false);
+        setIsLoading(false); // Stop loading on error
       }
     }
   };
@@ -354,42 +478,71 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setTools(template.content.tools || '');
     setExampleIO(template.content.exampleIO || '');
     setGuardrails(template.content.guardrails || '');
+    // Reset folder/file inputs when using a template
+    setFolderFiles([]);
+    setUploadedCodeFiles([]);
   };
 
-  const FileChip = ({ file, onRemove }) => (
-    React.createElement('div', { className: "bg-gray-700 p-2 rounded-md flex items-center justify-between" },
-      React.createElement('div', { className: "flex items-center gap-2 text-gray-300" },
+  const FileChip = ({ file, onRemove, isPath = false }) => (
+    React.createElement('div', { className: "bg-gray-700 p-2 rounded-md flex items-center justify-between text-gray-300" },
+      React.createElement('div', { className: "flex items-center gap-2 min-w-0" },
         React.createElement(FileIcon, null),
-        React.createElement('span', { className: "text-sm font-mono truncate" }, file.name)
+        React.createElement('span', { className: "text-sm font-mono truncate", title: isPath ? file.path : file.name }, isPath ? file.path : file.name)
       ),
-      React.createElement('button', { onClick: onRemove, className: "text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500" },
+      onRemove && React.createElement('button', { onClick: onRemove, className: "text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500 ml-2 flex-shrink-0" },
         React.createElement(CloseIcon, null)
       )
     )
   );
 
   const renderTeamSpecificInputs = () => {
+      const isFolderPickerSupported = 'showDirectoryPicker' in window;
+
       switch (currentTeam) {
           case Team.Developers:
               return (
-                React.createElement(React.Fragment, null,
-                  React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                    React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(CodeIcon, null), " Contexto de Código (Opcional)"),
-                    React.createElement('div', { className: "space-y-2" },
-                        codeFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setCodeFiles(prev => prev.filter((_, i) => i !== index)) }))
+                React.createElement('div', { className: "space-y-4" },
+                  React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, "Central de Contexto do Código"),
+                  
+                  // 1. Select Folder
+                  React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
+                    React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(FolderIcon, null), "Pasta do Projeto (Recomendado)"),
+                    folderFiles.length > 0 ? (
+                        React.createElement(React.Fragment, null,
+                            React.createElement('div', { className: 'max-h-28 overflow-y-auto bg-gray-800 p-2 rounded-md space-y-1' },
+                                folderFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, isPath: true }))
+                            ),
+                            React.createElement('button', { onClick: () => setFolderFiles([]), className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1" }, "Limpar Pasta")
+                        )
+                    ) : (
+                      React.createElement('button', { onClick: handleSelectFolder, disabled: !isFolderPickerSupported, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed disabled:text-gray-500" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))
                     ),
-                    React.createElement('textarea', { rows: 6, value: pastedCode, onChange: e => setPastedCode(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o código fonte aqui..." }),
-                    React.createElement('div', { className: "text-center text-sm text-gray-400" }, "e/ou"),
-                    React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
-                        React.createElement(UploadIcon, null),
-                        React.createElement('span', null, "Enviar Arquivo(s) de Código"),
-                        React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleFileChange, accept: ".js,.ts,.tsx,.py,.java,.cs,.go,.rs,.php,.html,.css,.scss" })
+                    !isFolderPickerSupported && (
+                        React.createElement('div', { className: 'flex items-center gap-2 text-xs text-amber-300 mt-2 p-2 bg-amber-900/50 rounded-md' }, React.createElement(InfoIcon, null), "Seu navegador não suporta seleção de pastas. Use Chrome/Edge.")
                     )
                   ),
-                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
-                     React.createElement('textarea', { rows: 3, value: databaseSchema, onChange: e => setDatabaseSchema(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Cole o esquema do banco de dados (SQL, Prisma, etc)..." }),
-                     React.createElement('textarea', { rows: 3, value: dependencies, onChange: e => setDependencies(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as dependências ou bibliotecas mais importantes..." })
+
+                  // 2. Upload Files
+                  React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
+                      React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(UploadIcon, null), "Arquivos Avulsos"),
+                      uploadedCodeFiles.length > 0 && (
+                          React.createElement('div', { className: 'max-h-28 overflow-y-auto space-y-1' },
+                              uploadedCodeFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setUploadedCodeFiles(prev => prev.filter((_, i) => i !== index)) }))
+                          )
+                      ),
+                      React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(UploadIcon, null),React.createElement('span', null, "Enviar Arquivo(s) de Código"),React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleCodeFileChange }))
+                  ),
+
+                  // 3. Paste Code
+                  React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
+                      React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(CodeIcon, null), "Colar Código"),
+                      React.createElement('textarea', { rows: 4, value: pastedCode, onChange: e => setPastedCode(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole trechos de código, logs, ou outros contextos de texto aqui..." })
+                  ),
+
+                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
+                     React.createElement('h4', { className: "text-sm font-medium text-gray-300" }, "Contexto Adicional"),
+                     React.createElement('textarea', { rows: 2, value: databaseSchema, onChange: e => setDatabaseSchema(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Esquema do banco de dados (SQL, Prisma, etc)..." }),
+                     React.createElement('textarea', { rows: 2, value: dependencies, onChange: e => setDependencies(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Dependências ou bibliotecas importantes..." })
                   )
                 )
               )
@@ -454,7 +607,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                          React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
                             React.createElement(UploadIcon, null),
                             React.createElement('span', null, "Enviar Arquivo(s) JSON"),
-                            React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleFileChange, accept: ".json" })
+                            React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleJsonFileChange, accept: ".json" })
                         )
                   ),
                    React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
@@ -483,7 +636,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const teamTemplates = TEMPLATES[currentTeam] || [];
 
   return (
-    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
+    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: isLoading ? undefined : onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
       React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col animate-slide-up", onClick: (e) => e.stopPropagation() },
         React.createElement('div', { className: "p-6 border-b border-gray-700" },
           React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, "Criar Documento para ", React.createElement('span', { className: "text-indigo-400" }, currentTeam))
@@ -530,29 +683,32 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         ),
 
           error && React.createElement('p', { className: "text-red-400 text-sm text-center px-6 pb-4" }, error),
-
-          React.createElement('div', { className: "flex flex-col sm:flex-row justify-between items-center mt-auto p-6 bg-gray-800/50 border-t border-gray-700 gap-4" },
-            React.createElement('div', { className: "w-full sm:w-auto flex flex-col sm:flex-row-reverse gap-4 ml-auto" },
+          
+        React.createElement('div', { className: "mt-auto p-6 bg-gray-800/50 border-t border-gray-700" },
+           React.createElement('div', { className: "flex flex-col sm:flex-row justify-end items-center gap-4" },
+                React.createElement('button', { onClick: onClose, disabled: isLoading, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50" }, "Cancelar"),
                 React.createElement('button', {
                     onClick: handleGenerate,
-                    disabled: !canGenerate() || isLoading || !isJsonValid,
-                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed min-w-[250px]"
-                  },
-                  isLoading 
-                    ? React.createElement('div', { className: "flex items-center justify-center" },
-                        React.createElement(LoadingSpinner, null),
-                        React.createElement('div', { className: "relative ml-3 w-56 h-10 overflow-hidden text-left" },
-                            React.createElement('span', {
-                                key: loadingMessage,
-                                className: "absolute inset-0 flex items-center text-sm animate-slide-up-fade-in"
-                            }, React.createElement('span', null, loadingMessage))
-                        )
-                      )
-                    : 'Gerar com IA'
-                ),
-                 React.createElement('button', { onClick: onClose, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors" }, "Cancelar")
+                    disabled: !canGenerate() || !isJsonValid || isLoading,
+                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-start disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-64 min-h-[40px] transition-all duration-300"
+                },
+                    isLoading 
+                        ? React.createElement(React.Fragment, null, 
+                            React.createElement(LoadingSpinner, null), 
+                            React.createElement('span', { className: 'ml-3 text-left w-full typing-cursor' }, displayedLoadingMessage)
+                          )
+                        : React.createElement('span', {className: 'mx-auto'}, 'Gerar com IA')
+                )
+            ),
+            isLoading && React.createElement('div', { className: "w-full mt-4" },
+                 React.createElement('div', { className: "w-full bg-gray-600 rounded-full h-1.5" },
+                    React.createElement('div', {
+                        className: "bg-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out",
+                        style: { width: `${progress}%` }
+                    })
+                )
             )
-          )
+        )
       )
     )
   );

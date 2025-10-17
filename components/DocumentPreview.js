@@ -34,44 +34,6 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
     }
   }, [document]);
 
-  // Add event listeners for copy buttons
-  useEffect(() => {
-    if (!contentRef.current) return;
-
-    const copyButtons = contentRef.current.querySelectorAll('.copy-code-btn');
-    
-    const handleCodeCopy = (e) => {
-        const button = e.currentTarget;
-        const pre = button.nextElementSibling;
-        if (pre && pre.tagName === 'PRE') {
-            const code = pre.querySelector('code');
-            if (code) {
-                navigator.clipboard.writeText(code.innerText).then(() => {
-                    button.textContent = 'Copiado!';
-                    button.classList.add('copied');
-                    setTimeout(() => {
-                        button.textContent = 'Copiar';
-                        button.classList.remove('copied');
-                    }, 2000);
-                }).catch(err => {
-                    button.textContent = 'Erro';
-                    console.error('Falha ao copiar código: ', err);
-                });
-            }
-        }
-    };
-
-    copyButtons.forEach(button => {
-      button.addEventListener('click', handleCodeCopy);
-    });
-
-    return () => {
-      copyButtons.forEach(button => {
-        button.removeEventListener('click', handleCodeCopy);
-      });
-    };
-  }, [document.content, isEditing]); // Rerun when content is set or we enter/exit edit mode
-
   const handleFormat = (command) => {
     if (!isEditing || !contentRef.current) return;
 

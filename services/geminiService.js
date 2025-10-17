@@ -31,14 +31,6 @@ const markdownToHtml = (text) => {
       .replace(/^## (.*$)/gm, '<h2>$1</h2>')
       .replace(/^# (.*$)/gm, '<h1>$1</h1>');
 
-    // Code blocks with copy button
-    htmlContent = htmlContent.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
-        const languageClass = lang ? ` class="language-${lang}"` : '';
-        const cleanedCode = code.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const copyButton = `<button class="copy-code-btn" title="Copiar código">Copiar</button>`;
-        return `<div class="code-block-wrapper">${copyButton}<pre><code${languageClass}>${cleanedCode}</code></pre></div>`;
-    });
-
     // Inline elements
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -105,13 +97,37 @@ export const generateDocumentContent = async (params) => {
     }
 
     let teamContext = '';
-    teamContext += teamData.code ? `**Código Fonte para Análise:**\n\`\`\`\n${teamData.code}\n\`\`\`\nUse o código acima como a principal fonte de verdade para preencher a documentação.\n` : '';
+    
+    // Handle context for developers from multiple sources
+    if (team === Team.Developers) {
+        if (teamData.folderFiles && teamData.folderFiles.length > 0) {
+          let folderContent = '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
+          for (const file of teamData.folderFiles) {
+            folderContent += `--- Arquivo: ${file.path} ---\n${file.content}\n\n`;
+          }
+          teamContext += folderContent;
+        }
+
+        if (teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
+          let filesContent = '**Arquivos Avulsos Anexados:**\n\n';
+          for (const file of teamData.uploadedCodeFiles) {
+            filesContent += `--- Arquivo: ${file.name} ---\n${file.content}\n\n`;
+          }
+          teamContext += filesContent;
+        }
+        
+        if (teamData.pastedCode) {
+            teamContext += `**Código Colado Adicional:**\n${teamData.pastedCode}\n\n`;
+        }
+    }
+
+
     teamContext += teamData.databaseSchema ? `**Esquema do Banco de Dados:**\n${teamData.databaseSchema}\n` : '';
     teamContext += teamData.dependencies ? `**Dependências e Bibliotecas:**\n${teamData.dependencies}\n` : '';
     teamContext += (teamData.images && teamData.images.length > 0) ? 'Analise as imagens de interface fornecidas para descrever os componentes, fluxos e design system.\n' : '';
     teamContext += teamData.personas ? `**Personas:**\n${teamData.personas}\n` : '';
     teamContext += teamData.userFlows ? `**Fluxos de Usuário (descrição textual):**\n${teamData.userFlows}\n` : '';
-    teamContext += teamData.json ? `**Estrutura da Automação (JSON - ex: N8N):**\n\`\`\`json\n${teamData.json}\n\`\`\`\nInterprete a estrutura JSON acima para detalhar os nós e a lógica.\n` : '';
+    teamContext += teamData.json ? `**Estrutura da Automação (JSON - ex: N8N):**\n${teamData.json}\nInterprete a estrutura JSON acima para detalhar os nós e a lógica.\n` : '';
     teamContext += teamData.triggerInfo ? `**Informações do Gatilho (Trigger):**\n${teamData.triggerInfo}\n` : '';
     teamContext += teamData.externalApis ? `**APIs Externas Envolvidas:**\n${teamData.externalApis}\n` : '';
     teamContext += teamData.systemPrompt ? `**System Prompt:**\n${teamData.systemPrompt}\n` : '';
@@ -126,9 +142,18 @@ export const generateDocumentContent = async (params) => {
       Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação abrangente e bem-estruturada para o projeto a seguir.
 
       **Instruções Chave:**
-      1.  **Estrutura Dinâmica:** NÃO use um template fixo. Analise o contexto fornecido (descrição, código, JSON, etc.) e gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
-      2.  **Estilo Profissional:** A documentação deve ser clara, prática e bem-organizada. Use uma estrutura hierárquica e numerada quando fizer sentido (ex: 1.0, 2.1, 2.1.1).
-      3.  **Conteúdo Essencial:** Comece com a motivação ou o objetivo do projeto. Em seguida, detalhe o fluxo de funcionamento, a arquitetura e os componentes técnicos ou de processo mais importantes. Preencha todo o conteúdo de forma detalhada e profissional. O resultado final não deve conter placeholders.
+      1.  **Análise Holística:** Você recebeu um contexto de código de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado). Analise TODAS as fontes e suas relações para entender o projeto de forma completa antes de escrever.
+      2.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do código, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
+      3.  **Estilo Profissional:** A documentação deve ser clara, prática e bem-organizada. Use uma estrutura hierárquica e numerada quando fizer sentido (ex: 1.0, 2.1, 2.1.1).
+      4.  **Conteúdo Essencial:** Comece com a motivação ou o objetivo do projeto. Em seguida, detalhe o fluxo de funcionamento, a arquitetura e os componentes técnicos ou de processo mais importantes. Preencha todo o conteúdo de forma detalhada e profissional. O resultado final não deve conter placeholders.
+      5.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria.
+      6.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
+          - **PROIBIDO:** NUNCA, sob nenhuma circunstância, use blocos de código com três crases (\`\`\`). A saída NÃO DEVE conter \`\`\`.
+          - **CORRETO:** Para código em linha (nomes de variáveis, funções, arquivos), use crases SIMPLES (\`). Exemplo: \`minhaFuncao()\`.
+          - **PROIBIDO:** Não gere crases vazias ou com apenas espaços, como \` \` ou \`\`.
+          - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases.
+          - Use negrito (\*\*) para ênfase e títulos de seção.
+      7.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
 
       **Informações do Projeto:**
       - Nome do Projeto: ${projectName}
@@ -143,19 +168,31 @@ export const generateDocumentContent = async (params) => {
     if (includeSupportSection) {
       supportInstruction = `
 ---
-## 📖 Seção de Suporte ao Usuário Final
+## 📖 Guia Completo do Usuário (Help Center)
 
-**Instrução Adicional:** Após a documentação técnica, adicione uma seção de suporte completa e dedicada ao **usuário final não técnico**. A linguagem deve ser extremamente simples, clara e direta.
+**Instrução Adicional OBRIGATÓRIA:** Após a documentação técnica, sua tarefa mais importante é criar um guia de usuário final EXTREMAMENTE COMPLETO e abrangente. Este não é apenas um anexo, mas um manual detalhado para um usuário que não tem NENHUM conhecimento técnico. A linguagem deve ser a mais simples e acessível possível. Analise TODO o contexto fornecido (descrição, código, imagens, fluxos) para identificar TODAS as funcionalidades e interações possíveis do ponto de vista do usuário.
 
-**Estrutura Obrigatória para a Seção de Suporte:**
-1.  **O que é?** Uma explicação curta e simples sobre o que é a funcionalidade e para que serve.
-2.  **Guia Passo a Passo:** Um guia detalhado sobre como usar a funcionalidade principal. Use uma lista numerada, frases curtas e verbos de ação. Seja o mais didático possível.
-3.  **Solução de Problemas Comuns (Troubleshooting):** Uma seção com 2-3 problemas comuns que um usuário pode enfrentar. Para cada problema, forneça a Causa provável e a Solução clara, neste formato:
-    - **Problema:** [Descrição do problema]
-    - **Causa:** [Explicação simples da causa]
-    - **Solução:** [Passos claros para resolver]
+**Estrutura Obrigatória para o Guia do Usuário:**
 
-Inspire-se em guias de usuário de alta qualidade para criar esta seção.
+### 1. Bem-vindo ao ${projectName}!
+- **O que é isso?** Comece com uma explicação muito simples e amigável sobre o que é a funcionalidade/projeto e qual problema ela resolve para o usuário no dia a dia. Use analogias se ajudar.
+- **Para quem é isso?** Descreva o perfil de usuário que mais se beneficiará com isso.
+
+### 2. Primeiros Passos (Guia Rápido)
+- Forneça um guia de início rápido com 3 a 5 passos essenciais para que o usuário possa obter valor imediato. Ex: "1. Crie sua conta; 2. Configure seu perfil; 3. Crie seu primeiro projeto...".
+
+### 3. Tutoriais Detalhados (Passo a Passo)
+- **INSTRUÇÃO CRÍTICA:** Analise o contexto e INFERIR as principais tarefas que um usuário pode realizar. Crie um tutorial passo a passo separado para CADA TAREFA.
+- **Exemplos de tarefas a serem inferidas:** Se o contexto é sobre um sistema de e-commerce, crie tutoriais para "Como buscar um produto", "Como adicionar um item ao carrinho", "Como finalizar uma compra". Se for sobre uma ferramenta de design, "Como criar um novo arquivo", "Como usar a ferramenta de texto", "Como exportar seu trabalho". Se for uma landing page de cursos como o usuário mencionou, crie um tutorial para "Como se inscrever em um novo curso".
+- Cada tutorial deve ser ultra-detalhado, com uma lista numerada, verbos de ação claros (Ex: "Clique no botão 'Salvar'", "Arraste o item para a coluna 'Concluído'") e, se possível, descreva o que o usuário deve ver na tela.
+
+### 4. Solução de Problemas e Perguntas Frequentes (FAQ)
+- Crie uma seção robusta com pelo menos 5 a 8 problemas comuns ou perguntas frequentes.
+- Para cada item, use o seguinte formato:
+    - **🤔 Pergunta/Problema:** [Descreva a dúvida ou o erro em linguagem de usuário. Ex: "O botão de salvar não funciona." ou "Onde encontro meus arquivos?"]
+    - **💡 Solução/Resposta:** [Forneça uma explicação clara e uma série de passos simples para resolver o problema. Ex: "Isso geralmente acontece porque o campo 'Nome' não foi preenchido. Verifique se todos os campos obrigatórios (marcados com *) estão completos e tente salvar novamente."].
+
+Este guia deve ser tão completo que elimina a necessidade de o usuário entrar em contato com o suporte para tarefas rotineiras.
 `;
     }
 
@@ -184,12 +221,21 @@ Inspire-se em guias de usuário de alta qualidade para criar esta seção.
         model: "gemini-2.5-flash",
         contents,
     });
-    const text = response.text;
+    let text = response.text;
 
     if (!text) {
       throw new Error("A resposta da IA estava vazia.");
     }
     
+    // BUG FIX: Clean up common AI formatting errors before converting to HTML
+    // 1. Remove any triple (or more) backticks, as they are disallowed.
+    text = text.replace(/`{3,}/g, '');
+    // 2. Remove empty or whitespace-only inline code blocks.
+    text = text.replace(/`\s*`/g, '');
+
+    // Remove component-like placeholders that the AI might generate
+    text = text.replace(/<([A-Z][a-zA-Z0-9]+)\s*\/>/g, '');
+
     // Separate title from content
     const lines = text.trim().split('\n');
     let title = projectName;
