@@ -225,7 +225,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     isCancelled.current = false;
     let timeoutId;
 
-    const hasImages = currentTeam === Team.UXUI && uploadedImages.length > 0;
+    const hasImages = [Team.UXUI, Team.Automations, Team.AI].includes(currentTeam) && uploadedImages.length > 0;
     const hasCode = currentTeam === Team.Developers && (folderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0);
     const hasJson = currentTeam === Team.Automations && (pastedJson.length > 0 || jsonFiles.length > 0);
     const hasAiContext = currentTeam === Team.AI && (systemPrompt || workflow || tools || exampleIO || guardrails);
@@ -457,7 +457,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
             userFlows,
         };
       
-      if (currentTeam === Team.UXUI && uploadedImages.length > 0) {
+      const teamsWithImageUpload = [Team.UXUI, Team.Automations, Team.AI];
+      if (teamsWithImageUpload.includes(currentTeam) && uploadedImages.length > 0) {
         teamData.images = await Promise.all(
           uploadedImages.map(img => fileToBase64(img.file))
         );
@@ -505,6 +506,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     // Reset folder/file inputs when using a template
     setFolderFiles([]);
     setUploadedCodeFiles([]);
+    setUploadedImages([]);
   };
 
   const FileChip = ({ file, onRemove, isPath = false }) => (
@@ -516,6 +518,39 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
       onRemove && React.createElement('button', { onClick: onRemove, className: "text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500 ml-2 flex-shrink-0" },
         React.createElement(CloseIcon, null)
       )
+    )
+  );
+  
+  const ImageUploader = () => (
+    React.createElement('div', { 
+        onPaste: handleImagePaste,
+        onDragEnter: (e) => handleDragEvents(e, true),
+        onDragLeave: (e) => handleDragEvents(e, false),
+        onDragOver: (e) => handleDragEvents(e, true),
+        onDrop: handleDrop,
+        className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700"
+      },
+        React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(UploadIcon, null), " Imagens de Contexto (Opcional)"),
+        React.createElement('label', { className: `w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 border-2 border-dashed transition-colors ${isDragging ? 'border-indigo-500 bg-gray-600' : 'border-gray-500'}` },
+            React.createElement(UploadIcon, null),
+            React.createElement('span', null, "Arraste e solte, cole, ou clique para enviar"),
+            React.createElement('input', { type: "file", multiple: true, className: "hidden", onChange: handleImageChange, accept: "image/*" })
+        ),
+        uploadedImages.length > 0 && (
+            React.createElement('div', { className: "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" },
+                uploadedImages.map((img) => (
+                  React.createElement('div', { key: img.id, className: "relative group" },
+                    React.createElement('img', { src: img.preview, alt: "preview", className: "w-full h-20 object-cover rounded" }),
+                    React.createElement('button', { 
+                        onClick: () => removeImage(img.id), 
+                        className: "absolute top-1 right-1 text-white bg-red-600/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                      }, 
+                      React.createElement(CloseIcon, null)
+                    )
+                  )
+                ))
+            )
+        )
     )
   );
 
@@ -568,36 +603,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
           case Team.UXUI:
               return (
                 React.createElement(React.Fragment, null,
-                   React.createElement('div', { 
-                      onPaste: handleImagePaste,
-                      onDragEnter: (e) => handleDragEvents(e, true),
-                      onDragLeave: (e) => handleDragEvents(e, false),
-                      onDragOver: (e) => handleDragEvents(e, true),
-                      onDrop: handleDrop,
-                      className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700"
-                    },
-                      React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(UploadIcon, null), " Imagens da Interface (Opcional)"),
-                      React.createElement('label', { className: `w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 border-2 border-dashed transition-colors ${isDragging ? 'border-indigo-500 bg-gray-600' : 'border-gray-500'}` },
-                          React.createElement(UploadIcon, null),
-                          React.createElement('span', null, "Arraste e solte, cole, ou clique para enviar"),
-                          React.createElement('input', { type: "file", multiple: true, className: "hidden", onChange: handleImageChange, accept: "image/*" })
-                      ),
-                      uploadedImages.length > 0 && (
-                          React.createElement('div', { className: "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" },
-                              uploadedImages.map((img) => (
-                                React.createElement('div', { key: img.id, className: "relative group" },
-                                  React.createElement('img', { src: img.preview, alt: "preview", className: "w-full h-20 object-cover rounded" }),
-                                  React.createElement('button', { 
-                                      onClick: () => removeImage(img.id), 
-                                      className: "absolute top-1 right-1 text-white bg-red-600/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                                    }, 
-                                    React.createElement(CloseIcon, null)
-                                  )
-                                )
-                              ))
-                          )
-                      )
-                  ),
+                   React.createElement(ImageUploader, null),
                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
                      React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
                      React.createElement('textarea', { rows: 3, value: personas, onChange: e => setPersonas(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva as personas dos usuários..." }),
@@ -607,7 +613,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
               )
           case Team.Automations:
               return (
-                React.createElement(React.Fragment, null,
+                React.createElement('div', { className: "space-y-4" },
                    React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
                       React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, 
                           React.createElement(JsonIcon, null), 
@@ -633,18 +639,22 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                      React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
                      React.createElement('textarea', { rows: 3, value: triggerInfo, onChange: e => setTriggerInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o gatilho (trigger) da automação..." }),
                      React.createElement('textarea', { rows: 3, value: externalApis, onChange: e => setExternalApis(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as APIs externas envolvidas..." })
-                  )
+                  ),
+                  React.createElement(ImageUploader, null)
                 )
               )
           case Team.AI:
               return (
-                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                       React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(BrainIcon, null), " Componentes da IA (Opcional)"),
-                       React.createElement('textarea', { value: systemPrompt, onChange: e => setSystemPrompt(e.target.value), rows: 4, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "System Prompt: 'Você é um assistente prestativo que...' " }),
-                       React.createElement('textarea', { value: workflow, onChange: e => setWorkflow(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Fluxo de Trabalho: '1. Usuário pergunta sobre o produto X. 2. O agente usa a ferramenta Y para buscar detalhes...'" }),
-                       React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas: 'getProductInfo(productId: string): Product - Retorna informações de um produto.'" }),
-                       React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos I/O: 'Entrada: Qual o preço do item X? Saída: { name: X, price: 19.99 }'" }),
-                       React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails: 'Não responda a perguntas sobre tópicos sensíveis. Se o usuário insistir, encerre a conversa.'" })
+                   React.createElement('div', { className: "space-y-4" },
+                       React.createElement('div', { className: "p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4" },
+                           React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(BrainIcon, null), " Componentes da IA (Opcional)"),
+                           React.createElement('textarea', { value: systemPrompt, onChange: e => setSystemPrompt(e.target.value), rows: 4, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "System Prompt: 'Você é um assistente prestativo que...' " }),
+                           React.createElement('textarea', { value: workflow, onChange: e => setWorkflow(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Fluxo de Trabalho: '1. Usuário pergunta sobre o produto X. 2. O agente usa a ferramenta Y para buscar detalhes...'" }),
+                           React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas: 'getProductInfo(productId: string): Product - Retorna informações de um produto.'" }),
+                           React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos I/O: 'Entrada: Qual o preço do item X? Saída: { name: X, price: 19.99 }'" }),
+                           React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails: 'Não responda a perguntas sobre tópicos sensíveis. Se o usuário insistir, encerre a conversa.'" })
+                       ),
+                       React.createElement(ImageUploader, null)
                   )
               )
           default:

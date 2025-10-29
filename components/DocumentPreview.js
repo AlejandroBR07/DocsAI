@@ -36,66 +36,10 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
 
   const handleFormat = (command) => {
     if (!isEditing || !contentRef.current) return;
-
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-
-    const range = selection.getRangeAt(0);
-
-    const applyInlineFormat = (tagName) => {
-        if (range.collapsed) return;
-        const element = window.document.createElement(tagName);
-        try {
-            range.surroundContents(element);
-        } catch (e) {
-            console.error(`Failed to apply ${tagName} format:`, e);
-            // As a fallback, wrap the text content
-            const selectedText = range.toString();
-            range.deleteContents();
-            element.textContent = selectedText;
-            range.insertNode(element);
-        }
-    };
-
-    const applyListFormat = (tagName) => {
-        const list = window.document.createElement(tagName);
-        const listItem = window.document.createElement('li');
-        
-        try {
-            if (range.collapsed) {
-                listItem.innerHTML = '<br />'; // Placeholder for empty item
-            } else {
-                const content = range.extractContents();
-                listItem.appendChild(content);
-            }
-            list.appendChild(listItem);
-            range.insertNode(list);
-            // Move cursor inside the new list item
-            const newRange = window.document.createRange();
-            newRange.selectNodeContents(listItem);
-            newRange.collapse(false); // to the end
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-
-        } catch (e) {
-            console.error(`Failed to apply ${tagName} format:`, e);
-        }
-    };
-
-    switch (command) {
-        case 'bold':
-            applyInlineFormat('strong');
-            break;
-        case 'italic':
-            applyInlineFormat('em');
-            break;
-        case 'insertUnorderedList':
-            applyListFormat('ul');
-            break;
-        case 'insertOrderedList':
-            applyListFormat('ol');
-            break;
-    }
+    
+    // Use the browser's built-in execCommand for simplicity and robustness
+    // It handles selection and state management (e.g., un-bolding) correctly.
+    document.execCommand(command, false, null);
 
     contentRef.current.focus();
   };
@@ -196,14 +140,12 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
                         })
                     ) : (
                         React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, document.title)
-                    )
-                ),
-                
-                isEditing && React.createElement('div', { className: 'sticky top-0 z-10 bg-gray-800/80 backdrop-blur-sm px-6 sm:px-8 py-2 border-y border-gray-700' },
-                    React.createElement(FormattingToolbar, { onCommand: handleFormat })
-                ),
+                    ),
+                    
+                    isEditing && React.createElement('div', { className: 'mb-6 border-y border-gray-700 py-2' },
+                        React.createElement(FormattingToolbar, { onCommand: handleFormat })
+                    ),
 
-                React.createElement('div', { className: "p-6 sm:p-8" },
                     React.createElement('article', {
                       ref: contentRef,
                       contentEditable: isEditing,

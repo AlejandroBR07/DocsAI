@@ -74,6 +74,11 @@
       .animate-slide-up-fade-in {
         animation: slideUpAndFadeIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
       }
+      /* Fix for Tailwind Typography backticks in contentEditable */
+      .prose code::before,
+      .prose code::after {
+        content: none !important;
+      }
     </style>
 </head>
 <body class="bg-gray-900">

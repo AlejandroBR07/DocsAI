@@ -35,7 +35,8 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Include backticks inside the code tag to make them editable
+      .replace(/`([^`]+)`/g, '<code>`$1`</code>');
 
     // Lists (unordered and ordered)
     // Process unordered lists
@@ -124,7 +125,7 @@ export const generateDocumentContent = async (params) => {
 
     teamContext += teamData.databaseSchema ? `**Esquema do Banco de Dados:**\n${teamData.databaseSchema}\n` : '';
     teamContext += teamData.dependencies ? `**Dependências e Bibliotecas:**\n${teamData.dependencies}\n` : '';
-    teamContext += (teamData.images && teamData.images.length > 0) ? 'Analise as imagens de interface fornecidas para descrever os componentes, fluxos e design system.\n' : '';
+    teamContext += (teamData.images && teamData.images.length > 0) ? 'Analise as imagens fornecidas como contexto visual para o projeto (ex: diagramas de fluxo, screenshots de interface).\n' : '';
     teamContext += teamData.personas ? `**Personas:**\n${teamData.personas}\n` : '';
     teamContext += teamData.userFlows ? `**Fluxos de Usuário (descrição textual):**\n${teamData.userFlows}\n` : '';
     teamContext += teamData.json ? `**Estrutura da Automação (JSON - ex: N8N):**\n${teamData.json}\nInterprete a estrutura JSON acima para detalhar os nós e a lógica.\n` : '';
@@ -142,8 +143,8 @@ export const generateDocumentContent = async (params) => {
       Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação abrangente e bem-estruturada para o projeto a seguir.
 
       **Instruções Chave:**
-      1.  **Análise Holística:** Você recebeu um contexto de código de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado). Analise TODAS as fontes e suas relações para entender o projeto de forma completa antes de escrever.
-      2.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do código, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
+      1.  **Análise Holística:** Você recebeu um contexto de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado, imagens). Analise TODAS as fontes e suas relações para entender o projeto de forma completa antes de escrever.
+      2.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do contexto, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
       3.  **Estilo Profissional:** A documentação deve ser clara, prática e bem-organizada. Use uma estrutura hierárquica e numerada quando fizer sentido (ex: 1.0, 2.1, 2.1.1).
       4.  **Conteúdo Essencial:** Comece com a motivação ou o objetivo do projeto. Em seguida, detalhe o fluxo de funcionamento, a arquitetura e os componentes técnicos ou de processo mais importantes. Preencha todo o conteúdo de forma detalhada e profissional. O resultado final não deve conter placeholders.
       5.  **Guia "Primeiros Passos":** Se for relevante para o tipo de projeto, adicione uma seção "Primeiros Passos" logo após a introdução. Esta seção deve ser um guia rápido com etapas claras e práticas para que alguém possa começar a usar ou entender a funcionalidade principal rapidamente.
@@ -206,8 +207,9 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     `;
 
     let contents;
+    const teamsWithImageUpload = [Team.UXUI, Team.Automations, Team.AI];
 
-    if (team === Team.UXUI && teamData.images && teamData.images.length > 0) {
+    if (teamsWithImageUpload.includes(team) && teamData.images && teamData.images.length > 0) {
         const imageParts = teamData.images.map(img => ({
             inlineData: {
                 mimeType: img.mimeType,
