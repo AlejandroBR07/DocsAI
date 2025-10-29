@@ -257,5 +257,5 @@ const TextIcon = ({ children, title }) => (
 );
 
 export const ParagraphIcon = () => React.createElement(TextIcon, { title: "Parágrafo" }, 'P');
+export const Heading1Icon = () => React.createElement(TextIcon, { title: "Título 1" }, 'H1');
 export const Heading2Icon = () => React.createElement(TextIcon, { title: "Título 2" }, 'H2');
-export const Heading3Icon = () => React.createElement(TextIcon, { title: "Título 3" }, 'H3');

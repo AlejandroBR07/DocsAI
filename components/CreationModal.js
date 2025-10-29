@@ -782,6 +782,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
           case Team.Automations:
               return (
                 React.createElement('div', { className: "space-y-4" },
+                   React.createElement(ImageUploader, null),
                    React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
                       React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, 
                           React.createElement(JsonIcon, null), 
@@ -808,13 +809,13 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                      React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
                      React.createElement('textarea', { rows: 3, value: triggerInfo, onChange: e => setTriggerInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o gatilho (trigger) da automação..." }),
                      React.createElement('textarea', { rows: 3, value: externalApis, onChange: e => setExternalApis(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as APIs externas envolvidas..." })
-                  ),
-                  React.createElement(ImageUploader, null)
+                  )
                 )
               )
           case Team.AI:
               return (
                    React.createElement('div', { className: "space-y-4" },
+                       React.createElement(ImageUploader, null),
                        React.createElement('div', { className: "p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4" },
                            React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(BrainIcon, null), " Componentes da IA (Opcional)"),
                            React.createElement('textarea', { value: systemPrompt, onChange: e => setSystemPrompt(e.target.value), rows: 4, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "System Prompt: 'Você é um assistente prestativo que...' " }),
@@ -822,8 +823,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                            React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas: 'getProductInfo(productId: string): Product - Retorna informações de um produto.'" }),
                            React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos I/O: 'Entrada: Qual o preço do item X? Saída: { name: X, price: 19.99 }'" }),
                            React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails: 'Não responda a perguntas sobre tópicos sensíveis. Se o usuário insistir, encerre a conversa.'" })
-                       ),
-                       React.createElement(ImageUploader, null)
+                       )
                   )
               )
           default:

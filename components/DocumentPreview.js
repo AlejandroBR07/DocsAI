@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon, InlineCodeIcon, SidebarOpenIcon, SidebarCloseIcon, ChevronRightIcon, ParagraphIcon, Heading2Icon, Heading3Icon } from './Icons.js';
+import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon, InlineCodeIcon, SidebarOpenIcon, SidebarCloseIcon, ChevronRightIcon, ParagraphIcon, Heading1Icon, Heading2Icon } from './Icons.js';
 
 const FormattingToolbar = ({ onCommand }) => (
     React.createElement('div', { className: "bg-gray-700/50 rounded-md p-1 flex items-center gap-1 border border-gray-600" },
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'h1'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(Heading1Icon, null)),
         React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'h2'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(Heading2Icon, null)),
-        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'h3'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(Heading3Icon, null)),
         React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'p'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(ParagraphIcon, null)),
         React.createElement('div', { className: "w-[1px] h-6 bg-gray-600 mx-1" }),
         React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('bold'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Negrito (Ctrl+B)" }, React.createElement(BoldIcon, null)),
@@ -260,9 +260,9 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
   const animationClass = isExiting ? 'animate-fade-out' : 'animate-fade-in';
   
   const articleClasses = [
-    'prose prose-invert max-w-none prose-h2:text-2xl prose-h2:font-semibold',
-    'prose-h2:border-b prose-h2:border-gray-600 prose-h2:pb-2 prose-h2:mt-8',
-    'prose-h2:mb-4 prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3',
+    'prose prose-invert max-w-none prose-h1:text-2xl prose-h1:font-semibold',
+    'prose-h1:border-b prose-h1:border-gray-600 prose-h1:pb-2 prose-h1:mt-8',
+    'prose-h1:mb-4 prose-h2:text-xl prose-h2:font-semibold prose-h2:mb-3',
     'prose-p:leading-relaxed prose-a:text-indigo-400 hover:prose-a:text-indigo-300',
     'prose-code:text-amber-300 prose-code:font-mono prose-pre:bg-gray-900',
     'prose-strong:text-white prose-ul:list-disc prose-ul:pl-6 prose-li:my-1',
