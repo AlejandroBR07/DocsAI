@@ -146,14 +146,15 @@ export const generateDocumentContent = async (params) => {
       2.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do código, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
       3.  **Estilo Profissional:** A documentação deve ser clara, prática e bem-organizada. Use uma estrutura hierárquica e numerada quando fizer sentido (ex: 1.0, 2.1, 2.1.1).
       4.  **Conteúdo Essencial:** Comece com a motivação ou o objetivo do projeto. Em seguida, detalhe o fluxo de funcionamento, a arquitetura e os componentes técnicos ou de processo mais importantes. Preencha todo o conteúdo de forma detalhada e profissional. O resultado final não deve conter placeholders.
-      5.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria.
-      6.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
+      5.  **Guia "Primeiros Passos":** Se for relevante para o tipo de projeto, adicione uma seção "Primeiros Passos" logo após a introdução. Esta seção deve ser um guia rápido com etapas claras e práticas para que alguém possa começar a usar ou entender a funcionalidade principal rapidamente.
+      6.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria.
+      7.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
           - **PROIBIDO:** NUNCA, sob nenhuma circunstância, use blocos de código com três crases (\`\`\`). A saída NÃO DEVE conter \`\`\`.
           - **CORRETO:** Para código em linha (nomes de variáveis, funções, arquivos), use crases SIMPLES (\`). Exemplo: \`minhaFuncao()\`.
           - **PROIBIDO:** Não gere crases vazias ou com apenas espaços, como \` \` ou \`\`.
           - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases.
           - Use negrito (\*\*) para ênfase e títulos de seção.
-      7.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
+      8.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
 
       **Informações do Projeto:**
       - Nome do Projeto: ${projectName}

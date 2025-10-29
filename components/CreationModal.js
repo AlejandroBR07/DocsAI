@@ -382,18 +382,42 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const canGenerate = () => !!projectName && !!description;
 
   const handleSelectFolder = async () => {
+    setError('');
+
+    const hasAistudioPicker = window.aistudio && typeof window.aistudio.showDirectoryPicker === 'function';
+    const hasNativePicker = 'showDirectoryPicker' in window;
+    
     try {
-        const directoryHandle = await window.showDirectoryPicker();
-        setError(''); // Clear previous errors
-        setLoadingMessage('Processando pasta...'); // Show feedback
+        let directoryHandle = null;
+        if (hasAistudioPicker) {
+            directoryHandle = await window.aistudio.showDirectoryPicker();
+        } else if (hasNativePicker) {
+            directoryHandle = await window.showDirectoryPicker();
+        } else {
+            setError("Seu navegador não suporta a seleção de pastas. Por favor, use um navegador como Chrome ou Edge.");
+            return;
+        }
+
+        if (!directoryHandle) {
+            return; // User cancelled
+        }
+
+        setLoadingMessage('Processando pasta...');
         const files = await processDirectory(directoryHandle);
         const codeFileExtensions = ['.js', '.ts', '.tsx', '.py', '.java', '.cs', '.go', '.rs', '.php', '.html', '.css', '.scss', '.json', '.md', 'Dockerfile', '.yml', '.yaml'];
         const filteredFiles = files.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
         setFolderFiles(filteredFiles);
+
     } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error("Erro ao selecionar a pasta:", err);
-            setError("Não foi possível acessar a pasta selecionada.");
+        if (err.name === 'AbortError') {
+            return;
+        }
+        console.error("Erro ao selecionar a pasta:", err);
+        
+        if (err.name === 'SecurityError' || (err.message && err.message.toLowerCase().includes("cross origin"))) {
+            setError("A seleção de pastas é bloqueada neste ambiente por segurança (cross-origin). Por favor, use a opção 'Enviar Arquivos Avulsos' como alternativa.");
+        } else {
+            setError("Não foi possível acessar a pasta. Verifique as permissões do navegador ou tente novamente.");
         }
     } finally {
         setLoadingMessage('');
@@ -496,8 +520,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   );
 
   const renderTeamSpecificInputs = () => {
-      const isFolderPickerSupported = 'showDirectoryPicker' in window;
-
       switch (currentTeam) {
           case Team.Developers:
               return (
@@ -515,10 +537,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                             React.createElement('button', { onClick: () => setFolderFiles([]), className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1" }, "Limpar Pasta")
                         )
                     ) : (
-                      React.createElement('button', { onClick: handleSelectFolder, disabled: !isFolderPickerSupported, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed disabled:text-gray-500" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))
-                    ),
-                    !isFolderPickerSupported && (
-                        React.createElement('div', { className: 'flex items-center gap-2 text-xs text-amber-300 mt-2 p-2 bg-amber-900/50 rounded-md' }, React.createElement(InfoIcon, null), "Seu navegador não suporta seleção de pastas. Use Chrome/Edge.")
+                      React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))
                     )
                   ),
 
