@@ -52,16 +52,21 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
       if (codeElement) {
           // The selection is inside a <code> tag, so unwrap it.
           const parent = codeElement.parentNode;
-          const content = document.createDocumentFragment();
+          // Move all children of the <code> element to be before it.
           while (codeElement.firstChild) {
-              content.appendChild(codeElement.firstChild);
+              parent.insertBefore(codeElement.firstChild, codeElement);
           }
-          parent.replaceChild(content, codeElement);
+          // Remove the now-empty <code> element.
+          parent.removeChild(codeElement);
       } else {
           // The selection is not in a <code> tag, so wrap it.
           if (range.collapsed) return; // Don't wrap an empty selection
           const newCodeNode = document.createElement('code');
-          range.surroundContents(newCodeNode);
+          try {
+              range.surroundContents(newCodeNode);
+          } catch(e) {
+              console.error("Não foi possível envolver a seleção com a tag `code`:", e);
+          }
       }
   };
 

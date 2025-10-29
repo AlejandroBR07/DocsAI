@@ -173,7 +173,7 @@ export const ItalicIcon = () => (
 
 export const InlineCodeIcon = () => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2.5, title: "Código em linha" },
-      React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M17.25 6.75L19.5 9l-2.25 2.25m-10.5 0L4.5 9l2.25-2.25M12 4.5l-1.5 15" })
+      React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M7 8l-4 4l4 4m10-8l4 4l-4 4M14 4l-4 16" })
     )
 );
 
