@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon, InlineCodeIcon, SidebarOpenIcon, SidebarCloseIcon, ChevronRightIcon } from './Icons.js';
+import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon, InlineCodeIcon, SidebarOpenIcon, SidebarCloseIcon, ChevronRightIcon, ParagraphIcon, Heading2Icon, Heading3Icon } from './Icons.js';
 
 const FormattingToolbar = ({ onCommand }) => (
     React.createElement('div', { className: "bg-gray-700/50 rounded-md p-1 flex items-center gap-1 border border-gray-600" },
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'h2'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(Heading2Icon, null)),
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'h3'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(Heading3Icon, null)),
+        React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('formatBlock', 'p'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300" }, React.createElement(ParagraphIcon, null)),
+        React.createElement('div', { className: "w-[1px] h-6 bg-gray-600 mx-1" }),
         React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('bold'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Negrito (Ctrl+B)" }, React.createElement(BoldIcon, null)),
         React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('italic'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Itálico (Ctrl+I)" }, React.createElement(ItalicIcon, null)),
         React.createElement('button', { onMouseDown: (e) => { e.preventDefault(); onCommand('code'); }, className: "p-2 rounded hover:bg-gray-600 text-gray-300", title: "Código" }, React.createElement(InlineCodeIcon, null)),
@@ -170,9 +174,11 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
         parentNode = parentNode.parentNode;
     }
 
+    // Check if the selection or its ancestor is already formatted with the tag
     const existingElement = parentNode.closest(tag);
 
     if (existingElement && editor.contains(existingElement)) {
+        // Unwrap the element
         const parent = existingElement.parentNode;
         while (existingElement.firstChild) {
             parent.insertBefore(existingElement.firstChild, existingElement);
@@ -180,54 +186,31 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
         parent.removeChild(existingElement);
         parent.normalize();
     } else {
-        if (range.collapsed) return;
+        // Wrap the selection
+        if (range.collapsed) return; // Don't wrap empty selections
         const newNode = document.createElement(tag);
         try {
             range.surroundContents(newNode);
             selection.collapseToEnd();
         } catch (e) {
             console.error(`Falha ao envolver a seleção com <${tag}>:`, e);
+             // Fallback for complex selections
+            document.execCommand('insertHTML', false, `<${tag}>${selection.toString()}</${tag}>`);
         }
     }
   };
 
-  const insertList = (tag) => {
-      const selection = window.getSelection();
-      if (!selection.rangeCount) return;
 
-      const range = selection.getRangeAt(0);
-      const list = document.createElement(tag);
-      const listItem = document.createElement('li');
-
-      const selectedContent = range.extractContents();
-      if (selectedContent.textContent.trim() === '') {
-          listItem.innerHTML = '&#8203;';
-      } else {
-          listItem.appendChild(selectedContent);
-      }
-      
-      list.appendChild(listItem);
-      range.insertNode(list);
-      
-      range.selectNodeContents(listItem);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-  };
-
-  const handleFormat = (command) => {
+  const handleFormat = (command, value = null) => {
     if (!isEditing || !contentRef.current) return;
     
-    switch (command) {
-        case 'bold': toggleInlineFormat('strong'); break;
-        case 'italic': toggleInlineFormat('em'); break;
-        case 'code': toggleInlineFormat('code'); break;
-        case 'insertUnorderedList': insertList('ul'); break;
-        case 'insertOrderedList': insertList('ol'); break;
-        default: console.warn(`Comando de formatação não suportado: ${command}`);
-    }
-
     contentRef.current.focus();
+
+    if (command === 'code') {
+        toggleInlineFormat('code');
+    } else {
+        document.execCommand(command, false, value);
+    }
   };
   
   const handleTocNavigate = (e, id) => {

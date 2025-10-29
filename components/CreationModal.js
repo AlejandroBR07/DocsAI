@@ -167,61 +167,101 @@ const buildFileTree = (files) => {
   return root.children;
 };
 
-const FileTree = ({ nodes }) => {
-  const [expandedFolders, setExpandedFolders] = useState(new Set());
-
-  useEffect(() => {
-    if (nodes.length === 1 && nodes[0].type === 'folder') {
-        setExpandedFolders(new Set([nodes[0].path]));
+const getAllDescendantFilePaths = (node) => {
+    if (!node) return [];
+    if (node.type === 'file') return [node.path];
+    if (node.type === 'folder' && node.children) {
+        return node.children.flatMap(getAllDescendantFilePaths);
     }
-  }, [nodes]);
+    return [];
+};
 
-  const toggleFolder = (path) => {
-    setExpandedFolders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
-      }
-      return newSet;
-    });
-  };
 
-  const renderNode = (node, level = 0) => {
-    const isExpanded = expandedFolders.has(node.path);
+const FileTree = ({ nodes, selectedPaths, onToggleNode }) => {
+    const [expandedFolders, setExpandedFolders] = useState(new Set());
+    const checkboxRef = useRef({});
 
-    if (node.type === 'folder') {
-      return React.createElement('div', { key: node.path },
-        React.createElement('div', {
-          className: "flex items-center p-1 rounded-md hover:bg-gray-700/50 cursor-pointer",
-          style: { paddingLeft: `${level * 16}px` },
-          onClick: () => toggleFolder(node.path)
+    useEffect(() => {
+        // Auto-expand the top-level folder if it's the only one
+        if (nodes.length === 1 && nodes[0].type === 'folder') {
+            setExpandedFolders(new Set([nodes[0].path]));
+        }
+    }, [nodes]);
+
+    useEffect(() => {
+        // Handle indeterminate state for checkboxes
+        Object.values(checkboxRef.current).forEach(checkbox => {
+            if (checkbox) {
+                const isIndeterminate = checkbox.dataset.indeterminate === 'true';
+                checkbox.indeterminate = isIndeterminate;
+            }
+        });
+    }, [selectedPaths, expandedFolders]);
+
+    const toggleFolderExpansion = (path) => {
+        setExpandedFolders(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(path)) {
+                newSet.delete(path);
+            } else {
+                newSet.add(path);
+            }
+            return newSet;
+        });
+    };
+
+    const renderNode = (node, level = 0) => {
+        const isExpanded = expandedFolders.has(node.path);
+        const descendantFiles = getAllDescendantFilePaths(node);
+        const selectedDescendants = descendantFiles.filter(path => selectedPaths.has(path));
+        const isChecked = descendantFiles.length > 0 && selectedDescendants.length === descendantFiles.length;
+        const isIndeterminate = node.type === 'folder' && selectedDescendants.length > 0 && selectedDescendants.length < descendantFiles.length;
+
+        if (node.type === 'folder') {
+            return React.createElement('div', { key: node.path },
+                React.createElement('div', { className: "flex items-center p-1 rounded-md hover:bg-gray-700/50" },
+                    React.createElement('div', { style: { paddingLeft: `${level * 16}px` }, className: "flex items-center flex-grow min-w-0" },
+                        React.createElement('input', {
+                            type: 'checkbox',
+                            className: 'form-checkbox h-4 w-4 text-indigo-600 bg-gray-600 border-gray-500 rounded focus:ring-indigo-500 mr-2 flex-shrink-0',
+                            checked: isChecked,
+                            'data-indeterminate': isIndeterminate,
+                            ref: (el) => checkboxRef.current[node.path] = el,
+                            onChange: () => onToggleNode(node)
+                        }),
+                        React.createElement('button', { onClick: () => toggleFolderExpansion(node.path), className: "flex items-center flex-grow min-w-0 text-left" },
+                            React.createElement(ChevronRightIcon, { className: `h-4 w-4 mr-1 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}` }),
+                            React.createElement(FolderIcon, { className: "h-5 w-5 mr-2 text-indigo-400 flex-shrink-0" }),
+                            React.createElement('span', { className: "text-gray-300 truncate" }, node.name)
+                        )
+                    )
+                ),
+                isExpanded && React.createElement('div', null,
+                    node.children.map(child => renderNode(child, level + 1))
+                )
+            );
+        }
+
+        // File node
+        return React.createElement('div', {
+            key: node.path,
+            className: "flex items-center p-1 rounded-md hover:bg-gray-700/50",
+            style: { paddingLeft: `${level * 16}px` }
         },
-          React.createElement(ChevronRightIcon, { className: `h-4 w-4 mr-1 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}` }),
-          React.createElement(FolderIcon, { className: "h-5 w-5 mr-2 text-indigo-400 flex-shrink-0" }),
-          React.createElement('span', { className: "text-gray-300 truncate" }, node.name)
-        ),
-        isExpanded && React.createElement('div', null,
-          node.children.map(child => renderNode(child, level + 1))
-        )
-      );
-    }
+            React.createElement('input', {
+                type: 'checkbox',
+                className: 'form-checkbox h-4 w-4 text-indigo-600 bg-gray-600 border-gray-500 rounded focus:ring-indigo-500 mr-2 flex-shrink-0',
+                checked: isChecked,
+                onChange: () => onToggleNode(node)
+            }),
+            React.createElement(FileIcon, { className: "h-5 w-5 mr-2 text-gray-400 flex-shrink-0" }),
+            React.createElement('span', { className: "text-gray-300 truncate" }, node.name)
+        );
+    };
 
-    return React.createElement('div', {
-      key: node.path,
-      className: "flex items-center p-1",
-      style: { paddingLeft: `${level * 16}px` }
-    },
-      React.createElement('div', { className: "w-4 mr-1 flex-shrink-0" }),
-      React.createElement(FileIcon, { className: "h-5 w-5 mr-2 text-gray-400 flex-shrink-0" }),
-      React.createElement('span', { className: "text-gray-300 truncate" }, node.name)
+    return React.createElement('div', { className: "max-h-48 overflow-y-auto bg-gray-800 p-2 rounded-md space-y-px font-mono text-sm" },
+        nodes.map(node => renderNode(node, 0))
     );
-  };
-
-  return React.createElement('div', { className: "max-h-48 overflow-y-auto bg-gray-800 p-2 rounded-md space-y-px font-mono text-sm" },
-    nodes.map(node => renderNode(node, 0))
-  );
 };
 
 
@@ -245,7 +285,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [isDragging, setIsDragging] = useState(false);
   
   // Team Devs
-  const [folderFiles, setFolderFiles] = useState([]);
+  const [allFolderFiles, setAllFolderFiles] = useState([]);
+  const [selectedFilePaths, setSelectedFilePaths] = useState(new Set());
   const [fileTreeData, setFileTreeData] = useState([]);
   const [uploadedCodeFiles, setUploadedCodeFiles] = useState([]);
   const [pastedCode, setPastedCode] = useState('');
@@ -330,7 +371,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     let timeoutId;
 
     const hasImages = [Team.UXUI, Team.Automations, Team.AI].includes(currentTeam) && uploadedImages.length > 0;
-    const hasCode = currentTeam === Team.Developers && (folderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0);
+    const hasCode = currentTeam === Team.Developers && (allFolderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0);
     const hasJson = currentTeam === Team.Automations && (pastedJson.length > 0 || jsonFiles.length > 0);
     const hasAiContext = currentTeam === Team.AI && (systemPrompt || workflow || tools || exampleIO || guardrails);
 
@@ -511,8 +552,10 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         const codeFileExtensions = ['.js', '.ts', '.tsx', '.py', '.java', '.cs', '.go', '.rs', '.php', '.html', '.css', '.scss', '.json', '.md', 'Dockerfile', '.yml', '.yaml'];
         const filteredFiles = files.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
         
-        setFolderFiles(filteredFiles);
+        setAllFolderFiles(filteredFiles);
         setFileTreeData(buildFileTree(filteredFiles));
+        setSelectedFilePaths(new Set(filteredFiles.map(f => f.path)));
+
 
     } catch (err) {
         if (err.name === 'AbortError') {
@@ -530,6 +573,22 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     }
   };
 
+  const handleToggleNodeSelection = (node) => {
+    const descendantFiles = getAllDescendantFilePaths(node);
+
+    setSelectedFilePaths(currentPaths => {
+        const newPaths = new Set(currentPaths);
+        const areAllSelected = descendantFiles.every(p => newPaths.has(p));
+
+        if (areAllSelected) {
+            descendantFiles.forEach(p => newPaths.delete(p));
+        } else {
+            descendantFiles.forEach(p => newPaths.add(p));
+        }
+        return newPaths;
+    });
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate() || isLoading) {
       setError('Por favor, preencha o nome do projeto e a descrição.');
@@ -544,9 +603,11 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     try {
         const jsonFromFiles = jsonFiles.map(f => `--- JSON do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
         const allJson = [pastedJson, jsonFromFiles].filter(Boolean).join('\n\n');
+        
+        const selectedFolderFiles = allFolderFiles.filter(file => selectedFilePaths.has(file.path));
 
         let teamData = {
-            folderFiles: folderFiles.length > 0 ? folderFiles : undefined,
+            folderFiles: selectedFolderFiles.length > 0 ? selectedFolderFiles : undefined,
             uploadedCodeFiles: uploadedCodeFiles.length > 0 ? uploadedCodeFiles : undefined,
             pastedCode: pastedCode || undefined,
             databaseSchema,
@@ -610,8 +671,9 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setExampleIO(template.content.exampleIO || '');
     setGuardrails(template.content.guardrails || '');
     // Reset folder/file inputs when using a template
-    setFolderFiles([]);
+    setAllFolderFiles([]);
     setFileTreeData([]);
+    setSelectedFilePaths(new Set());
     setUploadedCodeFiles([]);
     setUploadedImages([]);
   };
@@ -671,10 +733,11 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                   // 1. Select Folder
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                     React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(FolderIcon, null), "Pasta do Projeto (Recomendado)"),
-                    folderFiles.length > 0 ? (
+                     React.createElement('p', { className: "text-xs text-gray-400" }, "Desmarque os arquivos ou pastas que deseja excluir do contexto."),
+                    fileTreeData.length > 0 ? (
                         React.createElement(React.Fragment, null,
-                            React.createElement(FileTree, { nodes: fileTreeData }),
-                            React.createElement('button', { onClick: () => { setFolderFiles([]); setFileTreeData([]); }, className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1 mt-2" }, "Limpar Pasta")
+                            React.createElement(FileTree, { nodes: fileTreeData, selectedPaths: selectedFilePaths, onToggleNode: handleToggleNodeSelection }),
+                            React.createElement('button', { onClick: () => { setAllFolderFiles([]); setFileTreeData([]); setSelectedFilePaths(new Set()); }, className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1 mt-2" }, "Limpar Pasta")
                         )
                     ) : (
                       React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))

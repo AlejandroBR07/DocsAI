@@ -232,3 +232,30 @@ export const ChevronRightIcon = (props) => (
     React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 5l7 7-7 7" })
   )
 );
+
+const TextIcon = ({ children, title }) => (
+    React.createElement('svg', { 
+        xmlns: "http://www.w3.org/2000/svg", 
+        className: "h-5 w-5", 
+        viewBox: "0 0 24 24", 
+        title: title 
+    },
+      React.createElement('text', { 
+        x: "50%", 
+        y: "50%", 
+        dominantBaseline: "middle", 
+        textAnchor: "middle", 
+        dy: "0.1em", // Fine-tune vertical alignment
+        fontSize: children.length > 1 ? "11" : "14", // smaller font for H2/H3
+        fontWeight: "700", 
+        fill: "currentColor",
+        fontFamily: "Inter, sans-serif" // Use the app's font for consistency
+      }, 
+        children
+      )
+    )
+);
+
+export const ParagraphIcon = () => React.createElement(TextIcon, { title: "Parágrafo" }, 'P');
+export const Heading2Icon = () => React.createElement(TextIcon, { title: "Título 2" }, 'H2');
+export const Heading3Icon = () => React.createElement(TextIcon, { title: "Título 3" }, 'H3');
