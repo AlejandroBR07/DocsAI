@@ -35,49 +35,85 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
     }
   }, [document]);
 
-  const toggleCodeFormat = () => {
+  const toggleInlineFormat = (tag) => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    let parentNode = range.commonAncestorContainer;
+    if (parentNode.nodeType === Node.TEXT_NODE) {
+        parentNode = parentNode.parentNode;
+    }
+    
+    const existingElement = parentNode.closest(tag);
+
+    if (existingElement) {
+        // Unwrap the element
+        const parent = existingElement.parentNode;
+        while (existingElement.firstChild) {
+            parent.insertBefore(existingElement.firstChild, existingElement);
+        }
+        parent.removeChild(existingElement);
+    } else {
+        // Wrap the selection
+        if (range.collapsed) return;
+        const newNode = document.createElement(tag);
+        try {
+            range.surroundContents(newNode);
+        } catch (e) {
+            console.error(`Falha ao envolver a seleção com <${tag}>:`, e);
+        }
+    }
+  };
+
+  const insertList = (tag) => {
       const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0) return;
+      if (!selection.rangeCount) return;
 
       const range = selection.getRangeAt(0);
-      let node = range.commonAncestorContainer;
+      const list = document.createElement(tag);
+      const listItem = document.createElement('li');
 
-      // Find the parent element if the node is a text node
-      if (node.nodeType === Node.TEXT_NODE) {
-          node = node.parentNode;
-      }
-
-      const codeElement = node.closest('code');
-
-      if (codeElement) {
-          // The selection is inside a <code> tag, so unwrap it.
-          const parent = codeElement.parentNode;
-          // Move all children of the <code> element to be before it.
-          while (codeElement.firstChild) {
-              parent.insertBefore(codeElement.firstChild, codeElement);
-          }
-          // Remove the now-empty <code> element.
-          parent.removeChild(codeElement);
+      const selectedContent = range.extractContents();
+      if (selectedContent.textContent.trim() === '') {
+          // If selection is empty or just whitespace, add a zero-width space
+          // to ensure the list item is visible and editable.
+          listItem.innerHTML = '&#8203;';
       } else {
-          // The selection is not in a <code> tag, so wrap it.
-          if (range.collapsed) return; // Don't wrap an empty selection
-          const newCodeNode = document.createElement('code');
-          try {
-              range.surroundContents(newCodeNode);
-          } catch(e) {
-              console.error("Não foi possível envolver a seleção com a tag `code`:", e);
-          }
+          listItem.appendChild(selectedContent);
       }
+      
+      list.appendChild(listItem);
+      range.insertNode(list);
+      
+      // Move cursor to the end of the new list item for continued typing
+      range.selectNodeContents(listItem);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
   };
 
   const handleFormat = (command) => {
     if (!isEditing || !contentRef.current) return;
     
-    if (command === 'code') {
-        toggleCodeFormat();
-    } else {
-        // Use the browser's built-in execCommand for simplicity and robustness
-        document.execCommand(command, false, null);
+    switch (command) {
+        case 'bold':
+            toggleInlineFormat('strong');
+            break;
+        case 'italic':
+            toggleInlineFormat('em');
+            break;
+        case 'code':
+            toggleInlineFormat('code');
+            break;
+        case 'insertUnorderedList':
+            insertList('ul');
+            break;
+        case 'insertOrderedList':
+            insertList('ol');
+            break;
+        default:
+            console.warn(`Comando de formatação não suportado: ${command}`);
     }
 
     contentRef.current.focus();
