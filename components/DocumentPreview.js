@@ -12,11 +12,11 @@ const FormattingToolbar = ({ onCommand }) => (
     )
 );
 
-const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
+const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
   const [copyStatus, setCopyStatus] = useState('Copiar Conteúdo');
   const [isEditing, setIsEditing] = useState(false);
   
-  const [currentTitle, setCurrentTitle] = useState(document.title);
+  const [currentTitle, setCurrentTitle] = useState(doc.title);
   
   const contentRef = useRef(null);
   const isComponentMounted = useRef(true);
@@ -24,16 +24,16 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
   // Sync state when the document prop changes
   useEffect(() => {
     isComponentMounted.current = true;
-    setCurrentTitle(document.title);
+    setCurrentTitle(doc.title);
     if (contentRef.current) {
-        contentRef.current.innerHTML = document.content;
+        contentRef.current.innerHTML = doc.content;
     }
     // Exit edit mode if the document is changed from the outside
     setIsEditing(false);
     return () => {
         isComponentMounted.current = false;
     }
-  }, [document]);
+  }, [doc]);
 
   const toggleInlineFormat = (tag) => {
     const selection = window.getSelection();
@@ -120,22 +120,22 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
   };
 
   const handleSave = () => {
-      const newContent = contentRef.current ? contentRef.current.innerHTML : document.content;
-      onUpdateContent(document.id, { title: currentTitle, content: newContent });
+      const newContent = contentRef.current ? contentRef.current.innerHTML : doc.content;
+      onUpdateContent(doc.id, { title: currentTitle, content: newContent });
       setIsEditing(false);
   }
 
   const handleCancel = () => {
-      setCurrentTitle(document.title);
+      setCurrentTitle(doc.title);
       if (contentRef.current) {
-          contentRef.current.innerHTML = document.content;
+          contentRef.current.innerHTML = doc.content;
       }
       setIsEditing(false);
   }
 
   const handleCopy = () => {
     if (contentRef.current) {
-      const titleToCopy = isEditing ? currentTitle : document.title;
+      const titleToCopy = isEditing ? currentTitle : doc.title;
       const contentHtml = `<h1>${titleToCopy}</h1>${contentRef.current.innerHTML}`;
       const plainText = `${titleToCopy}\n\n${contentRef.current.innerText}`;
       
@@ -251,7 +251,7 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
                             "aria-label": "Título do Documento"
                         })
                     ) : (
-                        React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, document.title)
+                        React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, doc.title)
                     ),
                     
                     isEditing && React.createElement('div', { className: 'sticky top-0 z-10 bg-gray-800 mb-6 border-y border-gray-700 py-2' },
@@ -262,7 +262,7 @@ const DocumentPreview = ({ document, onBack, onUpdateContent, isExiting }) => {
                       ref: contentRef,
                       contentEditable: isEditing,
                       suppressContentEditableWarning: true,
-                      dangerouslySetInnerHTML: { __html: document.content },
+                      dangerouslySetInnerHTML: { __html: doc.content },
                       className: articleClasses.join(' ')
                     })
                 )

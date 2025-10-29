@@ -233,7 +233,7 @@ const App = () => {
 
   if (selectedDocument) {
     return React.createElement(DocumentPreview, { 
-        document: selectedDocument, 
+        doc: selectedDocument, 
         onBack: handleBackFromPreview,
         onUpdateContent: handleDocumentUpdate,
         isExiting: isExitingPreview,
