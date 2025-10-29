@@ -40,31 +40,43 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
     if (!selection.rangeCount) return;
 
     const range = selection.getRangeAt(0);
+    const editor = contentRef.current;
+
+    // Determine the node to check for existing formatting.
     let parentNode = range.commonAncestorContainer;
-    
-    // Adjust parentNode if it's a text node
     if (parentNode.nodeType === Node.TEXT_NODE) {
         parentNode = parentNode.parentNode;
     }
-    
-    // Check if the selection's parent is ALREADY the tag we want
+
     const existingElement = parentNode.closest(tag);
 
-    if (existingElement) {
-        // Unwrap the element using a DocumentFragment for safety
+    // Ensure the found element is within our editor, not some parent element
+    if (existingElement && editor.contains(existingElement)) {
+        // UNWRAP LOGIC: The selection is inside an existing element, so we remove the tag.
         const parent = existingElement.parentNode;
-        const fragment = document.createDocumentFragment();
+
+        // Move all children of the existing element to be siblings before it
         while (existingElement.firstChild) {
-            fragment.appendChild(existingElement.firstChild);
+            parent.insertBefore(existingElement.firstChild, existingElement);
         }
-        parent.replaceChild(fragment, existingElement);
-        parent.normalize(); // Merges adjacent text nodes
+
+        // Remove the now-empty element
+        parent.removeChild(existingElement);
+
+        // Merge any adjacent text nodes that might have been created
+        parent.normalize();
     } else {
-        // Wrap the selection in a new element
-        if (range.collapsed) return;
+        // WRAP LOGIC: The selection is not inside an element of this type, so we add the tag.
+        if (range.collapsed) return; // Don't wrap if there's no selection
+
         const newNode = document.createElement(tag);
         try {
+            // surroundContents is the cleanest way to wrap the selected text
             range.surroundContents(newNode);
+
+            // After wrapping, collapse the selection to the end to allow for continued typing
+            // and to prevent weird browser behavior on subsequent clicks.
+            selection.collapseToEnd();
         } catch (e) {
             console.error(`Falha ao envolver a seleção com <${tag}>:`, e);
         }
@@ -259,7 +271,7 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
                         React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, doc.title)
                     ),
                     
-                    isEditing && React.createElement('div', { className: 'sticky top-0 z-10 bg-gray-800 mb-6 border-y border-gray-700 py-2' },
+                    isEditing && React.createElement('div', { className: 'sticky top-[73px] z-10 bg-gray-800 mb-6 border-y border-gray-700 py-2' },
                         React.createElement(FormattingToolbar, { onCommand: handleFormat })
                     ),
 
