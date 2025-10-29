@@ -5,7 +5,7 @@ import DocumentPreview from './components/DocumentPreview.js';
 import Onboarding from './components/Onboarding.js';
 import ApiKeySetup from './components/ApiKeySetup.js';
 import ConfirmationModal from './components/ConfirmationModal.js';
-import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon } from './components/Icons.js';
+import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon } from './components/Icons.js';
 import { Team } from './types.js';
 import { generateDocumentContent, initializeGemini } from './services/geminiService.js';
 
@@ -94,7 +94,9 @@ const App = () => {
   const [isApiKeyChangeModalOpen, setIsApiKeyChangeModalOpen] = useState(false);
   const [lastViewedDocId, setLastViewedDocId] = useState(null);
   const [isExitingPreview, setIsExitingPreview] = useState(false);
-
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -145,6 +147,50 @@ const App = () => {
     }
     return () => clearTimeout(timer);
   }, [selectedDocument, lastViewedDocId]);
+
+  // Effect to perform search when query changes
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setSearchResults(null);
+      return;
+    }
+
+    const tempDiv = document.createElement('div');
+    const lowerCaseQuery = searchQuery.toLowerCase();
+
+    const results = documents
+      .map(doc => {
+        tempDiv.innerHTML = doc.content;
+        const plainTextContent = tempDiv.innerText || "";
+        const lowerCaseTitle = doc.title.toLowerCase();
+        const lowerCaseContent = plainTextContent.toLowerCase();
+        
+        const titleMatch = lowerCaseTitle.includes(lowerCaseQuery);
+        const contentMatchIndex = lowerCaseContent.indexOf(lowerCaseQuery);
+
+        if (titleMatch || contentMatchIndex > -1) {
+            let snippet = '';
+            if (contentMatchIndex > -1) {
+                const start = Math.max(0, contentMatchIndex - 50);
+                const end = Math.min(plainTextContent.length, contentMatchIndex + lowerCaseQuery.length + 80);
+                snippet = plainTextContent.substring(start, end);
+                if (start > 0) snippet = '...' + snippet;
+                if (end < plainTextContent.length) snippet = snippet + '...';
+                
+                // Highlight the query in the snippet
+                const regex = new RegExp(`(${searchQuery})`, 'gi');
+                snippet = snippet.replace(regex, `<span class="bg-amber-400 text-gray-900 font-bold px-1 rounded-sm">$1</span>`);
+            } else {
+                snippet = plainTextContent.substring(0, 150) + '...';
+            }
+          return { doc, snippet };
+        }
+        return null;
+      })
+      .filter(Boolean); // Remove null entries
+      
+    setSearchResults(results);
+  }, [searchQuery, documents]);
 
 
   const handleApiKeySet = (apiKey) => {
@@ -244,7 +290,10 @@ const App = () => {
     React.createElement('div', { className: "bg-gray-900 min-h-screen text-white font-sans" },
       React.createElement(Header, { 
         currentTeam: currentTeam, 
-        onTeamChange: setCurrentTeam, 
+        onTeamChange: (team) => {
+          setCurrentTeam(team);
+          setSearchQuery(''); // Clear search when changing teams
+        }, 
         onOpenSettings: () => setIsApiKeyChangeModalOpen(true)
       }),
        React.createElement('div', { className: "bg-amber-900/50 text-amber-200 text-sm text-center p-2 border-b border-amber-800 flex items-center justify-center gap-2" },
@@ -252,59 +301,106 @@ const App = () => {
         "Seus documentos são salvos localmente no seu navegador. Para maior segurança, copie o conteúdo para o Google Docs ou outro local seguro."
       ),
       React.createElement('main', { className: "container mx-auto p-4 md:p-8 animate-fade-in" },
-            React.createElement('div', { className: "flex justify-between items-center mb-6" },
-              React.createElement('h2', { className: "text-3xl font-bold" }, `Documentos de ${currentTeam}`),
-              React.createElement('button', {
-                onClick: () => setIsModalOpen(true),
-                className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-transform transform hover:scale-105",
-                "aria-label": "Criar novo documento"
-              },
-                React.createElement(PlusIcon, null),
-                React.createElement('span', null, "Novo Documento")
-              )
+           
+            // Search Bar
+            React.createElement('div', { className: "relative mb-8" },
+                React.createElement('input', {
+                    type: "text",
+                    value: searchQuery,
+                    onChange: (e) => setSearchQuery(e.target.value),
+                    placeholder: "Pesquisar em todos os documentos...",
+                    className: "w-full bg-gray-700/50 border border-gray-600 text-white rounded-lg p-3 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                }),
+                React.createElement('div', { className: "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" },
+                    React.createElement(SearchIcon, { className: "text-gray-400" })
+                )
             ),
 
-            filteredDocuments.length > 0 ? (
-              React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" },
-                filteredDocuments.map((doc) => (
-                  React.createElement('div', {
-                    key: doc.id,
-                    onClick: () => handleSelectDocument(doc),
-                    className: `bg-gray-800 p-6 rounded-lg shadow-lg cursor-pointer hover:bg-gray-700/50 hover:border-indigo-500 border-2 transition-all group relative ${doc.id === lastViewedDocId ? 'border-indigo-500 bg-gray-700/50' : 'border-transparent'}`,
-                    role: "button",
-                    tabIndex: 0,
-                    onKeyPress: (e) => e.key === 'Enter' && handleSelectDocument(doc)
-                  },
-                    React.createElement('div', { className: "flex items-center space-x-3 mb-3" },
-                      React.createElement(DocumentIcon, null),
-                      React.createElement('h3', { className: "text-xl font-semibold truncate" }, doc.title)
-                    ),
-                    React.createElement('p', { className: "text-sm text-gray-400" }, `Criado em: ${doc.createdAt}`),
-                    React.createElement('button', {
-                        onClick: (e) => {
-                            e.stopPropagation();
-                            handleRequestDelete(doc);
-                        },
-                        className: "absolute top-4 right-4 text-gray-500 hover:text-red-500 bg-gray-700/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
-                        "aria-label": "Excluir documento"
-                      },
-                      React.createElement(TrashIcon, null)
+            searchResults ? (
+                 // Search Results View
+                 React.createElement('div', null,
+                    React.createElement('h2', { className: "text-2xl font-bold mb-4" }, `Resultados da busca por "${searchQuery}"`),
+                    searchResults.length > 0 ? (
+                        React.createElement('div', { className: "space-y-4" },
+                            searchResults.map(({ doc, snippet }) => (
+                                React.createElement('div', {
+                                    key: doc.id,
+                                    onClick: () => handleSelectDocument(doc),
+                                    className: "bg-gray-800 p-4 rounded-lg cursor-pointer hover:bg-gray-700/50"
+                                },
+                                    React.createElement('h3', { className: "text-lg font-semibold text-indigo-400" }, doc.title),
+                                    React.createElement('p', { className: "text-sm text-gray-400 mb-2" }, `Equipe: ${doc.team}`),
+                                    React.createElement('p', { 
+                                        className: "text-sm text-gray-300",
+                                        dangerouslySetInnerHTML: { __html: snippet }
+                                    })
+                                )
+                            ))
+                        )
+                    ) : (
+                         React.createElement('div', { className: "text-center py-16 px-6 bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-700" },
+                            React.createElement('h3', { className: "text-xl font-semibold text-white mb-2" }, "Nenhum resultado encontrado"),
+                            React.createElement('p', { className: "text-gray-400" }, `Não encontramos documentos que correspondam à sua busca.`)
+                        )
                     )
-                  )
-                ))
-              )
-            ) : (
-              React.createElement('div', { className: "text-center py-16 px-6 bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-700" },
-                React.createElement('h3', { className: "text-xl font-semibold text-white mb-2" }, "Nenhum documento encontrado"),
-                React.createElement('p', { className: "text-gray-400 mb-6" }, `Sua jornada começa aqui. Crie seu primeiro documento para a equipe de ${currentTeam}.`),
-                React.createElement('button', {
-                  onClick: () => setIsModalOpen(true),
-                  className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 mx-auto transition-transform transform hover:scale-105"
-                },
-                  React.createElement(PlusIcon, null),
-                  React.createElement('span', null, "Criar Primeiro Documento")
                 )
-              )
+            ) : (
+                 // Default View
+                 React.createElement('div', null,
+                    React.createElement('div', { className: "flex justify-between items-center mb-6" },
+                        React.createElement('h2', { className: "text-3xl font-bold" }, `Documentos de ${currentTeam}`),
+                        React.createElement('button', {
+                            onClick: () => setIsModalOpen(true),
+                            className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-transform transform hover:scale-105",
+                            "aria-label": "Criar novo documento"
+                        },
+                            React.createElement(PlusIcon, null),
+                            React.createElement('span', null, "Novo Documento")
+                        )
+                    ),
+                    filteredDocuments.length > 0 ? (
+                        React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" },
+                            filteredDocuments.map((doc) => (
+                                React.createElement('div', {
+                                    key: doc.id,
+                                    onClick: () => handleSelectDocument(doc),
+                                    className: `bg-gray-800 p-6 rounded-lg shadow-lg cursor-pointer hover:bg-gray-700/50 hover:border-indigo-500 border-2 transition-all group relative ${doc.id === lastViewedDocId ? 'border-indigo-500 bg-gray-700/50' : 'border-transparent'}`,
+                                    role: "button",
+                                    tabIndex: 0,
+                                    onKeyPress: (e) => e.key === 'Enter' && handleSelectDocument(doc)
+                                },
+                                    React.createElement('div', { className: "flex items-center space-x-3 mb-3" },
+                                        React.createElement(DocumentIcon, null),
+                                        React.createElement('h3', { className: "text-xl font-semibold truncate" }, doc.title)
+                                    ),
+                                    React.createElement('p', { className: "text-sm text-gray-400" }, `Criado em: ${doc.createdAt}`),
+                                    React.createElement('button', {
+                                        onClick: (e) => {
+                                            e.stopPropagation();
+                                            handleRequestDelete(doc);
+                                        },
+                                        className: "absolute top-4 right-4 text-gray-500 hover:text-red-500 bg-gray-700/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
+                                        "aria-label": "Excluir documento"
+                                    },
+                                        React.createElement(TrashIcon, null)
+                                    )
+                                )
+                            ))
+                        )
+                    ) : (
+                        React.createElement('div', { className: "text-center py-16 px-6 bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-700" },
+                            React.createElement('h3', { className: "text-xl font-semibold text-white mb-2" }, "Nenhum documento encontrado"),
+                            React.createElement('p', { className: "text-gray-400 mb-6" }, `Sua jornada começa aqui. Crie seu primeiro documento para a equipe de ${currentTeam}.`),
+                            React.createElement('button', {
+                                onClick: () => setIsModalOpen(true),
+                                className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 mx-auto transition-transform transform hover:scale-105"
+                            },
+                                React.createElement(PlusIcon, null),
+                                React.createElement('span', null, "Criar Primeiro Documento")
+                            )
+                        )
+                    )
+                 )
             )
       ),
 

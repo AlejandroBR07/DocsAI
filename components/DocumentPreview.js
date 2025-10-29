@@ -41,21 +41,26 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
 
     const range = selection.getRangeAt(0);
     let parentNode = range.commonAncestorContainer;
+    
+    // Adjust parentNode if it's a text node
     if (parentNode.nodeType === Node.TEXT_NODE) {
         parentNode = parentNode.parentNode;
     }
     
+    // Check if the selection's parent is ALREADY the tag we want
     const existingElement = parentNode.closest(tag);
 
     if (existingElement) {
-        // Unwrap the element
+        // Unwrap the element using a DocumentFragment for safety
         const parent = existingElement.parentNode;
+        const fragment = document.createDocumentFragment();
         while (existingElement.firstChild) {
-            parent.insertBefore(existingElement.firstChild, existingElement);
+            fragment.appendChild(existingElement.firstChild);
         }
-        parent.removeChild(existingElement);
+        parent.replaceChild(fragment, existingElement);
+        parent.normalize(); // Merges adjacent text nodes
     } else {
-        // Wrap the selection
+        // Wrap the selection in a new element
         if (range.collapsed) return;
         const newNode = document.createElement(tag);
         try {
