@@ -9,6 +9,77 @@ import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon } from './components/Icons.
 import { Team } from './types.js';
 import { generateDocumentContent, initializeGemini } from './services/geminiService.js';
 
+// Modal para alterar a chave de API, definido localmente.
+const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
+  const [apiKey, setApiKey] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (apiKey.trim()) {
+      onApiKeySet(apiKey.trim());
+      onClose();
+    }
+  };
+
+  return (
+    React.createElement('div', {
+      className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in",
+      onClick: onClose,
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-labelledby": "apikey-change-title"
+    },
+      React.createElement('div', {
+        className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all animate-slide-up border border-gray-700",
+        onClick: (e) => e.stopPropagation()
+      },
+        React.createElement('div', { className: "p-6" },
+          React.createElement('h3', { id: "apikey-change-title", className: "text-lg leading-6 font-bold text-white" }, "Alterar Chave de API"),
+          React.createElement('p', { className: "text-gray-400 mt-2 text-sm" }, "Insira sua nova chave de API do Google Gemini. A chave anterior será substituída.")
+        ),
+        React.createElement('form', { onSubmit: handleSubmit },
+            React.createElement('div', {className: "p-6 space-y-4"},
+                React.createElement('div', null,
+                    React.createElement('label', { htmlFor: "api-key-change", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nova Chave de API"),
+                    React.createElement('input', {
+                        id: "api-key-change",
+                        type: "password",
+                        value: apiKey,
+                        onChange: (e) => setApiKey(e.target.value),
+                        className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
+                        placeholder: "Cole sua nova chave aqui",
+                        autoFocus: true
+                    })
+                ),
+                 React.createElement('div', { className: "text-center text-sm text-gray-500" },
+                    React.createElement('a', {
+                        href: "https://aistudio.google.com/app/apikey",
+                        target: "_blank",
+                        rel: "noopener noreferrer",
+                        className: "text-indigo-400 hover:text-indigo-300 underline"
+                    }, "Obtenha uma chave de API no Google AI Studio")
+                )
+            ),
+            React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },
+                React.createElement('button', {
+                    type: "button",
+                    className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors",
+                    onClick: onClose
+                }, "Cancelar"),
+                React.createElement('button', {
+                    type: "submit",
+                    disabled: !apiKey.trim(),
+                    className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors disabled:opacity-50",
+                }, "Salvar Nova Chave")
+            )
+        )
+      )
+    )
+  );
+};
+
 const App = () => {
   const [currentTeam, setCurrentTeam] = useState(Team.Developers);
   const [documents, setDocuments] = useState([]);
@@ -20,6 +91,7 @@ const App = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
 
+  const [isApiKeyChangeModalOpen, setIsApiKeyChangeModalOpen] = useState(false);
   const [lastViewedDocId, setLastViewedDocId] = useState(null);
   const [isExitingPreview, setIsExitingPreview] = useState(false);
 
@@ -170,7 +242,11 @@ const App = () => {
 
   return (
     React.createElement('div', { className: "bg-gray-900 min-h-screen text-white font-sans" },
-      React.createElement(Header, { currentTeam: currentTeam, onTeamChange: setCurrentTeam }),
+      React.createElement(Header, { 
+        currentTeam: currentTeam, 
+        onTeamChange: setCurrentTeam, 
+        onOpenSettings: () => setIsApiKeyChangeModalOpen(true)
+      }),
        React.createElement('div', { className: "bg-amber-900/50 text-amber-200 text-sm text-center p-2 border-b border-amber-800 flex items-center justify-center gap-2" },
         React.createElement(InfoIcon, null),
         "Seus documentos são salvos localmente no seu navegador. Para maior segurança, copie o conteúdo para o Google Docs ou outro local seguro."
@@ -249,7 +325,13 @@ const App = () => {
             title: "Excluir Documento",
             message: `Você tem certeza que deseja excluir "${docToDelete?.title}"? Esta ação não pode ser desfeita.`
         })
-      )
+      ),
+      
+      React.createElement(ApiKeyChangeModal, {
+        isOpen: isApiKeyChangeModalOpen,
+        onClose: () => setIsApiKeyChangeModalOpen(false),
+        onApiKeySet: handleApiKeySet
+      })
     )
   );
 };
