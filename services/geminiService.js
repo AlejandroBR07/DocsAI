@@ -35,9 +35,10 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      // Use a non-greedy regex to handle any character, making it more robust.
-      // Include backticks inside the code tag to make them editable.
-      .replace(/`([\s\S]+?)`/g, '<code>`$1`</code>');
+      // A more robust regex that only matches paired backticks with content inside.
+      // This prevents formatting from leaking if the AI generates an odd number of backticks.
+      // It no longer includes backticks inside the tag; presentation is handled by CSS.
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
 
     // Lists (unordered and ordered)
     // Process unordered lists
