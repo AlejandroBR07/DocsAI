@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon } from './Icons.js';
+import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon, ChevronRightIcon } from './Icons.js';
 import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
 
@@ -126,6 +126,105 @@ async function processDirectory(directoryHandle, path = '') {
     return files;
 }
 
+const buildFileTree = (files) => {
+  const root = { children: [] }; 
+
+  for (const file of files) {
+    const parts = file.path.split('/');
+    let currentNode = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isFile = i === parts.length - 1;
+
+      let childNode = currentNode.children.find(child => child.name === part);
+
+      if (!childNode) {
+        childNode = {
+          name: part,
+          path: parts.slice(0, i + 1).join('/'),
+          type: isFile ? 'file' : 'folder',
+          children: isFile ? undefined : [],
+        };
+        currentNode.children.push(childNode);
+      }
+      currentNode = childNode;
+    }
+  }
+  const sortNodes = (nodes) => {
+      nodes.sort((a, b) => {
+          if (a.type === 'folder' && b.type === 'file') return -1;
+          if (a.type === 'file' && b.type === 'folder') return 1;
+          return a.name.localeCompare(b.name);
+      });
+      nodes.forEach(node => {
+          if (node.type === 'folder') {
+              sortNodes(node.children);
+          }
+      });
+  };
+  sortNodes(root.children);
+  return root.children;
+};
+
+const FileTree = ({ nodes }) => {
+  const [expandedFolders, setExpandedFolders] = useState(new Set());
+
+  useEffect(() => {
+    if (nodes.length === 1 && nodes[0].type === 'folder') {
+        setExpandedFolders(new Set([nodes[0].path]));
+    }
+  }, [nodes]);
+
+  const toggleFolder = (path) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(path)) {
+        newSet.delete(path);
+      } else {
+        newSet.add(path);
+      }
+      return newSet;
+    });
+  };
+
+  const renderNode = (node, level = 0) => {
+    const isExpanded = expandedFolders.has(node.path);
+
+    if (node.type === 'folder') {
+      return React.createElement('div', { key: node.path },
+        React.createElement('div', {
+          className: "flex items-center p-1 rounded-md hover:bg-gray-700/50 cursor-pointer",
+          style: { paddingLeft: `${level * 16}px` },
+          onClick: () => toggleFolder(node.path)
+        },
+          React.createElement(ChevronRightIcon, { className: `h-4 w-4 mr-1 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}` }),
+          React.createElement(FolderIcon, { className: "h-5 w-5 mr-2 text-indigo-400 flex-shrink-0" }),
+          React.createElement('span', { className: "text-gray-300 truncate" }, node.name)
+        ),
+        isExpanded && React.createElement('div', null,
+          node.children.map(child => renderNode(child, level + 1))
+        )
+      );
+    }
+
+    return React.createElement('div', {
+      key: node.path,
+      className: "flex items-center p-1",
+      style: { paddingLeft: `${level * 16}px` }
+    },
+      React.createElement('div', { className: "w-4 mr-1 flex-shrink-0" }),
+      React.createElement(FileIcon, { className: "h-5 w-5 mr-2 text-gray-400 flex-shrink-0" }),
+      React.createElement('span', { className: "text-gray-300 truncate" }, node.name)
+    );
+  };
+
+  return React.createElement('div', { className: "max-h-48 overflow-y-auto bg-gray-800 p-2 rounded-md space-y-px font-mono text-sm" },
+    nodes.map(node => renderNode(node, 0))
+  );
+};
+
+
 const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
@@ -147,6 +246,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   
   // Team Devs
   const [folderFiles, setFolderFiles] = useState([]);
+  const [fileTreeData, setFileTreeData] = useState([]);
   const [uploadedCodeFiles, setUploadedCodeFiles] = useState([]);
   const [pastedCode, setPastedCode] = useState('');
   const [databaseSchema, setDatabaseSchema] = useState('');
@@ -410,7 +510,9 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         const files = await processDirectory(directoryHandle);
         const codeFileExtensions = ['.js', '.ts', '.tsx', '.py', '.java', '.cs', '.go', '.rs', '.php', '.html', '.css', '.scss', '.json', '.md', 'Dockerfile', '.yml', '.yaml'];
         const filteredFiles = files.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
+        
         setFolderFiles(filteredFiles);
+        setFileTreeData(buildFileTree(filteredFiles));
 
     } catch (err) {
         if (err.name === 'AbortError') {
@@ -509,6 +611,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setGuardrails(template.content.guardrails || '');
     // Reset folder/file inputs when using a template
     setFolderFiles([]);
+    setFileTreeData([]);
     setUploadedCodeFiles([]);
     setUploadedImages([]);
   };
@@ -570,10 +673,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                     React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(FolderIcon, null), "Pasta do Projeto (Recomendado)"),
                     folderFiles.length > 0 ? (
                         React.createElement(React.Fragment, null,
-                            React.createElement('div', { className: 'max-h-28 overflow-y-auto bg-gray-800 p-2 rounded-md space-y-1' },
-                                folderFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, isPath: true }))
-                            ),
-                            React.createElement('button', { onClick: () => setFolderFiles([]), className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1" }, "Limpar Pasta")
+                            React.createElement(FileTree, { nodes: fileTreeData }),
+                            React.createElement('button', { onClick: () => { setFolderFiles([]); setFileTreeData([]); }, className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1 mt-2" }, "Limpar Pasta")
                         )
                     ) : (
                       React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))
