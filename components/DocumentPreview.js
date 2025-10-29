@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon, InlineCodeIcon } from './Icons.js';
+import { BackIcon, CopyIcon, PencilIcon, BoldIcon, ItalicIcon, ListUlIcon, ListOlIcon, InlineCodeIcon, SidebarOpenIcon, SidebarCloseIcon, ChevronRightIcon } from './Icons.js';
 
 const FormattingToolbar = ({ onCommand }) => (
     React.createElement('div', { className: "bg-gray-700/50 rounded-md p-1 flex items-center gap-1 border border-gray-600" },
@@ -12,28 +12,151 @@ const FormattingToolbar = ({ onCommand }) => (
     )
 );
 
+const TableOfContents = ({ nodes, onNavigate, expandedItems, onToggleExpand, isRoot = false }) => {
+    const renderNode = (node) => {
+        const isExpanded = expandedItems.has(node.id);
+        const hasChildren = node.children && node.children.length > 0;
+        
+        const getIndentClass = (level) => {
+            switch (level) {
+                case 1: return '';
+                case 2: return 'pl-4';
+                case 3: return 'pl-8';
+                default: return 'pl-12';
+            }
+        };
+
+        return (
+            React.createElement('li', { key: node.id },
+                React.createElement('div', {
+                    className: `flex items-center rounded-md transition-colors text-gray-300 hover:bg-gray-700/50 ${getIndentClass(node.level)}`
+                },
+                    hasChildren ? (
+                        React.createElement('button', {
+                            onClick: () => onToggleExpand(node.id),
+                            className: 'p-1 mr-1 rounded-full hover:bg-gray-600 flex-shrink-0 transition-transform active:scale-95',
+                            'aria-expanded': isExpanded,
+                            title: isExpanded ? 'Recolher subseções' : 'Expandir subseções'
+                        },
+                            React.createElement(ChevronRightIcon, { className: `h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}` })
+                        )
+                    ) : (
+                        React.createElement('div', { className: 'w-6 flex-shrink-0' }) // Spacer to align text with expandable items
+                    ),
+                    React.createElement('a', {
+                        href: `#${node.id}`,
+                        onClick: (e) => onNavigate(e, node.id),
+                        className: `block text-sm py-1 flex-grow truncate`
+                    }, node.text)
+                ),
+                isExpanded && hasChildren &&
+                React.createElement(TableOfContents, {
+                    nodes: node.children,
+                    onNavigate: onNavigate,
+                    expandedItems: expandedItems,
+                    onToggleExpand: onToggleExpand,
+                    isRoot: false
+                })
+            )
+        );
+    };
+
+    const list = React.createElement('ul', { className: "space-y-1" },
+        nodes.map(node => renderNode(node))
+    );
+
+    if (isRoot) {
+        if (nodes.length === 0) return null;
+        return (
+            React.createElement('nav', { 'aria-label': "Sumário do Documento", className: "py-4 pr-4" },
+                React.createElement('h3', { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2" }, "Neste Documento"),
+                list
+            )
+        );
+    }
+
+    return list; // Return just the <ul> for recursive calls
+};
+
+
 const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
   const [copyStatus, setCopyStatus] = useState('Copiar Conteúdo');
   const [isEditing, setIsEditing] = useState(false);
-  
   const [currentTitle, setCurrentTitle] = useState(doc.title);
   
+  const [toc, setToc] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [expandedTocItems, setExpandedTocItems] = useState(new Set());
+
+
   const contentRef = useRef(null);
   const isComponentMounted = useRef(true);
 
-  // Sync state when the document prop changes
+  // Sync state and generate Table of Contents when the document prop changes
   useEffect(() => {
     isComponentMounted.current = true;
     setCurrentTitle(doc.title);
+    setExpandedTocItems(new Set()); // Reset expanded items on doc change
+
     if (contentRef.current) {
-        contentRef.current.innerHTML = doc.content;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = doc.content;
+
+        const headers = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        const flatToc = [];
+
+        headers.forEach((header, index) => {
+            const text = header.textContent.trim();
+            if(text) {
+                const id = `section-${text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '')}-${index}`;
+                header.id = id;
+                flatToc.push({
+                    id: id,
+                    text: text,
+                    level: parseInt(header.tagName.substring(1), 10),
+                    children: []
+                });
+            }
+        });
+        
+        const buildTocTree = (list) => {
+            const tree = [];
+            const path = []; 
+            list.forEach(node => {
+                while (path.length > 0 && path[path.length - 1].level >= node.level) {
+                    path.pop();
+                }
+                const parent = path.length > 0 ? path[path.length - 1] : null;
+                if (parent) {
+                    parent.children.push(node);
+                } else {
+                    tree.push(node);
+                }
+                path.push(node);
+            });
+            return tree;
+        };
+
+        const tocTree = buildTocTree(flatToc);
+        setToc(tocTree);
+        contentRef.current.innerHTML = tempDiv.innerHTML;
     }
-    // Exit edit mode if the document is changed from the outside
-    setIsEditing(false);
-    return () => {
-        isComponentMounted.current = false;
-    }
+
+    setIsEditing(false); // Exit edit mode if the doc changes
+    return () => { isComponentMounted.current = false; }
   }, [doc]);
+  
+  const handleToggleTocExpand = (id) => {
+    setExpandedTocItems(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        return newSet;
+    });
+  };
 
   const toggleInlineFormat = (tag) => {
     const selection = window.getSelection();
@@ -41,8 +164,7 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
 
     const range = selection.getRangeAt(0);
     const editor = contentRef.current;
-
-    // Determine the node to check for existing formatting.
+    
     let parentNode = range.commonAncestorContainer;
     if (parentNode.nodeType === Node.TEXT_NODE) {
         parentNode = parentNode.parentNode;
@@ -50,32 +172,18 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
 
     const existingElement = parentNode.closest(tag);
 
-    // Ensure the found element is within our editor, not some parent element
     if (existingElement && editor.contains(existingElement)) {
-        // UNWRAP LOGIC: The selection is inside an existing element, so we remove the tag.
         const parent = existingElement.parentNode;
-
-        // Move all children of the existing element to be siblings before it
         while (existingElement.firstChild) {
             parent.insertBefore(existingElement.firstChild, existingElement);
         }
-
-        // Remove the now-empty element
         parent.removeChild(existingElement);
-
-        // Merge any adjacent text nodes that might have been created
         parent.normalize();
     } else {
-        // WRAP LOGIC: The selection is not inside an element of this type, so we add the tag.
-        if (range.collapsed) return; // Don't wrap if there's no selection
-
+        if (range.collapsed) return;
         const newNode = document.createElement(tag);
         try {
-            // surroundContents is the cleanest way to wrap the selected text
             range.surroundContents(newNode);
-
-            // After wrapping, collapse the selection to the end to allow for continued typing
-            // and to prevent weird browser behavior on subsequent clicks.
             selection.collapseToEnd();
         } catch (e) {
             console.error(`Falha ao envolver a seleção com <${tag}>:`, e);
@@ -93,8 +201,6 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
 
       const selectedContent = range.extractContents();
       if (selectedContent.textContent.trim() === '') {
-          // If selection is empty or just whitespace, add a zero-width space
-          // to ensure the list item is visible and editable.
           listItem.innerHTML = '&#8203;';
       } else {
           listItem.appendChild(selectedContent);
@@ -103,7 +209,6 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
       list.appendChild(listItem);
       range.insertNode(list);
       
-      // Move cursor to the end of the new list item for continued typing
       range.selectNodeContents(listItem);
       range.collapse(false);
       selection.removeAllRanges();
@@ -114,26 +219,23 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
     if (!isEditing || !contentRef.current) return;
     
     switch (command) {
-        case 'bold':
-            toggleInlineFormat('strong');
-            break;
-        case 'italic':
-            toggleInlineFormat('em');
-            break;
-        case 'code':
-            toggleInlineFormat('code');
-            break;
-        case 'insertUnorderedList':
-            insertList('ul');
-            break;
-        case 'insertOrderedList':
-            insertList('ol');
-            break;
-        default:
-            console.warn(`Comando de formatação não suportado: ${command}`);
+        case 'bold': toggleInlineFormat('strong'); break;
+        case 'italic': toggleInlineFormat('em'); break;
+        case 'code': toggleInlineFormat('code'); break;
+        case 'insertUnorderedList': insertList('ul'); break;
+        case 'insertOrderedList': insertList('ol'); break;
+        default: console.warn(`Comando de formatação não suportado: ${command}`);
     }
 
     contentRef.current.focus();
+  };
+  
+  const handleTocNavigate = (e, id) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if(element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const handleSave = () => {
@@ -175,79 +277,51 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
   const animationClass = isExiting ? 'animate-fade-out' : 'animate-fade-in';
   
   const articleClasses = [
-    'prose',
-    'prose-invert',
-    'max-w-none',
-    'prose-h2:text-2xl',
-    'prose-h2:font-semibold',
-    'prose-h2:border-b',
-    'prose-h2:border-gray-600',
-    'prose-h2:pb-2',
-    'prose-h2:mt-8',
-    'prose-h2:mb-4',
-    'prose-h3:text-xl',
-    'prose-h3:font-semibold',
-    'prose-h3:mb-3',
-    'prose-p:leading-relaxed',
-    'prose-a:text-indigo-400',
-    'hover:prose-a:text-indigo-300',
-    'prose-code:text-amber-300',
-    'prose-code:font-mono',
-    'prose-pre:bg-gray-900',
-    'prose-strong:text-white',
-    'prose-ul:list-disc',
-    'prose-ul:pl-6',
-    'prose-li:my-1',
-    'prose-ol:list-decimal',
-    'prose-ol:pl-6',
-    'prose-blockquote:border-l-4',
-    'prose-blockquote:border-indigo-500',
-    'prose-blockquote:pl-4',
-    'prose-blockquote:italic',
+    'prose prose-invert max-w-none prose-h2:text-2xl prose-h2:font-semibold',
+    'prose-h2:border-b prose-h2:border-gray-600 prose-h2:pb-2 prose-h2:mt-8',
+    'prose-h2:mb-4 prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3',
+    'prose-p:leading-relaxed prose-a:text-indigo-400 hover:prose-a:text-indigo-300',
+    'prose-code:text-amber-300 prose-code:font-mono prose-pre:bg-gray-900',
+    'prose-strong:text-white prose-ul:list-disc prose-ul:pl-6 prose-li:my-1',
+    'prose-ol:list-decimal prose-ol:pl-6 prose-blockquote:border-l-4',
+    'prose-blockquote:border-indigo-500 prose-blockquote:pl-4 prose-blockquote:italic',
     'prose-blockquote:text-gray-300',
   ];
   if (isEditing) {
-    articleClasses.push('focus:outline-none', 'focus:ring-2', 'focus:ring-indigo-500', 'rounded-md', 'p-2', '-m-2', 'editing-prose');
+    articleClasses.push('focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md p-2 -m-2 editing-prose');
   }
-
 
   return (
     React.createElement('div', { className: `flex flex-col h-[calc(100vh-80px)] ${animationClass}` },
       React.createElement('div', { className: "bg-gray-800/80 backdrop-blur-sm p-4 sticky top-0 z-20 border-b border-gray-700" },
-        React.createElement('div', { className: "container mx-auto flex justify-between items-center gap-4" },
-          React.createElement('button', { onClick: onBack, className: "flex items-center space-x-2 text-indigo-400 hover:text-indigo-300 transition-colors" },
-            React.createElement(BackIcon, null),
-            React.createElement('span', null, "Voltar para a lista")
+        React.createElement('div', { className: "container mx-auto flex justify-between items-center gap-2" },
+          React.createElement('div', { className: "flex items-center gap-2" },
+            React.createElement('button', { onClick: onBack, className: "flex items-center space-x-2 text-indigo-400 hover:text-indigo-300 transition-colors p-2 rounded-md hover:bg-gray-700/50" },
+              React.createElement(BackIcon, null)
+            ),
+             !isEditing && React.createElement('button', {
+              onClick: () => setIsSidebarOpen(!isSidebarOpen),
+              className: "p-2 rounded-md hover:bg-gray-700/50 text-gray-300 hover:text-white"
+            },
+              isSidebarOpen ? React.createElement(SidebarCloseIcon, null) : React.createElement(SidebarOpenIcon, null)
+            )
           ),
+
+          isEditing && React.createElement(FormattingToolbar, { onCommand: handleFormat }),
+
           React.createElement('div', { className: "flex items-center gap-2 sm:gap-4" },
             isEditing ? (
                  React.createElement(React.Fragment, null,
-                    React.createElement('button', {
-                        onClick: handleCancel,
-                        className: "text-gray-300 hover:bg-gray-700 font-bold py-2 px-4 rounded-lg transition-colors"
-                    }, "Cancelar"),
-                    React.createElement('button', {
-                        onClick: handleSave,
-                        className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-                    }, "Salvar")
+                    React.createElement('button', { onClick: handleCancel, className: "text-gray-300 hover:bg-gray-700 font-bold py-2 px-4 rounded-lg transition-colors" }, "Cancelar"),
+                    React.createElement('button', { onClick: handleSave, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors" }, "Salvar")
                 )
             ) : (
                 React.createElement(React.Fragment, null,
-                    React.createElement('button', {
-                        onClick: () => setIsEditing(true),
-                        className: "flex items-center space-x-2 text-gray-300 hover:bg-gray-700 font-bold py-2 px-4 rounded-lg transition-colors"
-                    }, 
-                        React.createElement(PencilIcon, null),
-                        React.createElement('span', null, "Editar")
+                    React.createElement('button', { onClick: () => setIsEditing(true), className: "flex items-center space-x-2 text-gray-300 hover:bg-gray-700 font-bold py-2 px-4 rounded-lg transition-colors" }, 
+                        React.createElement(PencilIcon, null), React.createElement('span', null, "Editar")
                     ),
-                    React.createElement('button', {
-                      onClick: handleCopy,
-                      className: `flex items-center space-x-2 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 ${
-                        copyStatus === 'Copiado!' ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'
-                      }`
-                    },
-                      React.createElement(CopyIcon, null),
-                      React.createElement('span', { className: "hidden sm:inline" }, copyStatus)
+                    React.createElement('button', { onClick: handleCopy, className: `flex items-center space-x-2 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 ${copyStatus === 'Copiado!' ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'}`},
+                      React.createElement(CopyIcon, null), React.createElement('span', { className: "hidden sm:inline" }, copyStatus)
                     )
                 )
             )
@@ -255,36 +329,38 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
         )
       ),
       
-      React.createElement('div', { className: "flex-grow overflow-y-auto" },
-        React.createElement('div', { className: "container mx-auto p-4 md:p-8" },
-            React.createElement('div', { className: `bg-gray-800 rounded-lg shadow-lg ${isEditing ? 'ring-2 ring-indigo-500/50' : ''}` },
-                React.createElement('div', { className: "p-6 sm:p-8" },
-                    isEditing ? (
-                        React.createElement('input', {
-                            type: "text",
-                            value: currentTitle,
-                            onChange: (e) => setCurrentTitle(e.target.value),
-                            className: "w-full bg-gray-900/50 text-3xl font-bold text-indigo-400 mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-md p-2 -mx-2",
-                            "aria-label": "Título do Documento"
-                        })
-                    ) : (
-                        React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, doc.title)
-                    ),
-                    
-                    isEditing && React.createElement('div', { className: 'sticky top-[73px] z-10 bg-gray-800 mb-6 border-y border-gray-700 py-2' },
-                        React.createElement(FormattingToolbar, { onCommand: handleFormat })
-                    ),
+      React.createElement('div', { className: "flex-1 flex flex-row overflow-y-hidden" },
+          !isEditing && React.createElement('aside', {
+            className: `flex-shrink-0 bg-gray-800/50 border-r border-gray-700 overflow-y-auto transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0'}`
+          }, 
+            React.createElement('div', { className: "w-64" }, React.createElement(TableOfContents, { nodes: toc, isRoot: true, onNavigate: handleTocNavigate, expandedItems: expandedTocItems, onToggleExpand: handleToggleTocExpand }))
+          ),
 
-                    React.createElement('article', {
-                      ref: contentRef,
-                      contentEditable: isEditing,
-                      suppressContentEditableWarning: true,
-                      dangerouslySetInnerHTML: { __html: doc.content },
-                      className: articleClasses.join(' ')
-                    })
-                )
-            )
-        )
+          React.createElement('div', { className: "flex-1 overflow-y-auto" },
+              React.createElement('div', { className: "container mx-auto p-4 md:p-8" },
+                  React.createElement('div', { className: `bg-gray-800 rounded-lg shadow-lg ${isEditing ? 'ring-2 ring-indigo-500/50' : ''}` },
+                      React.createElement('div', { className: "p-6 sm:p-8" },
+                          isEditing ? (
+                              React.createElement('input', {
+                                  type: "text",
+                                  value: currentTitle,
+                                  onChange: (e) => setCurrentTitle(e.target.value),
+                                  className: "w-full bg-gray-900/50 text-3xl font-bold text-indigo-400 mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-md p-2 -mx-2",
+                                  "aria-label": "Título do Documento"
+                              })
+                          ) : (
+                              React.createElement('h1', { className: "text-3xl font-bold text-indigo-400 mb-6 p-2 -mx-2" }, doc.title)
+                          ),
+                          React.createElement('article', {
+                            ref: contentRef,
+                            contentEditable: isEditing,
+                            suppressContentEditableWarning: true,
+                            className: articleClasses.join(' ')
+                          })
+                      )
+                  )
+              )
+          )
       )
     )
   );
