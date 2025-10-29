@@ -35,8 +35,9 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      // Include backticks inside the code tag to make them editable
-      .replace(/`([^`]+)`/g, '<code>`$1`</code>');
+      // Use a non-greedy regex to handle any character, making it more robust.
+      // Include backticks inside the code tag to make them editable.
+      .replace(/`([\s\S]+?)`/g, '<code>`$1`</code>');
 
     // Lists (unordered and ordered)
     // Process unordered lists
@@ -230,6 +231,9 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     if (!text) {
       throw new Error("A resposta da IA estava vazia.");
     }
+    
+    // Normalize potential HTML from AI back to markdown before processing
+    text = text.replace(/<code>(.*?)<\/code>/g, '`$1`');
     
     // BUG FIX: Clean up common AI formatting errors before converting to HTML
     // 1. Remove any triple (or more) backticks, as they are disallowed.
