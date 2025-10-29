@@ -13,7 +13,7 @@ export const DocumentIcon = () => (
 );
 
 export const TeamIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Selecionar Equipe" },
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Selecionar Equipe" },
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" })
     )
 );
@@ -78,32 +78,50 @@ export const DeveloperIcon = () => (
 );
 
 export const UXUIIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-8 w-8", viewBox: "0 0 24 24", strokeWidth: "2", stroke: "currentColor", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", title: "Equipe de UX/UI" },
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-8 w-8", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", title: "Equipe de UX/UI" },
         React.createElement('path', { stroke: "none", d: "M0 0h24v24H0z", fill: "none" }),
-        React.createElement('path', { d: "M6.5 10l-3 4l3 4" }),
-        React.createElement('path', { d: "M17.5 10l3 4l-3 4" }),
-        React.createElement('path', { d: "M14 20h-4" }),
-        React.createElement('path', { d: "M12 4v16" }),
-        React.createElement('path', { d: "M9 7l6 0" })
+        React.createElement('path', { d: "M12 21a9 9 0 0 1 0 -18a9 8 0 0 1 9 8a4.5 4 0 0 1 -4.5 4h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25" }),
+        React.createElement('circle', { cx: "8.5", cy: "10.5", r: "1" }),
+        React.createElement('circle', { cx: "12.5", cy: "7.5", r: "1" }),
+        React.createElement('circle', { cx: "16.5", cy: "10.5", r: "1" })
     )
 );
 
 export const AutomationIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-8 w-8", viewBox: "0 0 24 24", strokeWidth: "2", stroke: "currentColor", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", title: "Equipe de Automações" },
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-8 w-8", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", title: "Equipe de Automações" },
         React.createElement('path', { stroke: "none", d: "M0 0h24v24H0z", fill: "none" }),
-        React.createElement('path', { d: "M12 6l-8.5 4.5l8.5 4.5l8.5 -4.5l-8.5 -4.5" }),
-        React.createElement('path', { d: "M12 12l-8.5 4.5l8.5 4.5l8.5 -4.5l-8.5 -4.5" })
+        React.createElement('circle', { cx: "12", cy: "18", r: "2" }),
+        React.createElement('circle', { cx: "7", cy: "6", r: "2" }),
+        React.createElement('circle', { cx: "17", cy: "6", r: "2" }),
+        React.createElement('path', { d: "M7 8v2a2 2 0 0 0 2 2h2" }),
+        React.createElement('path', { d: "M12 12l0 4" }),
+        React.createElement('path', { d: "M17 8v2a2 2 0 0 1 -2 2h-2" })
     )
 );
 
 export const AIIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-8 w-8", viewBox: "0 0 24 24", strokeWidth: "2", stroke: "currentColor", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", title: "Equipe de IA" },
-       React.createElement('path', { stroke: "none", d: "M0 0h24v24H0z", fill: "none" }),
-       React.createElement('path', { d: "M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" }),
-       React.createElement('path', { d: "M21 21l-6 -6" }),
-       React.createElement('path', { d: "M10 13a3 3 0 1 0 0 -6a3 3 0 0 0 0 6z" })
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-8 w-8", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", title: "Equipe de IA" },
+        React.createElement('path', { stroke: "none", d: "M0 0h24v24H0z", fill: "none" }),
+        React.createElement('path', { d: "M4 12h4" }),
+        React.createElement('path', { d: "M16 12h4" }),
+        React.createElement('path', { d: "M12 4v4" }),
+        React.createElement('path', { d: "M12 16v4" }),
+        React.createElement('path', { d: "M8.5 8.5l3.5 3.5" }),
+        React.createElement('path', { d: "M15.5 8.5l-3.5 3.5" }),
+        React.createElement('path', { d: "M8.5 15.5l3.5 -3.5" }),
+        React.createElement('path', { d: "M15.5 15.5l-3.5 -3.5" }),
+        React.createElement('circle', { cx: "12", cy: "12", r: "3" }),
+        React.createElement('circle', { cx: "4", cy: "12", r: "1" }),
+        React.createElement('circle', { cx: "20", cy: "12", r: "1" }),
+        React.createElement('circle', { cx: "12", cy: "4", r: "1" }),
+        React.createElement('circle', { cx: "12", cy: "20", r: "1" }),
+        React.createElement('circle', { cx: "8.5", cy: "8.5", r: "1" }),
+        React.createElement('circle', { cx: "15.5", cy: "8.5", r: "1" }),
+        React.createElement('circle', { cx: "8.5", cy: "15.5", r: "1" }),
+        React.createElement('circle', { cx: "15.5", cy: "15.5", r: "1" })
     )
 );
+
 
 export const FileIcon = () => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Arquivo" },
