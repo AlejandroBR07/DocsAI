@@ -155,6 +155,7 @@ export const generateDocumentContent = async (params) => {
           - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases.
           - Use negrito (\*\*) para ênfase e títulos de seção.
       8.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
+      9.  **Foco Interno:** A documentação técnica é para a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
 
       **Informações do Projeto:**
       - Nome do Projeto: ${projectName}
