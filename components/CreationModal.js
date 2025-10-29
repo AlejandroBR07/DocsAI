@@ -142,6 +142,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [uploadedImages, setUploadedImages] = useState([]);
   const [pastedJson, setPastedJson] = useState('');
   const [isJsonValid, setIsJsonValid] = useState(true);
+  const [jsonErrorMessage, setJsonErrorMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   
   // Team Devs
@@ -179,13 +180,16 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   useEffect(() => {
     if (pastedJson.trim() === '') {
       setIsJsonValid(true);
+      setJsonErrorMessage('');
       return;
     }
     try {
       JSON.parse(pastedJson);
       setIsJsonValid(true);
+      setJsonErrorMessage('');
     } catch (e) {
       setIsJsonValid(false);
+      setJsonErrorMessage(`Erro no JSON: ${e.message}`);
     }
   }, [pastedJson]);
 
@@ -628,6 +632,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                         jsonFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setJsonFiles(prev => prev.filter((_, i) => i !== index)) }))
                        ),
                         React.createElement('textarea', { rows: 6, value: pastedJson, onChange: e => setPastedJson(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o JSON dos nós (N8N) aqui..." }),
+                        !isJsonValid && jsonErrorMessage && React.createElement('p', { className: "text-xs text-red-400 mt-1 font-mono" }, jsonErrorMessage),
                         React.createElement('div', { className: "text-center text-sm text-gray-400" }, "e/ou"),
                          React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
                             React.createElement(UploadIcon, null),
