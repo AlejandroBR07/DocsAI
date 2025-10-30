@@ -150,6 +150,13 @@ export const generateDocumentContent = async (params) => {
       7.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
       8.  **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
 
+      **Instruções Específicas para Análise de Código-Fonte (OBRIGATÓRIO):**
+      Se o contexto fornecido for o código-fonte de uma aplicação (ex: React, Node.js), sua análise DEVE ser muito mais profunda do que um resumo. Você precisa agir como um arquiteto de software sênior fazendo uma revisão de código completa.
+      - **Análise por Componente:** Para aplicações de frontend (como React), sua análise **DEVE** incluir uma seção detalhada para CADA componente principal (ex: App.js, CreationModal.js, DocumentPreview.js). Descreva a responsabilidade de cada um, seus principais estados (useState), efeitos (useEffect), props que recebe e as funções internas mais importantes.
+      - **Lógica de Negócios e Serviços:** Analise os arquivos de serviço (como \`services/geminiService.js\`) e descreva a lógica de negócio principal, como a comunicação com APIs externas, a manipulação de dados e as funções-chave exportadas.
+      - **Estrutura de Dados (Constantes e Tipos):** Identifique e explique o propósito de arquivos de constantes (\`constants.js\`) e tipos (\`types.js\`). Detalhe as estruturas de dados, como os templates e os enums, e como eles são usados na aplicação.
+      - **Fluxo de Interação do Usuário:** Mapeie o fluxo de dados e o fluxo de interação do usuário através da aplicação. Descreva como um usuário vai do onboarding à criação de um documento e à sua visualização. Explique como os componentes se comunicam para alcançar isso. NÃO SEJA SUPERFICIAL. Conecte os pontos entre os diferentes arquivos para construir uma imagem completa da arquitetura.
+
       **Informações do Projeto:**
       - Nome do Projeto: ${projectName}
       - Descrição/Objetivo Principal: ${description}
