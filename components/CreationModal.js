@@ -268,7 +268,7 @@ const FileTree = ({ nodes, selectedPaths, onToggleNode }) => {
 const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
-  const [includeSupportSection, setIncludeSupportSection] = useState(false);
+  const [docType, setDocType] = useState('both'); // 'technical', 'support', 'both'
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
   const [displayedLoadingMessage, setDisplayedLoadingMessage] = useState('');
@@ -524,7 +524,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     addImages(e.dataTransfer.files);
   };
 
-  const canGenerate = () => !!projectName && !!description;
+  const canGenerate = () => !!projectName && !!description && !!docType;
 
   const handleSelectFolder = async () => {
     setError('');
@@ -635,7 +635,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         projectName,
         description,
         team: currentTeam,
-        includeSupportSection,
+        docType: docType,
         teamData,
       };
 
@@ -832,6 +832,12 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   }
 
   const teamTemplates = TEMPLATES[currentTeam] || [];
+  const docTypeOptions = [
+    { id: 'technical', label: 'Técnica' },
+    { id: 'support', label: 'Suporte' },
+    { id: 'both', label: 'Ambas' }
+  ];
+
 
   return (
     React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: isLoading ? undefined : onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
@@ -863,18 +869,28 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                     ))
                 )
             ),
-
+            
+            // Doc Type Selector
              React.createElement('div', { className: "pt-2" },
-                React.createElement('label', { className: "flex items-center space-x-3 text-gray-300 cursor-pointer" },
-                    React.createElement('input', { 
-                        type: "checkbox", 
-                        checked: includeSupportSection, 
-                        onChange: (e) => setIncludeSupportSection(e.target.checked), 
-                        className: "form-checkbox h-5 w-5 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500" 
-                    }),
-                    React.createElement('span', { className: "text-sm font-medium" }, "Adicionar Seção de Suporte ao Usuário Final")
+                React.createElement('label', { className: "block text-sm font-medium text-gray-300 mb-2" }, "Tipo de Documento (Obrigatório)"),
+                 React.createElement('div', { className: "flex rounded-md shadow-sm", role:"group" },
+                    docTypeOptions.map((option, index) => (
+                        React.createElement('button', {
+                            key: option.id,
+                            type: 'button',
+                            onClick: () => setDocType(option.id),
+                            className: `relative inline-flex items-center justify-center px-4 py-2 text-sm font-medium focus:z-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-1/3 transition-colors
+                                ${index === 0 ? 'rounded-l-md' : ''}
+                                ${index === docTypeOptions.length - 1 ? 'rounded-r-md' : ''}
+                                ${docType === option.id
+                                    ? 'bg-indigo-600 text-white border border-indigo-500'
+                                    : 'bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600'
+                                }`
+                        }, option.label)
+                    ))
                 )
             ),
+
              React.createElement('hr', { className: "border-gray-600" }),
             // Team Specific Inputs
             renderTeamSpecificInputs()

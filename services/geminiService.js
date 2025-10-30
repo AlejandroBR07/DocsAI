@@ -74,22 +74,22 @@ export const generateDocumentContent = async (params) => {
     throw new Error("A API OpenAI não foi inicializada. Por favor, configure sua chave de API na tela inicial.");
   }
 
-  const { projectName, description, team, includeSupportSection, teamData } = params;
+  const { projectName, description, team, docType, teamData } = params;
   try {
     
     let persona = 'Você é um assistente de IA especialista em criar documentação técnica e de negócios.';
     switch (team) {
       case Team.Developers:
-        persona = 'Aja como um engenheiro de software sênior e arquiteto de soluções.';
+        persona = 'Aja como um engenheiro de software sênior e arquiteto de soluções, e sua tarefa é criar a documentação mais detalhada possível.';
         break;
       case Team.UXUI:
-         persona = 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento.';
+         persona = 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento e na criação da documentação mais detalhada possível.';
         break;
       case Team.Automations:
-        persona = 'Aja como um especialista em automação de processos (RPA e integrações).';
+        persona = 'Aja como um especialista em automação de processos (RPA e integrações), e sua tarefa é criar a documentação mais detalhada possível.';
         break;
       case Team.AI:
-        persona = 'Aja como um engenheiro de IA especialista em arquitetura de agentes e large language models.';
+        persona = 'Aja como um engenheiro de IA especialista em arquitetura de agentes e large language models, e sua tarefa é criar a documentação mais detalhada possível.';
         break;
     }
 
@@ -132,25 +132,23 @@ export const generateDocumentContent = async (params) => {
     teamContext += teamData.exampleIO ? `**Exemplos de Entrada/Saída:**\n${teamData.exampleIO}\n` : '';
     teamContext += teamData.guardrails ? `**Guardrails e Regras de Segurança:**\n${teamData.guardrails}\n` : '';
     
-
     const mainPrompt = `
-      Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação abrangente e bem-estruturada para o projeto a seguir.
+      Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação **extremamente detalhada, completa e exaustiva** para o projeto a seguir.
 
       **Instruções Chave:**
-      1.  **Análise Holística:** Você recebeu um contexto de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado, imagens). Analise TODAS as fontes e suas relações para entender o projeto de forma completa antes de escrever.
+      1.  **Análise Holística:** Você recebeu um contexto de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado, imagens). Analise e relacione **TODAS** as fontes para entender o projeto de forma completa antes de escrever. Se houver múltiplos arquivos, sintetize a informação de todos eles em uma documentação coesa.
       2.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do contexto, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
-      3.  **Estilo Profissional:** A documentação deve ser clara, prática e bem-organizada. Use uma estrutura hierárquica e numerada quando fizer sentido (ex: 1.0, 2.1, 2.1.1).
-      4.  **Conteúdo Essencial:** Comece com a motivação ou o objetivo do projeto. Em seguida, detalhe o fluxo de funcionamento, a arquitetura e os componentes técnicos ou de processo mais importantes. Preencha todo o conteúdo de forma detalhada e profissional. O resultado final não deve conter placeholders.
+      3.  **Detalhe Exaustivo:** Para cada elemento encontrado no contexto (funções, componentes, endpoints, nós de automação), detalhe CADA parâmetro, prop, argumento, campo de dados e opção de configuração. Seja explícito sobre tipos, obrigatoriedade e valores padrão. O objetivo é um manual de referência, não um resumo. Não omita nenhum detalhe.
+      4.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria. O resultado final não deve conter placeholders.
       5.  **Guia "Primeiros Passos":** Se for relevante para o tipo de projeto, adicione uma seção "Primeiros Passos" logo após a introdução. Esta seção deve ser um guia rápido com etapas claras e práticas para que alguém possa começar a usar ou entender a funcionalidade principal rapidamente.
-      6.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria.
-      7.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
+      6.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
           - **PROIBIDO:** NUNCA, sob nenhuma circunstância, use blocos de código com três crases (\`\`\`). A saída NÃO DEVE conter \`\`\`.
           - **CORRETO:** Para código em linha (nomes de variáveis, funções, arquivos), use crases SIMPLES (\`). Exemplo: \`minhaFuncao()\`.
           - **PROIBIDO:** Não gere crases vazias ou com apenas espaços, como \` \` ou \`\`.
           - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases.
           - Use negrito (\*\*) para ênfase e títulos de seção.
-      8.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
-      9.  **Foco Interno:** A documentação técnica é para a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
+      7.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
+      8.  **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
 
       **Informações do Projeto:**
       - Nome do Projeto: ${projectName}
@@ -161,13 +159,11 @@ export const generateDocumentContent = async (params) => {
       ${teamContext || "Nenhum contexto adicional foi fornecido. Crie a estrutura e o conteúdo com base nas melhores práticas para um projeto com a descrição fornecida."}
     `;
 
-    let supportInstruction = '';
-    if (includeSupportSection) {
-      supportInstruction = `
+    const supportInstruction = `
 ---
 ## 📖 Guia Completo do Usuário (Help Center)
 
-**Instrução Adicional OBRIGATÓRIA:** Após a documentação técnica, sua tarefa mais importante é criar um guia de usuário final EXTREMAMENTE COMPLETO e abrangente. Este não é apenas um anexo, mas um manual detalhado para um usuário que não tem NENHUM conhecimento técnico. A linguagem deve ser a mais simples e acessível possível. Analise TODO o contexto fornecido (descrição, código, imagens, fluxos) para identificar TODAS as funcionalidades e interações possíveis do ponto de vista do usuário.
+**Instrução Adicional OBRIGATÓRIA:** Sua tarefa mais importante é criar um guia de usuário final EXTREMAMENTE COMPLETO e abrangente. Este não é apenas um anexo, mas um manual detalhado para um usuário que não tem NENHUM conhecimento técnico. A linguagem deve ser a mais simples e acessível possível. Analise TODO o contexto fornecido (descrição, código, imagens, fluxos) para identificar TODAS as funcionalidades e interações possíveis do ponto de vista do usuário.
 
 **Estrutura Obrigatória para o Guia do Usuário:**
 
@@ -191,14 +187,38 @@ export const generateDocumentContent = async (params) => {
 
 Este guia deve ser tão completo que elimina a necessidade de o usuário entrar em contato com o suporte para tarefas rotineiras.
 `;
-    }
+    
+    let userTextPrompt = '';
 
-    const userTextPrompt = `
-      ${mainPrompt}
-      ${supportInstruction}
+    if (docType === 'technical') {
+      userTextPrompt = `
+        ${mainPrompt}
+        **Sua Resposta (gere APENAS a documentação técnica completa e preenchida, começando com o título principal como '# Nome do Projeto'):**
+      `;
+    } else if (docType === 'support') {
+      const supportOnlyIntro = `Com base nas informações e contexto do projeto fornecidos, sua única tarefa é criar um "Guia Completo do Usuário (Help Center)". Ignore completamente a criação de documentação técnica. Foque apenas na perspectiva de um usuário final não técnico.`;
       
-      **Sua Resposta (gere apenas o markdown completo e preenchido, começando com o título principal como '# Nome do Projeto'):**
-    `;
+      userTextPrompt = `
+        **Informações do Projeto:**
+        - Nome do Projeto: ${projectName}
+        - Descrição/Objetivo Principal: ${description}
+        - Equipe Alvo da Documentação: ${team}
+
+        **Contexto Adicional Fornecido para sua Análise:**
+        ${teamContext || "Nenhum contexto adicional foi fornecido."}
+        
+        ${supportOnlyIntro}
+        ${supportInstruction}
+
+        **Sua Resposta (gere APENAS o Guia do Usuário completo e preenchido, começando com o título principal como '# Guia de Suporte para ${projectName}'):**
+      `;
+    } else { // 'both'
+      userTextPrompt = `
+        ${mainPrompt}
+        ${supportInstruction}
+        **Sua Resposta (gere a documentação técnica PRIMEIRO, e DEPOIS o guia do usuário, ambos completos e preenchidos, começando com o título principal como '# Nome do Projeto'):**
+      `;
+    }
 
     const messages = [];
     messages.push({ role: "system", content: persona });
