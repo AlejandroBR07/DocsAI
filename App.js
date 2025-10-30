@@ -37,7 +37,7 @@ const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
       },
         React.createElement('div', { className: "p-6" },
           React.createElement('h3', { id: "apikey-change-title", className: "text-lg leading-6 font-bold text-white" }, "Alterar Chave de API"),
-          React.createElement('p', { className: "text-gray-400 mt-2 text-sm" }, "Insira sua nova chave de API do Google Gemini. A chave anterior será substituída.")
+          React.createElement('p', { className: "text-gray-400 mt-2 text-sm" }, "Insira sua nova chave de API da OpenAI. A chave anterior será substituída.")
         ),
         React.createElement('form', { onSubmit: handleSubmit },
             React.createElement('div', {className: "p-6 space-y-4"},
@@ -55,11 +55,11 @@ const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
                 ),
                  React.createElement('div', { className: "text-center text-sm text-gray-500" },
                     React.createElement('a', {
-                        href: "https://aistudio.google.com/app/apikey",
+                        href: "https://platform.openai.com/account/api-keys",
                         target: "_blank",
                         rel: "noopener noreferrer",
                         className: "text-indigo-400 hover:text-indigo-300 underline"
-                    }, "Obtenha uma chave de API no Google AI Studio")
+                    }, "Obtenha uma chave de API no painel da OpenAI")
                 )
             ),
             React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },

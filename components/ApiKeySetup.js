@@ -15,11 +15,11 @@ const ApiKeySetup = ({ onApiKeySet }) => {
       React.createElement('div', { className: "w-full max-w-lg bg-gray-800 p-8 rounded-lg shadow-2xl border border-gray-700" },
         React.createElement('div', { className: "text-center mb-8" },
             React.createElement('h1', { className: "text-3xl font-bold text-white" }, "Configurar ", React.createElement('span', { className: "text-indigo-400" }, "Synapse"), " Docs"),
-            React.createElement('p', { className: "text-gray-400 mt-2" }, "Para começar, você precisa de uma chave de API do Google Gemini.")
+            React.createElement('p', { className: "text-gray-400 mt-2" }, "Para começar, você precisa de uma chave de API da OpenAI (GPT).")
         ),
         React.createElement('form', { onSubmit: handleSubmit, className: "space-y-6" },
             React.createElement('div', null,
-                React.createElement('label', { htmlFor: "api-key", className: "block text-sm font-medium text-gray-300 mb-2" }, "Sua Chave de API do Google Gemini"),
+                React.createElement('label', { htmlFor: "api-key", className: "block text-sm font-medium text-gray-300 mb-2" }, "Sua Chave de API da OpenAI"),
                 React.createElement('input', {
                     id: "api-key",
                     type: "password",
@@ -37,11 +37,11 @@ const ApiKeySetup = ({ onApiKeySet }) => {
              React.createElement('div', { className: "text-center text-sm text-gray-500" },
                 React.createElement('p', null, "Sua chave de API é armazenada apenas no seu navegador."),
                 React.createElement('a', {
-                    href: "https://aistudio.google.com/app/apikey",
+                    href: "https://platform.openai.com/account/api-keys",
                     target: "_blank",
                     rel: "noopener noreferrer",
                     className: "text-indigo-400 hover:text-indigo-300 underline"
-                }, "Obtenha uma chave de API no Google AI Studio")
+                }, "Obtenha uma chave de API no painel da OpenAI")
             )
         )
       )

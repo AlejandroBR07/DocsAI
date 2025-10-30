@@ -1,15 +1,15 @@
-import { GoogleGenAI } from "@google/genai";
 import { Team } from "../types.js";
 
-let ai = null;
+let openAIApiKey = null;
 
+// NOTE: The function name is kept as `initializeGemini` to avoid extensive refactoring,
+// but it now initializes the OpenAI API key.
 export const initializeGemini = (apiKey) => {
   if (!apiKey) {
-    console.error("A chave de API é necessária para inicializar o Gemini.");
+    console.error("A chave de API é necessária para inicializar o serviço OpenAI.");
     return false;
   }
-  // A inicialização acontece aqui, usando a chave fornecida pelo usuário.
-  ai = new GoogleGenAI({ apiKey });
+  openAIApiKey = apiKey;
   return true;
 };
 
@@ -35,22 +35,16 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      // A more robust regex that only matches paired backticks with content inside.
-      // This prevents formatting from leaking if the AI generates an odd number of backticks.
-      // It no longer includes backticks inside the tag; presentation is handled by CSS.
       .replace(/`([^`]+)`/g, '<code>$1</code>');
 
     // Lists (unordered and ordered)
-    // Process unordered lists
     htmlContent = htmlContent.replace(/^\s*[-*] (.*$)/gm, '<li>$1</li>');
     htmlContent = htmlContent.replace(/((<li>.*<\/li>\s*)+)/g, '<ul>\n$1</ul>\n');
      htmlContent = htmlContent.replace(/<\/ul>\s*<ul>/g, '');
 
 
-    // Process ordered lists
     htmlContent = htmlContent.replace(/^\s*\d+\. (.*$)/gm, '<li>$1</li>');
     htmlContent = htmlContent.replace(/((<li>.*<\/li>\s*)+)/g, (match) => {
-        // Avoid re-wrapping if it's already in a <ul>
         if (match.includes('<ul>')) return match;
         return '<ol>\n' + match + '</ol>\n';
     });
@@ -76,8 +70,8 @@ const markdownToHtml = (text) => {
 }
 
 export const generateDocumentContent = async (params) => {
-  if (!ai) {
-    throw new Error("A API Gemini não foi inicializada. Por favor, configure sua chave de API na tela inicial.");
+  if (!openAIApiKey) {
+    throw new Error("A API OpenAI não foi inicializada. Por favor, configure sua chave de API na tela inicial.");
   }
 
   const { projectName, description, team, includeSupportSection, teamData } = params;
@@ -101,7 +95,6 @@ export const generateDocumentContent = async (params) => {
 
     let teamContext = '';
     
-    // Handle context for developers from multiple sources
     if (team === Team.Developers) {
         if (teamData.folderFiles && teamData.folderFiles.length > 0) {
           let folderContent = '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
@@ -141,7 +134,6 @@ export const generateDocumentContent = async (params) => {
     
 
     const mainPrompt = `
-      ${persona}
       Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação abrangente e bem-estruturada para o projeto a seguir.
 
       **Instruções Chave:**
@@ -201,58 +193,82 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
 `;
     }
 
-    const fullPrompt = `
+    const userTextPrompt = `
       ${mainPrompt}
       ${supportInstruction}
       
       **Sua Resposta (gere apenas o markdown completo e preenchido, começando com o título principal como '# Nome do Projeto'):**
     `;
 
-    let contents;
-    const teamsWithImageUpload = [Team.UXUI, Team.Automations, Team.AI];
-
-    if (teamsWithImageUpload.includes(team) && teamData.images && teamData.images.length > 0) {
-        const imageParts = teamData.images.map(img => ({
-            inlineData: {
-                mimeType: img.mimeType,
-                data: img.data,
-            }
-        }));
-        contents = { parts: [{ text: fullPrompt }, ...imageParts] };
-    } else {
-        contents = fullPrompt;
-    }
+    const messages = [];
+    messages.push({ role: "system", content: persona });
     
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents,
+    const userMessageContent = [{ type: "text", text: userTextPrompt }];
+
+    const teamsWithImageUpload = [Team.UXUI, Team.Automations, Team.AI];
+    if (teamsWithImageUpload.includes(team) && teamData.images && teamData.images.length > 0) {
+        teamData.images.forEach(img => {
+            userMessageContent.push({
+                type: "image_url",
+                image_url: {
+                    url: `data:${img.mimeType};base64,${img.data}`
+                }
+            });
+        });
+    }
+
+    messages.push({ role: "user", content: userMessageContent });
+    
+    const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openAIApiKey}`
+        },
+        body: JSON.stringify({
+            model: "gpt-4o",
+            messages: messages,
+            max_tokens: 4096,
+        })
     });
-    let text = response.text;
+    
+    if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        const defaultMessage = "Ocorreu uma falha inesperada ao tentar gerar o documento. Por favor, tente novamente mais tarde.";
+        let userMessage = errorData.error?.message || defaultMessage;
+
+        if (userMessage.includes('Incorrect API key')) {
+            userMessage = "Sua chave de API da OpenAI é inválida. Por favor, verifique-a na tela de configuração.";
+        } else if (apiResponse.status === 429) {
+            userMessage = "Você excedeu sua cota atual da API OpenAI ou o limite de requisições. Verifique seu plano e detalhes de faturamento.";
+        } else if (errorData.error?.code === 'context_length_exceeded') {
+             userMessage = "O contexto fornecido (código, imagens, texto) é muito grande. Tente reduzir a quantidade de arquivos ou o tamanho do texto e tente novamente.";
+        }
+        else {
+            userMessage = `Erro da IA: ${userMessage}`;
+        }
+        console.error("Erro da API OpenAI:", errorData);
+        throw new Error(userMessage);
+    }
+
+    const data = await apiResponse.json();
+    let text = data.choices[0]?.message?.content;
 
     if (!text) {
       throw new Error("A resposta da IA estava vazia.");
     }
     
-    // Normalize potential HTML from AI back to markdown before processing
     text = text.replace(/<code>(.*?)<\/code>/g, '`$1`');
-    
-    // BUG FIX: Clean up common AI formatting errors before converting to HTML
-    // 1. Remove any triple (or more) backticks, as they are disallowed.
     text = text.replace(/`{3,}/g, '');
-    // 2. Remove empty or whitespace-only inline code blocks.
     text = text.replace(/`\s*`/g, '');
-
-    // Remove component-like placeholders that the AI might generate
     text = text.replace(/<([A-Z][a-zA-Z0-9]+)\s*\/>/g, '');
 
-    // Separate title from content
     const lines = text.trim().split('\n');
     let title = projectName;
     let contentMarkdown = text.trim();
 
     if (lines[0].startsWith('# ')) {
         const extractedTitle = lines[0].substring(2).trim();
-        // Check if the extracted title contains the team name, e.g., "Documentação Técnica: My Project"
         const titleParts = extractedTitle.split(':');
         title = titleParts.length > 1 ? titleParts[1].trim() : extractedTitle;
         contentMarkdown = lines.slice(1).join('\n');
@@ -262,19 +278,10 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     return { title, content: htmlContent };
 
   } catch (error) {
-    console.error("Erro ao gerar conteúdo com a API Gemini:", error);
-    let userMessage = "Ocorreu uma falha inesperada ao tentar gerar o documento. Por favor, tente novamente mais tarde.";
-
+    console.error("Erro ao gerar conteúdo com a API OpenAI:", error);
     if (error instanceof Error) {
-        if (error.message.includes('API key not valid')) {
-            userMessage = "Sua chave de API do Gemini é inválida. Por favor, verifique-a na tela de configuração.";
-        } else if (error.message.includes('SAFETY')) {
-            userMessage = "A geração de conteúdo foi bloqueada pelas políticas de segurança da IA. Tente ajustar o conteúdo fornecido (textos, imagens, etc.) e tente novamente.";
-        } else {
-            userMessage = `Erro da IA: ${error.message}`;
-        }
+        throw error;
     }
-    
-    throw new Error(userMessage);
+    throw new Error("Ocorreu uma falha inesperada ao se comunicar com a API OpenAI.");
   }
 };
