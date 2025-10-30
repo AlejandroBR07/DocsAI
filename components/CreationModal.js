@@ -370,10 +370,10 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     isCancelled.current = false;
     let timeoutId;
 
-    const hasImages = [Team.UXUI, Team.Automations, Team.AI].includes(currentTeam) && uploadedImages.length > 0;
-    const hasCode = currentTeam === Team.Developers && (allFolderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0);
-    const hasJson = currentTeam === Team.Automations && (pastedJson.length > 0 || jsonFiles.length > 0);
-    const hasAiContext = currentTeam === Team.AI && (systemPrompt || workflow || tools || exampleIO || guardrails);
+    const hasImages = uploadedImages.length > 0;
+    const hasCode = allFolderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0;
+    const hasJson = pastedJson.length > 0 || jsonFiles.length > 0;
+    const hasAiContext = systemPrompt || workflow || tools || exampleIO || guardrails;
 
     const stages = [{
         messages: ['Conectando com o modelo de IA...'],
@@ -624,8 +624,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
             userFlows,
         };
       
-      const teamsWithImageUpload = [Team.UXUI, Team.Automations, Team.AI];
-      if (teamsWithImageUpload.includes(currentTeam) && uploadedImages.length > 0) {
+      if (uploadedImages.length > 0) {
         teamData.images = await Promise.all(
           uploadedImages.map(img => fileToBase64(img.file))
         );
@@ -723,6 +722,20 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     )
   );
 
+  const PastedCodeInput = () => (
+      React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
+          React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(CodeIcon, null), "Colar Código (Opcional)"),
+          React.createElement('textarea', { 
+              rows: 4, 
+              value: pastedCode, 
+              onChange: e => setPastedCode(e.target.value), 
+              className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", 
+              placeholder: "Cole trechos de código, logs, ou outros contextos de texto aqui..." 
+          })
+      )
+  );
+
+
   const renderTeamSpecificInputs = () => {
       switch (currentTeam) {
           case Team.Developers:
@@ -765,18 +778,20 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                      React.createElement('h4', { className: "text-sm font-medium text-gray-300" }, "Contexto Adicional"),
                      React.createElement('textarea', { rows: 2, value: databaseSchema, onChange: e => setDatabaseSchema(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Esquema do banco de dados (SQL, Prisma, etc)..." }),
                      React.createElement('textarea', { rows: 2, value: dependencies, onChange: e => setDependencies(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Dependências ou bibliotecas importantes..." })
-                  )
+                  ),
+                   React.createElement(ImageUploader, null)
                 )
               )
           case Team.UXUI:
               return (
-                React.createElement(React.Fragment, null,
+                React.createElement('div', { className: "space-y-4" },
                    React.createElement(ImageUploader, null),
                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
+                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto de UX (Opcional)"),
                      React.createElement('textarea', { rows: 3, value: personas, onChange: e => setPersonas(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva as personas dos usuários..." }),
                      React.createElement('textarea', { rows: 3, value: userFlows, onChange: e => setUserFlows(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva os principais fluxos de usuário em texto..." })
-                  )
+                  ),
+                  React.createElement(PastedCodeInput, null)
                 )
               )
           case Team.Automations:
@@ -809,7 +824,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                      React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
                      React.createElement('textarea', { rows: 3, value: triggerInfo, onChange: e => setTriggerInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o gatilho (trigger) da automação..." }),
                      React.createElement('textarea', { rows: 3, value: externalApis, onChange: e => setExternalApis(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as APIs externas envolvidas..." })
-                  )
+                  ),
+                  React.createElement(PastedCodeInput, null)
                 )
               )
           case Team.AI:
@@ -823,7 +839,8 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                            React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas: 'getProductInfo(productId: string): Product - Retorna informações de um produto.'" }),
                            React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos I/O: 'Entrada: Qual o preço do item X? Saída: { name: X, price: 19.99 }'" }),
                            React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails: 'Não responda a perguntas sobre tópicos sensíveis. Se o usuário insistir, encerre a conversa.'" })
-                       )
+                       ),
+                       React.createElement(PastedCodeInput, null)
                   )
               )
           default:

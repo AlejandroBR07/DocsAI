@@ -95,28 +95,25 @@ export const generateDocumentContent = async (params) => {
 
     let teamContext = '';
     
-    if (team === Team.Developers) {
-        if (teamData.folderFiles && teamData.folderFiles.length > 0) {
-          let folderContent = '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
-          for (const file of teamData.folderFiles) {
-            folderContent += `--- Arquivo: ${file.path} ---\n${file.content}\n\n`;
-          }
-          teamContext += folderContent;
-        }
-
-        if (teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
-          let filesContent = '**Arquivos Avulsos Anexados:**\n\n';
-          for (const file of teamData.uploadedCodeFiles) {
-            filesContent += `--- Arquivo: ${file.name} ---\n${file.content}\n\n`;
-          }
-          teamContext += filesContent;
-        }
-        
-        if (teamData.pastedCode) {
-            teamContext += `**Código Colado Adicional:**\n${teamData.pastedCode}\n\n`;
-        }
+    if (teamData.folderFiles && teamData.folderFiles.length > 0) {
+      let folderContent = '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
+      for (const file of teamData.folderFiles) {
+        folderContent += `--- Arquivo: ${file.path} ---\n${file.content}\n\n`;
+      }
+      teamContext += folderContent;
     }
 
+    if (teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
+      let filesContent = '**Arquivos Avulsos Anexados:**\n\n';
+      for (const file of teamData.uploadedCodeFiles) {
+        filesContent += `--- Arquivo: ${file.name} ---\n${file.content}\n\n`;
+      }
+      teamContext += filesContent;
+    }
+    
+    if (teamData.pastedCode) {
+        teamContext += `**Código Colado Adicional:**\n${teamData.pastedCode}\n\n`;
+    }
 
     teamContext += teamData.databaseSchema ? `**Esquema do Banco de Dados:**\n${teamData.databaseSchema}\n` : '';
     teamContext += teamData.dependencies ? `**Dependências e Bibliotecas:**\n${teamData.dependencies}\n` : '';
@@ -232,8 +229,7 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     
     const userMessageContent = [{ type: "text", text: userTextPrompt }];
 
-    const teamsWithImageUpload = [Team.UXUI, Team.Automations, Team.AI];
-    if (teamsWithImageUpload.includes(team) && teamData.images && teamData.images.length > 0) {
+    if (teamData.images && teamData.images.length > 0) {
         teamData.images.forEach(img => {
             userMessageContent.push({
                 type: "image_url",
