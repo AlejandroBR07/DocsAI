@@ -123,19 +123,19 @@ export const generateDocumentContent = async (params, progressCallback) => {
   const { projectName, description, team, docType, teamData } = params;
   try {
     
-    let persona = 'Você é um assistente de IA especialista em criar documentação técnica e de negócios.';
+    let persona = 'Você é um assistente de IA especialista em criar documentação técnica e de negócios. Sua resposta deve ser exclusivamente em Português do Brasil.';
     switch (team) {
       case Team.Developers:
-        persona = 'Aja como um engenheiro de software sênior e arquiteto de soluções, e sua tarefa é criar a documentação mais detalhada possível.';
+        persona = 'Aja como um engenheiro de software sênior e arquiteto de soluções. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
         break;
       case Team.UXUI:
-         persona = 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento e na criação da documentação mais detalhada possível.';
+         persona = 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
         break;
       case Team.Automations:
-        persona = 'Aja como um especialista em automação de processos (RPA e integrações), e sua tarefa é criar a documentação mais detalhada possível.';
+        persona = 'Aja como um especialista em automação de processos (RPA e integrações). Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
         break;
       case Team.AI:
-        persona = 'Aja como um engenheiro de IA especialista em arquitetura de agentes e large language models, e sua tarefa é criar a documentação mais detalhada possível.';
+        persona = 'Aja como um engenheiro de IA especialista em arquitetura de agentes e large language models. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
         break;
     }
 
@@ -192,6 +192,7 @@ export const generateDocumentContent = async (params, progressCallback) => {
           - Use negrito (\*\*) para ênfase e títulos de seção.
       7.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
       8.  **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
+      9.  **Listas Consistentes:** Dentro de uma mesma lista, use um estilo consistente. Se for uma lista numerada, use \`1.\`, \`2.\`, \`3.\`, etc. para todos os itens. Se for uma lista com marcadores, use \`-\` ou \`*\` para todos os itens. NÃO misture os estilos na mesma lista.
 
       **Instruções Específicas para Análise de Código-Fonte (OBRIGATÓRIO):**
       Se o contexto fornecido for o código-fonte de uma aplicação (ex: React, Node.js), sua análise DEVE ser muito mais profunda do que um resumo. Você precisa agir como um arquiteto de software sênior fazendo uma revisão de código completa.
@@ -240,12 +241,7 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     
     let userTextPrompt = '';
 
-    if (docType === 'technical') {
-      userTextPrompt = `
-        ${mainPrompt}
-        **Sua Resposta (gere APENAS a documentação técnica completa e preenchida, começando com o título principal como '# Nome do Projeto'):**
-      `;
-    } else if (docType === 'support') {
+    if (docType === 'support') {
       const supportOnlyIntro = `Com base nas informações e contexto do projeto fornecidos, sua única tarefa é criar um "Guia Completo do Usuário (Help Center)". Ignore completamente a criação de documentação técnica. Foque apenas na perspectiva de um usuário final não técnico.`;
       
       userTextPrompt = `
@@ -262,11 +258,10 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
 
         **Sua Resposta (gere APENAS o Guia do Usuário completo e preenchido, começando com o título principal como '# Guia de Suporte para ${projectName}'):**
       `;
-    } else { // 'both'
+    } else { // 'technical' or 'both'
       userTextPrompt = `
         ${mainPrompt}
-        ${supportInstruction}
-        **Sua Resposta (gere a documentação técnica PRIMEIRO, e DEPOIS o guia do usuário, ambos completos e preenchidos, começando com o título principal como '# Nome do Projeto'):**
+        **Sua Resposta (gere APENAS a documentação técnica completa e preenchida, começando com o título principal como '# Nome do Projeto'):**
       `;
     }
     
@@ -299,7 +294,8 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
       let contentMarkdown = text.trim();
 
       if (lines[0].startsWith('# ')) {
-          const extractedTitle = lines[0].substring(2).trim();
+          let extractedTitle = lines[0].substring(2).trim();
+          extractedTitle = extractedTitle.replace(/(\*\*|__|\*|_)/g, ''); // Remove markdown formatting
           title = extractedTitle;
           contentMarkdown = lines.slice(1).join('\n');
       }
@@ -315,8 +311,16 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
         "O documento está excelente até agora. Sua tarefa é **adicionar o conteúdo seguinte**, continuando de onde a resposta anterior parou. Não repita nenhuma seção já escrita. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados. Sua resposta deve começar diretamente com o título da nova seção (ex: '## Análise de Código e Lógica Interna').",
         "A análise do código foi ótima. Dando continuidade, sua tarefa é **adicionar a próxima seção** ao documento. Não repita o conteúdo anterior. Foque **exclusivamente** no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes interagem e como a aplicação se conecta com APIs externas ou bancos de dados. Sua resposta deve começar diretamente com o título da nova seção.",
         "Perfeito. Agora, **adicione a próxima seção** ao documento. Não repita o conteúdo já gerado. Foque **exclusivamente** em **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades, gargalos de performance com sugestões de otimização, e a capacidade da arquitetura de escalar. Sua resposta deve começar diretamente com o título da nova seção.",
-        "Estamos quase no final. Para concluir, **adicione as seções finais** ao documento. Não repita nada do que já foi escrito. Foque **exclusivamente** em **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie guias 'Primeiros Passos', snippets de código para casos de uso comuns e ofereça recomendações sobre melhores práticas e manutenção. Se o pedido original incluía um guia de suporte, gere-o agora. Sua resposta deve começar diretamente com o título da nova seção."
     ];
+
+    const finalTechPrompt = "Estamos quase no final. Para concluir, **adicione as seções finais** ao documento. Não repita nada do que já foi escrito. Foque **exclusivamente** em **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie guias 'Primeiros Passos', snippets de código para casos de uso comuns e ofereça recomendações sobre melhores práticas e manutenção. Sua resposta deve começar diretamente com o título da nova seção.";
+
+    if (docType === 'both') {
+      levelPrompts.push(finalTechPrompt + `\n\n---\n\n**Após finalizar a parte técnica acima**, adicione o guia de usuário final completo, conforme as instruções a seguir. Comece esta parte com um título claro como '## 📖 Guia Completo do Usuário (Help Center)'.\n\n${supportInstruction}`);
+    } else {
+      levelPrompts.push(finalTechPrompt);
+    }
+
     const totalLevels = 1 + levelPrompts.length;
 
     // Nível 1: Chamada Inicial
@@ -333,7 +337,7 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
            "Nível 2/5: Código e lógica interna...",
            "Nível 3/5: Fluxo de dados e integração...",
            "Nível 4/5: Segurança e performance...",
-           "Nível 5/5: Tutoriais e exemplos...",
+           "Nível 5/5: Tutoriais e guia do usuário...",
         ];
         progressCallback({ progress: (100 / totalLevels) * level, message: levelMessages[i] });
         
@@ -356,7 +360,8 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     let contentMarkdown = text.trim();
 
     if (lines[0].startsWith('# ')) {
-        const extractedTitle = lines[0].substring(2).trim();
+        let extractedTitle = lines[0].substring(2).trim();
+        extractedTitle = extractedTitle.replace(/(\*\*|__|\*|_)/g, ''); // Remove markdown from title
         const titleParts = extractedTitle.split(':');
         title = titleParts.length > 1 ? titleParts[1].trim() : extractedTitle;
         
