@@ -15,7 +15,15 @@ export const initializeGemini = (apiKey) => {
 
 
 const markdownToHtml = (text) => {
-    let htmlContent = text
+    let htmlContent = text;
+
+    // Cleanup for AI-generated Markdown table artifacts around code blocks
+    // Removes lines like |:---| or |---|
+    htmlContent = htmlContent.replace(/^\s*\|?\s*:?-{3,}:?\s*\|?\s*$/gm, '');
+    // Removes leading/trailing pipes from single-column tables
+    htmlContent = htmlContent.replace(/^\s*\|(.*?)\|?\s*$/gm, '$1').trim();
+
+    htmlContent = htmlContent
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -186,13 +194,14 @@ export const generateDocumentContent = async (params, progressCallback) => {
       5.  **Guia "Primeiros Passos":** Se for relevante para o tipo de projeto, adicione uma seção "Primeiros Passos" logo após a introdução. Esta seção deve ser um guia rápido com etapas claras e práticas para que alguém possa começar a usar ou entender a funcionalidade principal rapidamente.
       6.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
           - **PROIBIDO:** NUNCA, sob nenhuma circunstância, use blocos de código com três crases (\`\`\`). A saída NÃO DEVE conter \`\`\`.
+          - **PROIBIDO:** NUNCA formate blocos de código usando a sintaxe de tabelas Markdown (| ... |). O código deve ser texto simples.
           - **CORRETO:** Para código em linha (nomes de variáveis, funções, arquivos), use crases SIMPLES (\`). Exemplo: \`minhaFuncao()\`.
           - **PROIBIDO:** Não gere crases vazias ou com apenas espaços, como \` \` ou \`\`.
-          - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases.
+          - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases ou tabelas.
           - Use negrito (\*\*) para ênfase e títulos de seção.
       7.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
       8.  **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
-      9.  **Listas Consistentes:** Dentro de uma mesma lista, use um estilo consistente. Se for uma lista numerada, use \`1.\`, \`2.\`, \`3.\`, etc. para todos os itens. Se for uma lista com marcadores, use \`-\` ou \`*\` para todos os itens. NÃO misture os estilos na mesma lista.
+      9.  **Listas Consistentes:** Dentro de uma mesma lista, use um estilo consistente. Se for uma lista numerada, use \`1.\`, \`2.\`, \`3.\`, etc. para todos os itens. Se for uma lista com marcadores, use \`-\` ou \`*\` para todos os itens. NÃO misture os estilos na mesma lista. Para listas numeradas que representam um passo a passo contínuo, a numeração DEVE ser sequencial (1, 2, 3...), mesmo que haja texto ou quebras de linha entre os itens. NÃO reinicie a contagem para cada sub-tópico.
 
       **Instruções Específicas para Análise de Código-Fonte (OBRIGATÓRIO):**
       Se o contexto fornecido for o código-fonte de uma aplicação (ex: React, Node.js), sua análise DEVE ser muito mais profunda do que um resumo. Você precisa agir como um arquiteto de software sênior fazendo uma revisão de código completa.
@@ -214,29 +223,46 @@ export const generateDocumentContent = async (params, progressCallback) => {
 ---
 ## 📖 Guia Completo do Usuário (Help Center)
 
-**Instrução Adicional OBRIGATÓRIA:** Sua tarefa mais importante é criar um guia de usuário final EXTREMAMENTE COMPLETO e abrangente. Este não é apenas um anexo, mas um manual detalhado para um usuário que não tem NENHUM conhecimento técnico. A linguagem deve ser a mais simples e acessível possível. Analise TODO o contexto fornecido (descrição, código, imagens, fluxos) para identificar TODAS as funcionalidades e interações possíveis do ponto de vista do usuário.
+**Instrução Adicional OBRIGATÓRIA (LEIA COM ATENÇÃO):** Sua tarefa é criar um guia de usuário final **EXTREMAMENTE DETALHADO, INTELIGENTE e PRÁTICO**. A linguagem deve ser a mais simples possível, como se você estivesse explicando para alguém que nunca usou um computador.
 
-**Estrutura Obrigatória para o Guia do Usuário:**
+**INSTRUÇÃO CRÍTICA PARA ANÁLISE DE QUALQUER CÓDIGO-FONTE:**
+O contexto que você recebeu pode ser de QUALQUER TIPO de projeto (React, HTML/CSS/JS puro, Node.js, etc.). Sua inteligência será medida pela sua capacidade de analisar um código-fonte desconhecido e **deduzir** suas funcionalidades do ponto de vista de um usuário final. Você **NÃO** deve resumir o código; você deve **TRADUZIR O CÓDIGO EM AÇÕES PRÁTICAS**.
+
+Siga esta metodologia de análise:
+
+1.  **Entenda o Propósito Geral:** Primeiro, analise todos os arquivos fornecidos para entender o objetivo principal da aplicação. Qual problema ela resolve? A quem se destina? Comece o guia com essa explicação simples.
+
+2.  **Identifique as Funcionalidades-Chave:** Vasculhe o código em busca de interações do usuário. Procure por:
+    *   **Componentes ou seções de HTML:** Nomes como \`Login\`, \`Dashboard\`, \`Editor\`, \`Settings\`, \`CreateUserForm\` são pistas fortes.
+    *   **Manipuladores de Eventos:** Funções como \`handleClick\`, \`onSubmit\`, \`handleDelete\`, \`saveChanges\` revelam as ações que um usuário pode tomar.
+    *   **Formulários e Entradas:** Elementos \`<form>\`, \`<input>\`, \`<button>\` indicam onde o usuário insere dados ou inicia ações.
+
+3.  **Crie um Tutorial para Cada Funcionalidade:** Para **CADA** funcionalidade principal que você identificar, crie um tutorial detalhado e passo a passo.
+    *   **Exemplo para um App de Tarefas:** Se você encontrar um formulário para adicionar tarefas e uma lista para exibi-las, crie tutoriais separados como "Como Adicionar uma Nova Tarefa" e "Como Marcar uma Tarefa como Concluída".
+    *   **Exemplo para um Site Simples:** Se for um arquivo \`index.html\` com uma galeria de imagens e um formulário de contato, crie um tutorial para "Como Navegar pela Galeria" e "Como Enviar uma Mensagem de Contato", detalhando cada campo do formulário.
+
+**ESTRUTURA OBRIGATÓRIA E DETALHADA:**
 
 ### 1. Bem-vindo ao ${projectName}!
-- **O que é isso?** Comece com uma explicação muito simples e amigável sobre o que é a funcionalidade/projeto e qual problema ela resolve para o usuário no dia a dia. Use analogias se ajudar.
-- **Para quem é isso?** Descreva o perfil de usuário que mais se beneficiará com isso.
+- **O que é isso?** Explique de forma muito simples o que o aplicativo faz, com base na sua análise do código.
+- **Para quem é isso?** Descreva o perfil de usuário ideal.
 
-### 2. Primeiros Passos (Guia Rápido)
-- Forneça um guia de início rápido com 3 a 5 passos essenciais para que o usuário possa obter valor imediato. Ex: "1. Crie sua conta; 2. Configure seu perfil; 3. Crie seu primeiro projeto...".
+### 2. Guia de Primeiros Passos
+- Descreva a primeira ação que um usuário deve realizar. Se houver uma tela de configuração, um login ou um passo inicial obrigatório, detalhe-o aqui.
 
-### 3. Tutoriais Detalhados (Passo a Passo)
-- **INSTRUÇÃO CRÍTICA:** Analise o contexto e INFERIR as principais tarefas que um usuário pode realizar. Crie um tutorial passo a passo separado para CADA TAREFA.
-- **Exemplos de tarefas a serem inferidas:** Se o contexto é sobre um sistema de e-commerce, crie tutoriais para "Como buscar um produto", "Como adicionar um item ao carrinho", "Como finalizar uma compra". Se for sobre uma ferramenta de design, "Como criar um novo arquivo", "Como usar a ferramenta de texto", "Como exportar seu trabalho". Se for uma landing page de cursos como o usuário mencionou, crie um tutorial para "Como se inscrever em um novo curso".
-- Cada tutorial deve ser ultra-detalhado, com uma lista numerada, verbos de ação claros (Ex: "Clique no botão 'Salvar'", "Arraste o item para a coluna 'Concluído'") e, se possível, descreva o que o usuário deve ver na tela.
+### 3. Usando o Aplicativo: Tutoriais Passo a Passo
+- Crie um subtítulo (###) para **CADA UMA** das funcionalidades que você identificou na análise do código (ex: "Como Criar um Novo Relatório", "Como Editar seu Perfil", "Como Excluir um Item").
+- Cada tutorial deve ser uma lista numerada (\`1.\`, \`2.\`, \`3.\`...) com ações claras (Ex: "1. Vá para a seção 'Relatórios' no menu principal.").
+- Descreva o que o usuário vê na tela. (Ex: "2. Preencha o campo 'Nome do Relatório' com...").
 
 ### 4. Solução de Problemas e Perguntas Frequentes (FAQ)
-- Crie uma seção robusta com pelo menos 5 a 8 problemas comuns ou perguntas frequentes.
-- Para cada item, use o seguinte formato:
-    - **🤔 Pergunta/Problema:** [Descreva a dúvida ou o erro em linguagem de usuário. Ex: "O botão de salvar não funciona." ou "Onde encontro meus arquivos?"]
-    - **💡 Solução/Resposta:** [Forneça uma explicação clara e uma série de passos simples para resolver o problema. Ex: "Isso geralmente acontece porque o campo 'Nome' não foi preenchido. Verifique se todos os campos obrigatórios (marcados com *) estão completos e tente salvar novamente."].
+- Com base nas funcionalidades que você documentou, crie uma seção robusta com 5 a 8 perguntas que um usuário real faria.
+- **Exemplos de perguntas a inferir:** "Onde meus dados são salvos?", "Posso exportar meu trabalho?", "O que acontece se eu preencher o formulário incorretamente?".
+- Para cada item, use o formato:
+    - **🤔 Pergunta/Problema:** [A pergunta do usuário]
+    - **💡 Solução/Resposta:** [Uma resposta clara e direta com os passos para resolver].
 
-Este guia deve ser tão completo que elimina a necessidade de o usuário entrar em contato com o suporte para tarefas rotineiras.
+Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que o aplicativo oferece, **independentemente da tecnologia ou estrutura do projeto**.
 `;
     
     let userTextPrompt = '';
@@ -308,53 +334,64 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     let fullMarkdownResponse = "";
     
     const levelPrompts = [
-        "O documento está excelente até agora. Sua tarefa é **adicionar o conteúdo seguinte**, continuando de onde a resposta anterior parou. Não repita nenhuma seção já escrita. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados. Sua resposta deve começar diretamente com o título da nova seção (ex: '## Análise de Código e Lógica Interna').",
-        "A análise do código foi ótima. Dando continuidade, sua tarefa é **adicionar a próxima seção** ao documento. Não repita o conteúdo anterior. Foque **exclusivamente** no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes interagem e como a aplicação se conecta com APIs externas ou bancos de dados. Sua resposta deve começar diretamente com o título da nova seção.",
-        "Perfeito. Agora, **adicione a próxima seção** ao documento. Não repita o conteúdo já gerado. Foque **exclusivamente** em **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades, gargalos de performance com sugestões de otimização, e a capacidade da arquitetura de escalar. Sua resposta deve começar diretamente com o título da nova seção.",
+        {
+            message: "Código e lógica interna...",
+            prompt: "O documento está excelente até agora. Sua tarefa é **adicionar o conteúdo seguinte**, continuando de onde a resposta anterior parou. Não repita nenhuma seção já escrita. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados. Sua resposta deve começar diretamente com o título da nova seção (ex: '## Análise de Código e Lógica Interna')."
+        },
+        {
+            message: "Fluxo de dados e integração...",
+            prompt: "A análise do código foi ótima. Dando continuidade, sua tarefa é **adicionar a próxima seção** ao documento. Não repita o conteúdo anterior. Foque **exclusivamente** no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes interagem e como a aplicação se conecta com APIs externas ou bancos de dados. Sua resposta deve começar diretamente com o título da nova seção."
+        },
+        {
+            message: "Segurança e performance...",
+            prompt: "Perfeito. Agora, **adicione a próxima seção** ao documento. Não repita o conteúdo já gerado. Foque **exclusivamente** em **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades, gargalos de performance com sugestões de otimização, e a capacidade da arquitetura de escalar. Sua resposta deve começar diretamente com o título da nova seção."
+        },
+        {
+            message: "Tutoriais e exemplos...",
+            prompt: "Estamos quase no final da parte técnica. Para concluir, **adicione as seções finais** ao documento. Não repita nada do que já foi escrito. Foque **exclusivamente** em **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie guias 'Primeiros Passos', snippets de código para casos de uso comuns e ofereça recomendações sobre melhores práticas e manutenção. Sua resposta deve começar diretamente com o título da nova seção."
+        }
     ];
 
-    const finalTechPrompt = "Estamos quase no final. Para concluir, **adicione as seções finais** ao documento. Não repita nada do que já foi escrito. Foque **exclusivamente** em **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie guias 'Primeiros Passos', snippets de código para casos de uso comuns e ofereça recomendações sobre melhores práticas e manutenção. Sua resposta deve começar diretamente com o título da nova seção.";
-
-    if (docType === 'both') {
-      levelPrompts.push(finalTechPrompt + `\n\n---\n\n**Após finalizar a parte técnica acima**, adicione o guia de usuário final completo, conforme as instruções a seguir. Comece esta parte com um título claro como '## 📖 Guia Completo do Usuário (Help Center)'.\n\n${supportInstruction}`);
-    } else {
-      levelPrompts.push(finalTechPrompt);
-    }
-
-    const totalLevels = 1 + levelPrompts.length;
+    const totalLevels = docType === 'both' ? 1 + levelPrompts.length + 1 : 1 + levelPrompts.length;
 
     // Nível 1: Chamada Inicial
-    progressCallback({ progress: (100 / totalLevels) * 1, message: 'Nível 1/5: Estrutura e arquitetura...' });
+    progressCallback({ progress: (100 / totalLevels), message: `Nível 1/${totalLevels}: Estrutura e arquitetura...` });
     const text1 = await callOpenAI(messages);
     if (!text1) throw new Error("A resposta inicial da IA estava vazia.");
-    fullMarkdownResponse += text1 + "\n\n";
+    fullMarkdownResponse += text1;
     messages.push({ role: "assistant", content: text1 });
 
-    // Níveis 2-5: Loop de Aprofundamento
+    // Níveis de Aprofundamento Técnico
     for (let i = 0; i < levelPrompts.length; i++) {
         const level = i + 2;
-        const levelMessages = [
-           "Nível 2/5: Código e lógica interna...",
-           "Nível 3/5: Fluxo de dados e integração...",
-           "Nível 4/5: Segurança e performance...",
-           "Nível 5/5: Tutoriais e guia do usuário...",
-        ];
-        progressCallback({ progress: (100 / totalLevels) * level, message: levelMessages[i] });
+        progressCallback({ progress: (100 / totalLevels) * level, message: `Nível ${level}/${totalLevels}: ${levelPrompts[i].message}` });
         
-        messages.push({ role: "user", content: levelPrompts[i] });
+        messages.push({ role: "user", content: levelPrompts[i].prompt });
         const loopText = await callOpenAI(messages);
         fullMarkdownResponse += "\n\n" + loopText;
         messages.push({ role: "assistant", content: loopText });
     }
+    
+    // Nível Final: Guia do Usuário (apenas se 'both')
+    if (docType === 'both') {
+      const supportLevel = totalLevels;
+      progressCallback({ progress: (100 / totalLevels) * supportLevel, message: `Nível ${supportLevel}/${totalLevels}: Guia do usuário...` });
+      
+      const supportUserPrompt = `
+        A documentação técnica está completa. Baseado em TODO o contexto e conversa anteriores, sua tarefa final e separada é criar o guia de usuário.
+        ${supportInstruction}
+        Sua resposta deve começar diretamente com o título '## 📖 Guia Completo do Usuário (Help Center)'. NÃO inclua nenhum outro texto, introdução ou despedida.
+      `;
+      messages.push({ role: "user", content: supportUserPrompt });
+      const supportText = await callOpenAI(messages);
+      fullMarkdownResponse += "\n\n---\n\n" + supportText;
+      // Não adicionamos a resposta do suporte ao histórico de mensagens para manter o contexto técnico limpo caso houvesse mais etapas.
+    }
+
 
     progressCallback({ progress: 98, message: 'Finalizando formatação...' });
     
     let text = fullMarkdownResponse;
-    text = text.replace(/<code>(.*?)<\/code>/g, '`$1`');
-    text = text.replace(/`{3,}/g, '');
-    text = text.replace(/`\s*`/g, '');
-    text = text.replace(/<([A-Z][a-zA-Z0-9]+)\s*\/>/g, '');
-
     const lines = text1.trim().split('\n');
     let title = projectName;
     let contentMarkdown = text.trim();
