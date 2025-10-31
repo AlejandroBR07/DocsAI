@@ -69,7 +69,44 @@ const markdownToHtml = (text) => {
     return htmlContent;
 }
 
-export const generateDocumentContent = async (params) => {
+const callOpenAI = async (messages) => {
+    const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openAIApiKey}`
+        },
+        body: JSON.stringify({
+            model: "gpt-4o",
+            messages: messages,
+            max_tokens: 16384,
+        })
+    });
+
+    if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        const defaultMessage = "Ocorreu uma falha inesperada ao tentar gerar o documento. Por favor, tente novamente mais tarde.";
+        let userMessage = errorData.error?.message || defaultMessage;
+
+        if (userMessage.includes('Incorrect API key')) {
+            userMessage = "Sua chave de API da OpenAI é inválida. Por favor, verifique-a na tela de configuração.";
+        } else if (apiResponse.status === 429) {
+            userMessage = "Você excedeu sua cota atual da API OpenAI ou o limite de requisições. Verifique seu plano e detalhes de faturamento.";
+        } else if (errorData.error?.code === 'context_length_exceeded') {
+             userMessage = "O contexto fornecido (código, imagens, texto) é muito grande. Tente reduzir a quantidade de arquivos ou o tamanho do texto e tente novamente.";
+        }
+        else {
+            userMessage = `Erro da IA: ${userMessage}`;
+        }
+        console.error("Erro da API OpenAI:", errorData);
+        throw new Error(userMessage);
+    }
+
+    const data = await apiResponse.json();
+    return data.choices[0]?.message?.content || "";
+};
+
+export const generateDocumentContent = async (params, progressCallback) => {
   if (!openAIApiKey) {
     throw new Error("A API OpenAI não foi inicializada. Por favor, configure sua chave de API na tela inicial.");
   }
@@ -223,7 +260,7 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
         **Sua Resposta (gere a documentação técnica PRIMEIRO, e DEPOIS o guia do usuário, ambos completos e preenchidos, começando com o título principal como '# Nome do Projeto'):**
       `;
     }
-
+    
     const messages = [];
     messages.push({ role: "system", content: persona });
     
@@ -241,52 +278,71 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     }
 
     messages.push({ role: "user", content: userMessageContent });
-    
-    const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openAIApiKey}`
-        },
-        body: JSON.stringify({
-            model: "gpt-4o",
-            messages: messages,
-            max_tokens: 4096,
-        })
-    });
-    
-    if (!apiResponse.ok) {
-        const errorData = await apiResponse.json();
-        const defaultMessage = "Ocorreu uma falha inesperada ao tentar gerar o documento. Por favor, tente novamente mais tarde.";
-        let userMessage = errorData.error?.message || defaultMessage;
 
-        if (userMessage.includes('Incorrect API key')) {
-            userMessage = "Sua chave de API da OpenAI é inválida. Por favor, verifique-a na tela de configuração.";
-        } else if (apiResponse.status === 429) {
-            userMessage = "Você excedeu sua cota atual da API OpenAI ou o limite de requisições. Verifique seu plano e detalhes de faturamento.";
-        } else if (errorData.error?.code === 'context_length_exceeded') {
-             userMessage = "O contexto fornecido (código, imagens, texto) é muito grande. Tente reduzir a quantidade de arquivos ou o tamanho do texto e tente novamente.";
-        }
-        else {
-            userMessage = `Erro da IA: ${userMessage}`;
-        }
-        console.error("Erro da API OpenAI:", errorData);
-        throw new Error(userMessage);
+    // Se for apenas um documento de suporte, o processo de várias etapas não é necessário.
+    if (docType === 'support') {
+      progressCallback({ progress: 25, message: 'Estruturando o guia...' });
+      const text = await callOpenAI(messages);
+      progressCallback({ progress: 95, message: 'Finalizando...' });
+      
+      const lines = text.trim().split('\n');
+      let title = projectName;
+      let contentMarkdown = text.trim();
+
+      if (lines[0].startsWith('# ')) {
+          const extractedTitle = lines[0].substring(2).trim();
+          title = extractedTitle;
+          contentMarkdown = lines.slice(1).join('\n');
+      }
+      
+      const htmlContent = markdownToHtml(contentMarkdown);
+      return { title, content: htmlContent };
     }
 
-    const data = await apiResponse.json();
-    let text = data.choices[0]?.message?.content;
-
-    if (!text) {
-      throw new Error("A resposta da IA estava vazia.");
-    }
+    // Para 'technical' e 'both', execute o processo de várias etapas.
+    let fullMarkdownResponse = "";
     
+    const levelPrompts = [
+        "Excelente começo. Continue a documentação. Expanda significativamente a seção anterior detalhando o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados para ilustrar o uso. Seja exaustivo.",
+        "Ótimo detalhamento. Continue a documentação. Agora, foque no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes ou módulos interagem entre si e como a aplicação se conecta com APIs externas, bancos de dados ou outros serviços. Use listas ou diagramas em texto para ilustrar os fluxos. A análise deve ser profunda e conectar as diferentes partes do sistema.",
+        "A documentação está ficando muito completa. Continue expandindo. Adicione seções robustas sobre **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades de segurança e como mitigá-las, identifique possíveis gargalos de performance e sugira otimizações, e analise como a arquitetura atual suporta o crescimento futuro e quais seriam os próximos passos para escalar a solução.",
+        "Trabalho fantástico. Para a parte final, continue a documentação adicionando **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie um guia 'Primeiros Passos' se ainda não houver um, forneça snippets de código para os casos de uso mais comuns e ofereça recomendações sobre as melhores práticas, padrões de código e planos de manutenção para garantir a longevidade do projeto. Se o pedido original incluía um guia de suporte, certifique-se de que ele também seja gerado de forma completa ao final de tudo."
+    ];
+    const totalLevels = 1 + levelPrompts.length;
+
+    // Nível 1: Chamada Inicial
+    progressCallback({ progress: (100 / totalLevels) * 1, message: 'Nível 1/5: Estrutura e arquitetura...' });
+    const text1 = await callOpenAI(messages);
+    if (!text1) throw new Error("A resposta inicial da IA estava vazia.");
+    fullMarkdownResponse += text1 + "\n\n";
+    messages.push({ role: "assistant", content: text1 });
+
+    // Níveis 2-5: Loop de Aprofundamento
+    for (let i = 0; i < levelPrompts.length; i++) {
+        const level = i + 2;
+        const levelMessages = [
+           "Nível 2/5: Código e lógica interna...",
+           "Nível 3/5: Fluxo de dados e integração...",
+           "Nível 4/5: Segurança e performance...",
+           "Nível 5/5: Tutoriais e exemplos...",
+        ];
+        progressCallback({ progress: (100 / totalLevels) * level, message: levelMessages[i] });
+        
+        messages.push({ role: "user", content: levelPrompts[i] });
+        const loopText = await callOpenAI(messages);
+        fullMarkdownResponse += "\n\n" + loopText;
+        messages.push({ role: "assistant", content: loopText });
+    }
+
+    progressCallback({ progress: 98, message: 'Finalizando formatação...' });
+    
+    let text = fullMarkdownResponse;
     text = text.replace(/<code>(.*?)<\/code>/g, '`$1`');
     text = text.replace(/`{3,}/g, '');
     text = text.replace(/`\s*`/g, '');
     text = text.replace(/<([A-Z][a-zA-Z0-9]+)\s*\/>/g, '');
 
-    const lines = text.trim().split('\n');
+    const lines = text1.trim().split('\n');
     let title = projectName;
     let contentMarkdown = text.trim();
 
@@ -294,7 +350,11 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
         const extractedTitle = lines[0].substring(2).trim();
         const titleParts = extractedTitle.split(':');
         title = titleParts.length > 1 ? titleParts[1].trim() : extractedTitle;
-        contentMarkdown = lines.slice(1).join('\n');
+        
+        const fullLines = contentMarkdown.split('\n');
+        if (fullLines[0].trim() === lines[0].trim()) {
+           contentMarkdown = fullLines.slice(1).join('\n');
+        }
     }
 
     const htmlContent = markdownToHtml(contentMarkdown);

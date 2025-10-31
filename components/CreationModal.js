@@ -29,83 +29,6 @@ const fileToText = (file) => {
     });
 }
 
-const shuffleArray = (array) => {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
-};
-
-const LOADING_MESSAGES = {
-  general: [
-    'Sintetizando informações...',
-    'Estruturando o documento...',
-    'Estabelecendo o contexto...',
-    'Analisando os requisitos...',
-    'Dando vida às suas ideias...',
-    'Organizando o conhecimento...',
-    'Construindo a estrutura...',
-    'Aplicando melhores práticas...',
-  ],
-  code: [
-    'Analisando a estrutura do código...',
-    'Identificando componentes...',
-    'Interpretando a lógica do código...',
-    'Mapeando os endpoints da API...',
-    'Rastreando dependências...',
-    'Construindo o grafo de chamadas...',
-    'Verificando esquema do BD...',
-    'Extraindo comentários do código...',
-  ],
-  images: [
-    'Processando os dados das imagens...',
-    'Analisando elementos da UI...',
-    'Identificando cores e fontes...',
-    'Analisando fluxos visuais...',
-    'Mapeando a jornada visual...',
-    'Criando hierarquia visual...',
-    'Inferindo intenções do design...',
-  ],
-  json: [
-    'Processando lógica do JSON...',
-    'Mapeando os nós da automação...',
-    'Validando o fluxo de dados...',
-    'Simulando a automação...',
-    'Analisando lógica condicional...',
-    'Identificando APIs externas...',
-  ],
-  ai: [
-    'Analisando o System Prompt...',
-    'Mapeando as ferramentas (Tools)...',
-    'Interpretando as guardrails...',
-    'Analisando fluxo da conversa...',
-    'Criando cenários de teste...',
-    'Avaliando exemplos de I/O...',
-    'Verificando as guardrails de segurança...',
-  ],
-  writing: [
-    'Rascunhando a introdução...',
-    'Elaborando as seções técnicas...',
-    'Detalhando a arquitetura...',
-    'Adicionando exemplos práticos...',
-    'Garantindo a consistência...',
-    'Escrevendo os guias de uso...',
-    'Revisando clareza e coesão...',
-    'Gerando a seção de suporte...',
-    'Criando exemplos de código...',
-  ],
-  finalizing: [
-    'Finalizando a geração...',
-    'Aplicando formatação final...',
-    'Otimizando a legibilidade...',
-    'Polindo os últimos detalhes...',
-    'Preparando para a sua revisão...',
-    'Verificação final...',
-  ],
-};
-
 // Helper function to process directory handle
 async function processDirectory(directoryHandle, path = '') {
     const files = [];
@@ -274,7 +197,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [displayedLoadingMessage, setDisplayedLoadingMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
-  const [generationResult, setGenerationResult] = useState(null);
 
   // Team specific state
   const [jsonFiles, setJsonFiles] = useState([]);
@@ -358,109 +280,6 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
 
     return () => clearInterval(intervalId);
   }, [loadingMessage, isLoading]);
-
-  // Loading message and progress effect
-  useEffect(() => {
-    if (!isLoading) {
-      setProgress(0);
-      setLoadingMessage('Iniciando...');
-      return;
-    }
-
-    isCancelled.current = false;
-    let timeoutId;
-
-    const hasImages = uploadedImages.length > 0;
-    const hasCode = allFolderFiles.length > 0 || uploadedCodeFiles.length > 0 || pastedCode.length > 0;
-    const hasJson = pastedJson.length > 0 || jsonFiles.length > 0;
-    const hasAiContext = systemPrompt || workflow || tools || exampleIO || guardrails;
-
-    const stages = [{
-        messages: ['Conectando com o modelo de IA...'],
-        duration: 2500,
-        progressTarget: 10
-    }];
-
-    let contextMessages = [];
-    if (hasCode) contextMessages.push(...LOADING_MESSAGES.code);
-    if (hasImages) contextMessages.push(...LOADING_MESSAGES.images);
-    if (hasJson) contextMessages.push(...LOADING_MESSAGES.json);
-    if (hasAiContext) contextMessages.push(...LOADING_MESSAGES.ai);
-    if (contextMessages.length === 0) {
-      contextMessages.push(...LOADING_MESSAGES.general);
-    }
-    
-    stages.push({
-      messages: shuffleArray(contextMessages).slice(0, 3), // Pick 3 random context messages
-      duration: 8000,
-      progressTarget: 45
-    });
-
-    stages.push({
-      messages: shuffleArray(LOADING_MESSAGES.writing).slice(0, 4), // Pick 4 random writing messages
-      duration: 12000,
-      progressTarget: 90
-    });
-
-    stages.push({
-      messages: shuffleArray(LOADING_MESSAGES.finalizing).slice(0, 2),
-      duration: 5000,
-      progressTarget: 95
-    });
-    
-    let currentStageIndex = 0;
-    let messageInStageIndex = 0;
-
-    const runStages = () => {
-        if (isCancelled.current || currentStageIndex >= stages.length) {
-            return;
-        }
-
-        const stage = stages[currentStageIndex];
-        const message = stage.messages[messageInStageIndex];
-        setLoadingMessage(message);
-
-        const progressStartOfStage = currentStageIndex > 0 ? stages[currentStageIndex - 1].progressTarget : 0;
-        const progressTargetForStage = stage.progressTarget;
-        const messagesInStage = stage.messages.length;
-        const progressIncrement = (progressTargetForStage - progressStartOfStage) / messagesInStage;
-        
-        const currentProgress = progressStartOfStage + (progressIncrement * (messageInStageIndex + 1));
-        setProgress(currentProgress);
-
-        messageInStageIndex++;
-        if (messageInStageIndex >= stage.messages.length) {
-            currentStageIndex++;
-            messageInStageIndex = 0;
-        }
-
-        timeoutId = setTimeout(runStages, stage.duration / stage.messages.length);
-    };
-
-    runStages();
-
-    return () => {
-      isCancelled.current = true;
-      clearTimeout(timeoutId);
-    };
-  }, [isLoading]);
-
-  // Effect to finish progress bar when generation is complete
-  useEffect(() => {
-    if (generationResult && !isCancelled.current) {
-      setLoadingMessage('Documento pronto!');
-      setProgress(100);
-    }
-  }, [generationResult]);
-  
-  // Effect to trigger document creation after animation and generation are complete
-  useEffect(() => {
-    if (progress >= 100 && generationResult && !isCancelled.current) {
-        onDocumentCreate(generationResult.title, generationResult.content);
-        onClose();
-    }
-  }, [progress, generationResult, onDocumentCreate, onClose]);
-
 
   const handleJsonFileChange = async (e) => {
       const files = e.target.files;
@@ -597,8 +416,15 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     
     setIsLoading(true);
     setError('');
-    setGenerationResult(null);
     isCancelled.current = false;
+    setProgress(0);
+    setLoadingMessage('Iniciando...');
+
+    const progressCallback = (update) => {
+        if (isCancelled.current) return;
+        setLoadingMessage(update.message);
+        setProgress(update.progress);
+    };
 
     try {
         const jsonFromFiles = jsonFiles.map(f => `--- JSON do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
@@ -638,16 +464,25 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
         teamData,
       };
 
-      const result = await generateContent(params);
+      const result = await generateContent(params, progressCallback);
       
       if (!isCancelled.current) {
-        setGenerationResult(result);
+        setLoadingMessage('Documento pronto!');
+        setProgress(100);
+        
+        setTimeout(() => {
+          if (!isCancelled.current) {
+            onDocumentCreate(result.title, result.content);
+            onClose();
+          }
+        }, 500);
       }
 
     } catch (err) {
       if (!isCancelled.current) {
         setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
-        setIsLoading(false); // Stop loading on error
+        setIsLoading(false);
+        setProgress(0);
       }
     }
   };
