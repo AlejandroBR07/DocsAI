@@ -13,44 +13,6 @@ export const initializeGemini = (apiKey) => {
   return true;
 };
 
-const createCacheKey = (params) => {
-    const { projectName, description, team, docType, teamData } = params;
-    
-    const folderFilesKey = teamData.folderFiles?.map(f => `${f.path}:${f.content}`).join('|') || '';
-    const uploadedFilesKey = teamData.uploadedCodeFiles?.map(f => `${f.name}:${f.content}`).join('|') || '';
-    const imagesKey = teamData.images?.map(img => img.data.substring(0, 200)).join('|') || ''; // Use a substring
-
-    const keyData = {
-        projectName, description, team, docType,
-        pastedCode: teamData.pastedCode,
-        databaseSchema: teamData.databaseSchema,
-        dependencies: teamData.dependencies,
-        json: teamData.json,
-        triggerInfo: teamData.triggerInfo,
-        externalApis: teamData.externalApis,
-        systemPrompt: teamData.systemPrompt,
-        workflow: teamData.workflow,
-        tools: teamData.tools,
-        exampleIO: teamData.exampleIO,
-        guardrails: teamData.guardrails,
-        personas: teamData.personas,
-        userFlows: teamData.userFlows,
-        folderFilesKey,
-        uploadedFilesKey,
-        imagesKey
-    };
-    
-    const jsonString = JSON.stringify(keyData);
-    let hash = 0;
-    if (jsonString.length === 0) return 'synapse-cache-empty';
-    for (let i = 0; i < jsonString.length; i++) {
-        const char = jsonString.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash |= 0; // Convert to 32bit integer
-    }
-    return `synapse-cache-${hash}`;
-};
-
 
 const markdownToHtml = (text) => {
     let htmlContent = text;
@@ -120,18 +82,8 @@ const markdownToHtml = (text) => {
     
     // Cleanup any <p><br /></p> that might result from stray newlines
     htmlContent = htmlContent.replace(/<p><br \/><\/p>/g, '');
-    
-    // --- Security Sanitization Pass ---
-    let sanitizedHtml = htmlContent;
-    // 1. Remove script tags and their content entirely.
-    sanitizedHtml = sanitizedHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-    // 2. Remove all on* event attributes (e.g., onclick, onerror).
-    sanitizedHtml = sanitizedHtml.replace(/\s(on\w+)=(".*?"|'.*?'|[^ >]+)/gi, '');
-    // 3. Remove javascript: URLs from href and src attributes to prevent script execution.
-    sanitizedHtml = sanitizedHtml.replace(/(href|src)=["']\s*javascript:.+?["']/gi, '$1=""');
-    // --- End of Security Sanitization ---
 
-    return sanitizedHtml;
+    return htmlContent;
 }
 
 const callOpenAI = async (messages) => {
@@ -175,21 +127,6 @@ export const generateDocumentContent = async (params, progressCallback) => {
   if (!openAIApiKey) {
     throw new Error("A API OpenAI não foi inicializada. Por favor, configure sua chave de API na tela inicial.");
   }
-  
-  const cacheKey = createCacheKey(params);
-  try {
-      const cachedData = sessionStorage.getItem(cacheKey);
-      if (cachedData) {
-          console.log("Carregando documento do cache da sessão.");
-          progressCallback({ progress: 100, message: 'Carregado do cache...' });
-          // Short delay to allow UI to show message before closing
-          await new Promise(resolve => setTimeout(resolve, 300));
-          return JSON.parse(cachedData);
-      }
-  } catch (e) {
-      console.warn("Não foi possível acessar o cache da sessão.", e);
-  }
-
 
   const { projectName, description, team, docType, teamData } = params;
   try {
@@ -390,13 +327,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
       }
       
       const htmlContent = markdownToHtml(contentMarkdown);
-      const result = { title, content: htmlContent };
-
-      try {
-        sessionStorage.setItem(cacheKey, JSON.stringify(result));
-      } catch(e) { console.warn("Não foi possível escrever no cache da sessão.", e); }
-
-      return result;
+      return { title, content: htmlContent };
     }
 
     // Para 'technical' e 'both', execute o processo de várias etapas.
@@ -478,18 +409,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     }
 
     const htmlContent = markdownToHtml(contentMarkdown);
-    const result = { title, content: htmlContent };
-
-    try {
-      sessionStorage.setItem(cacheKey, JSON.stringify(result));
-    } catch(e) { 
-        console.warn("Não foi possível escrever no cache da sessão.", e); 
-        if (e.name === 'QuotaExceededError') {
-          console.log("Cache de sessão cheio. Considere limpar o cache ou usar documentos menores.");
-        }
-    }
-
-    return result;
+    return { title, content: htmlContent };
 
   } catch (error) {
     console.error("Erro ao gerar conteúdo com a API OpenAI:", error);

@@ -1,25 +1,13 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header.js';
-import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner } from './components/Icons.js';
+import CreationModal from './components/CreationModal.js';
+import DocumentPreview from './components/DocumentPreview.js';
+import Onboarding from './components/Onboarding.js';
+import ApiKeySetup from './components/ApiKeySetup.js';
+import ConfirmationModal from './components/ConfirmationModal.js';
+import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon } from './components/Icons.js';
 import { Team } from './types.js';
 import { generateDocumentContent, initializeGemini } from './services/geminiService.js';
-
-// Lazy load components
-const CreationModal = lazy(() => import('./components/CreationModal.js'));
-const DocumentPreview = lazy(() => import('./components/DocumentPreview.js'));
-const Onboarding = lazy(() => import('./components/Onboarding.js'));
-const ApiKeySetup = lazy(() => import('./components/ApiKeySetup.js'));
-const ConfirmationModal = lazy(() => import('./components/ConfirmationModal.js'));
-
-
-// Suspense fallback loaders
-const PageLoader = () => (
-    React.createElement('div', { className: 'fixed inset-0 bg-gray-900 flex items-center justify-center' },
-        React.createElement(LoadingSpinner, null)
-    )
-);
-const ModalLoader = () => null; // Modals are triggered by users, so a loader isn't critical
-
 
 // Modal para alterar a chave de API, definido localmente.
 const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
@@ -169,16 +157,6 @@ const App = () => {
 
     const tempDiv = document.createElement('div');
     const lowerCaseQuery = searchQuery.toLowerCase();
-    
-    // Helper function to safely escape HTML entities.
-    const escapeHtml = (unsafe) => {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    };
 
     const results = documents
       .map(doc => {
@@ -192,8 +170,6 @@ const App = () => {
 
         if (titleMatch || contentMatchIndex > -1) {
             let snippet = '';
-            let finalHtmlSnippet = '';
-
             if (contentMatchIndex > -1) {
                 const start = Math.max(0, contentMatchIndex - 50);
                 const end = Math.min(plainTextContent.length, contentMatchIndex + lowerCaseQuery.length + 80);
@@ -201,18 +177,13 @@ const App = () => {
                 if (start > 0) snippet = '...' + snippet;
                 if (end < plainTextContent.length) snippet = snippet + '...';
                 
-                // Safely highlight the query: first escape the whole snippet, then replace the query with a styled span.
-                const escapedSnippet = escapeHtml(snippet);
-                const escapedQueryForRegex = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`(${escapedQueryForRegex})`, 'gi');
-                
-                finalHtmlSnippet = escapedSnippet.replace(regex, `<span class="bg-amber-400 text-gray-900 font-bold px-1 rounded-sm">$1</span>`);
+                // Highlight the query in the snippet
+                const regex = new RegExp(`(${searchQuery})`, 'gi');
+                snippet = snippet.replace(regex, `<span class="bg-amber-400 text-gray-900 font-bold px-1 rounded-sm">$1</span>`);
             } else {
-                // If match is only in title, just show the start of the content, safely escaped.
                 snippet = plainTextContent.substring(0, 150) + '...';
-                finalHtmlSnippet = escapeHtml(snippet);
             }
-          return { doc, snippet: finalHtmlSnippet };
+          return { doc, snippet };
         }
         return null;
       })
@@ -295,30 +266,24 @@ const App = () => {
   const filteredDocuments = documents.filter((doc) => doc.team === currentTeam);
 
   if (!isApiInitialized) {
-      return React.createElement(Suspense, { fallback: React.createElement(PageLoader, null) },
-          React.createElement('div', { className: "animate-fade-in"}, React.createElement(ApiKeySetup, { onApiKeySet: handleApiKeySet }))
-      );
+      return React.createElement('div', { className: "animate-fade-in"}, React.createElement(ApiKeySetup, { onApiKeySet: handleApiKeySet }));
   }
 
   if (showOnboarding) {
     return (
-        React.createElement(Suspense, { fallback: React.createElement(PageLoader, null) },
-            React.createElement('div', { className: "bg-gray-900 min-h-screen text-white font-sans" },
-                React.createElement(Onboarding, { onComplete: handleCompleteOnboarding })
-            )
+        React.createElement('div', { className: "bg-gray-900 min-h-screen text-white font-sans" },
+            React.createElement(Onboarding, { onComplete: handleCompleteOnboarding })
         )
     );
   }
 
   if (selectedDocument) {
-    return React.createElement(Suspense, { fallback: React.createElement(PageLoader, null) },
-        React.createElement(DocumentPreview, { 
-            doc: selectedDocument, 
-            onBack: handleBackFromPreview,
-            onUpdateContent: handleDocumentUpdate,
-            isExiting: isExitingPreview,
-        })
-    );
+    return React.createElement(DocumentPreview, { 
+        doc: selectedDocument, 
+        onBack: handleBackFromPreview,
+        onUpdateContent: handleDocumentUpdate,
+        isExiting: isExitingPreview,
+    });
   }
 
   return (
@@ -438,27 +403,26 @@ const App = () => {
                  )
             )
       ),
-      React.createElement(Suspense, { fallback: React.createElement(ModalLoader, null) },
-        isModalOpen && (
-          React.createElement(CreationModal, {
-            onClose: () => setIsModalOpen(false),
-            onDocumentCreate: handleDocumentCreate,
-            generateContent: generateDocumentContent,
-            currentTeam: currentTeam
-          })
-        ),
-        
-        isDeleteConfirmOpen && (
-          React.createElement(ConfirmationModal, {
-              isOpen: isDeleteConfirmOpen,
-              onClose: () => setIsDeleteConfirmOpen(false),
-              onConfirm: handleConfirmDelete,
-              title: "Excluir Documento",
-              message: `Você tem certeza que deseja excluir "${docToDelete?.title}"? Esta ação não pode ser desfeita.`
-          })
-        )
-      ),
 
+      isModalOpen && (
+        React.createElement(CreationModal, {
+          onClose: () => setIsModalOpen(false),
+          onDocumentCreate: handleDocumentCreate,
+          generateContent: generateDocumentContent,
+          currentTeam: currentTeam
+        })
+      ),
+      
+      isDeleteConfirmOpen && (
+        React.createElement(ConfirmationModal, {
+            isOpen: isDeleteConfirmOpen,
+            onClose: () => setIsDeleteConfirmOpen(false),
+            onConfirm: handleConfirmDelete,
+            title: "Excluir Documento",
+            message: `Você tem certeza que deseja excluir "${docToDelete?.title}"? Esta ação não pode ser desfeita.`
+        })
+      ),
+      
       React.createElement(ApiKeyChangeModal, {
         isOpen: isApiKeyChangeModalOpen,
         onClose: () => setIsApiKeyChangeModalOpen(false),

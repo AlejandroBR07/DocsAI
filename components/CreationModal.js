@@ -3,25 +3,6 @@ import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, Cl
 import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
 
-const processInBatches = async (items, processFn, batchSize, progressCallback) => {
-    let results = [];
-    for (let i = 0; i < items.length; i += batchSize) {
-        if (progressCallback) {
-            progressCallback(i, items.length);
-        }
-        const chunk = items.slice(i, i + batchSize);
-        try {
-            const chunkResults = await Promise.all(chunk.map(processFn));
-            results.push(...chunkResults.filter(Boolean)); // Filter out nulls from failed reads
-        } catch (e) {
-            console.error("Erro no processamento do lote:", e);
-        }
-        await new Promise(resolve => setTimeout(resolve, 10)); // Yield to main thread
-    }
-    return results;
-};
-
-
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -48,19 +29,25 @@ const fileToText = (file) => {
     });
 }
 
-async function getAllFileEntries(directoryHandle, path = '') {
-    const entries = [];
+// Helper function to process directory handle
+async function processDirectory(directoryHandle, path = '') {
+    const files = [];
     for await (const entry of directoryHandle.values()) {
         const currentPath = path ? `${path}/${entry.name}` : entry.name;
         if (entry.kind === 'file') {
-            entries.push({ entry, path: currentPath });
+            try {
+              const file = await entry.getFile();
+              const content = await file.text();
+              files.push({ path: currentPath, content });
+            } catch (e) {
+              console.warn(`Não foi possível ler o arquivo: ${currentPath}`, e);
+            }
         } else if (entry.kind === 'directory') {
-            entries.push(...await getAllFileEntries(entry, currentPath));
+            files.push(...await processDirectory(entry, currentPath));
         }
     }
-    return entries;
+    return files;
 }
-
 
 const buildFileTree = (files) => {
   const root = { children: [] }; 
@@ -294,52 +281,47 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     return () => clearInterval(intervalId);
   }, [loadingMessage, isLoading]);
 
-  const handleFileUpload = async (files, setFilesState, fileProcessor, messagePrefix) => {
-    if (!files || files.length === 0) return;
-    
-    const BATCH_SIZE = 10;
-    
-    const progressCallback = (processed, total) => {
-      setLoadingMessage(`${messagePrefix} (${processed}/${total})...`);
-    };
+  const handleJsonFileChange = async (e) => {
+      const files = e.target.files;
+      if (!files) return;
 
-    const processFn = async (file) => {
-        try {
-            const content = await fileProcessor(file);
-            return { name: file.name, content };
-        } catch (err) {
-            setError(`Falha ao ler o arquivo: ${file.name}`);
-            return null;
-        }
-    };
+      try {
+          const newFilesPromises = Array.from(files).map(file => 
+            fileToText(file).then(content => ({ name: file.name, content }))
+          );
+          const newFiles = await Promise.all(newFilesPromises);
 
-    const newFiles = await processInBatches(Array.from(files), processFn, BATCH_SIZE, progressCallback);
-    setFilesState(prev => [...prev, ...newFiles]);
-    setLoadingMessage('');
+          if (currentTeam === Team.Automations) setJsonFiles(prev => [...prev, ...newFiles]);
+      } catch (err) {
+          setError('Falha ao ler um ou mais arquivos.');
+      }
+  }
+
+  const handleCodeFileChange = async (e) => {
+    const files = e.target.files;
+    if (!files) return;
+     try {
+        const newFilesPromises = Array.from(files).map(file => 
+          fileToText(file).then(content => ({ name: file.name, content }))
+        );
+        const newFiles = await Promise.all(newFilesPromises);
+        setUploadedCodeFiles(prev => [...prev, ...newFiles]);
+     } catch (err) {
+        setError('Falha ao ler um ou mais arquivos de código.');
+     }
   };
 
-  const handleJsonFileChange = (e) => handleFileUpload(e.target.files, setJsonFiles, fileToText, "Lendo arquivos JSON");
-  const handleCodeFileChange = (e) => handleFileUpload(e.target.files, setUploadedCodeFiles, fileToText, "Lendo arquivos de código");
 
-  const addImages = async (files) => {
-      if (!files || files.length === 0) return;
-      
-      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-      const BATCH_SIZE = 5;
-
-      const progressCallback = (processed, total) => {
-          setLoadingMessage(`Processando imagens (${processed}/${total})...`);
-      };
-
-      const processFn = (file) => ({
-          id: `${file.name}-${file.lastModified}`,
-          file: file,
-          preview: URL.createObjectURL(file)
-      });
-      
-      const newImageObjects = await processInBatches(imageFiles, processFn, BATCH_SIZE, progressCallback);
-      setUploadedImages(prev => [...prev, ...newImageObjects]);
-      setLoadingMessage('');
+  const addImages = (files) => {
+      if (!files) return;
+      const imageFiles = Array.from(files)
+        .filter(file => file.type.startsWith('image/'))
+        .map(file => ({
+            id: `${file.name}-${file.lastModified}`,
+            file: file,
+            preview: URL.createObjectURL(file)
+        }));
+      setUploadedImages(prev => [...prev, ...imageFiles]);
   }
   
   const removeImage = (idToRemove) => {
@@ -380,40 +362,30 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
             return;
         }
 
-        if (!directoryHandle) return; // User cancelled
+        if (!directoryHandle) {
+            return; // User cancelled
+        }
 
-        const allFileEntries = await getAllFileEntries(directoryHandle);
+        setLoadingMessage('Processando pasta...');
+        const files = await processDirectory(directoryHandle);
         const codeFileExtensions = ['.js', '.ts', '.tsx', '.py', '.java', '.cs', '.go', '.rs', '.php', '.html', '.css', '.scss', '.json', '.md', 'Dockerfile', '.yml', '.yaml'];
-        const filteredEntries = allFileEntries.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
-
-        const BATCH_SIZE = 20;
-        const progressCallback = (processed, total) => {
-            setLoadingMessage(`Analisando pasta (${processed}/${total})...`);
-        };
-        const processFn = async ({ entry, path }) => {
-            try {
-                const file = await entry.getFile();
-                const content = await file.text();
-                return { path, content };
-            } catch (e) {
-                console.warn(`Não foi possível ler o arquivo: ${path}`, e);
-                return null;
-            }
-        };
-
-        const files = await processInBatches(filteredEntries, processFn, BATCH_SIZE, progressCallback);
+        const filteredFiles = files.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
         
-        setAllFolderFiles(files);
-        setFileTreeData(buildFileTree(files));
-        setSelectedFilePaths(new Set(files.map(f => f.path)));
+        setAllFolderFiles(filteredFiles);
+        setFileTreeData(buildFileTree(filteredFiles));
+        setSelectedFilePaths(new Set(filteredFiles.map(f => f.path)));
+
 
     } catch (err) {
-        if (err.name === 'AbortError') return;
+        if (err.name === 'AbortError') {
+            return;
+        }
         console.error("Erro ao selecionar a pasta:", err);
+        
         if (err.name === 'SecurityError' || (err.message && err.message.toLowerCase().includes("cross origin"))) {
-            setError("A seleção de pastas é bloqueada neste ambiente por segurança. Use 'Enviar Arquivos Avulsos'.");
+            setError("A seleção de pastas é bloqueada neste ambiente por segurança (cross-origin). Por favor, use a opção 'Enviar Arquivos Avulsos' como alternativa.");
         } else {
-            setError("Não foi possível acessar a pasta. Verifique as permissões do navegador.");
+            setError("Não foi possível acessar a pasta. Verifique as permissões do navegador ou tente novamente.");
         }
     } finally {
         setLoadingMessage('');
