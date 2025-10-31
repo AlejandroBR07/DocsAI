@@ -31,40 +31,49 @@ const markdownToHtml = (text) => {
       .replace(/^## (.*$)/gm, '<h2>$1</h2>')
       .replace(/^# (.*$)/gm, '<h1>$1</h1>');
 
+    // Horizontal Rule
+    htmlContent = htmlContent.replace(/^\s*(?:\*|-|_){3,}\s*$/gm, '<hr />');
+
     // Inline elements
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code>$1</code>');
 
-    // Lists (unordered and ordered)
-    htmlContent = htmlContent.replace(/^\s*[-*] (.*$)/gm, '<li>$1</li>');
-    htmlContent = htmlContent.replace(/((<li>.*<\/li>\s*)+)/g, '<ul>\n$1</ul>\n');
-     htmlContent = htmlContent.replace(/<\/ul>\s*<ul>/g, '');
-
-
-    htmlContent = htmlContent.replace(/^\s*\d+\. (.*$)/gm, '<li>$1</li>');
-    htmlContent = htmlContent.replace(/((<li>.*<\/li>\s*)+)/g, (match) => {
-        if (match.includes('<ul>')) return match;
-        return '<ol>\n' + match + '</ol>\n';
+    // Lists (process unordered lists first)
+    // Matches blocks of lines starting with * or -
+    htmlContent = htmlContent.replace(/((?:^[ \t]*[-*] .*(?:\n|$))+)/gm, (match) => {
+        const items = match.trim().split('\n').map(line => {
+            return `<li>${line.replace(/^[ \t]*[-*]\s+/, '')}</li>`;
+        });
+        return `<ul>${items.join('')}</ul>`;
     });
-    htmlContent = htmlContent.replace(/<\/ol>\s*<ol>/g, '');
-    htmlContent = htmlContent.replace(/<\/ul>\s*<ol>/g, '</ul>\n<ol>');
 
-
-    // Newlines
-    htmlContent = htmlContent.replace(/\n/g, '<br />');
-
-    // Cleanup: remove <br> around block elements
-    const blockElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'pre', 'li', 'div'];
-    blockElements.forEach(tag => {
-        const reBefore = new RegExp(`<br \\/>(\\s*<${tag}[^>]*>)`, 'g');
-        const reAfter = new RegExp(`(</${tag}>\\s*)<br \\/>`, 'g');
-        htmlContent = htmlContent.replace(reBefore, '$1');
-        htmlContent = htmlContent.replace(reAfter, '$1');
+    // Lists (process ordered lists)
+    // Matches blocks of lines starting with 1. 2. etc.
+    htmlContent = htmlContent.replace(/((?:^[ \t]*\d+\. .*(?:\n|$))+)/gm, (match) => {
+        const items = match.trim().split('\n').map(line => {
+            return `<li>${line.replace(/^[ \t]*\d+\.\s+/, '')}</li>`;
+        });
+        return `<ol>${items.join('')}</ol>`;
     });
-     htmlContent = htmlContent.replace(/<\/li><br \/>/g, '</li>');
 
+    // Paragraphs and Newlines
+    // Treat double newlines as paragraph breaks
+    const paragraphs = htmlContent.split(/\n\n+/);
+    htmlContent = paragraphs.map(p => {
+        if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<ol') || p.startsWith('<hr')) {
+            return p; // Don't wrap block elements in <p>
+        }
+        if (p.trim() === '') {
+            return '';
+        }
+        // Replace single newlines with <br> inside paragraphs
+        return `<p>${p.replace(/\n/g, '<br />')}</p>`;
+    }).join('');
+    
+    // Cleanup any <p><br /></p> that might result from stray newlines
+    htmlContent = htmlContent.replace(/<p><br \/><\/p>/g, '');
 
     return htmlContent;
 }
@@ -303,10 +312,10 @@ Este guia deve ser tão completo que elimina a necessidade de o usuário entrar 
     let fullMarkdownResponse = "";
     
     const levelPrompts = [
-        "Excelente começo. Continue a documentação. Expanda significativamente a seção anterior detalhando o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados para ilustrar o uso. Seja exaustivo.",
-        "Ótimo detalhamento. Continue a documentação. Agora, foque no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes ou módulos interagem entre si e como a aplicação se conecta com APIs externas, bancos de dados ou outros serviços. Use listas ou diagramas em texto para ilustrar os fluxos. A análise deve ser profunda e conectar as diferentes partes do sistema.",
-        "A documentação está ficando muito completa. Continue expandindo. Adicione seções robustas sobre **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades de segurança e como mitigá-las, identifique possíveis gargalos de performance e sugira otimizações, e analise como a arquitetura atual suporta o crescimento futuro e quais seriam os próximos passos para escalar a solução.",
-        "Trabalho fantástico. Para a parte final, continue a documentação adicionando **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie um guia 'Primeiros Passos' se ainda não houver um, forneça snippets de código para os casos de uso mais comuns e ofereça recomendações sobre as melhores práticas, padrões de código e planos de manutenção para garantir a longevidade do projeto. Se o pedido original incluía um guia de suporte, certifique-se de que ele também seja gerado de forma completa ao final de tudo."
+        "O documento está excelente até agora. Sua tarefa é **adicionar o conteúdo seguinte**, continuando de onde a resposta anterior parou. Não repita nenhuma seção já escrita. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados. Sua resposta deve começar diretamente com o título da nova seção (ex: '## Análise de Código e Lógica Interna').",
+        "A análise do código foi ótima. Dando continuidade, sua tarefa é **adicionar a próxima seção** ao documento. Não repita o conteúdo anterior. Foque **exclusivamente** no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes interagem e como a aplicação se conecta com APIs externas ou bancos de dados. Sua resposta deve começar diretamente com o título da nova seção.",
+        "Perfeito. Agora, **adicione a próxima seção** ao documento. Não repita o conteúdo já gerado. Foque **exclusivamente** em **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades, gargalos de performance com sugestões de otimização, e a capacidade da arquitetura de escalar. Sua resposta deve começar diretamente com o título da nova seção.",
+        "Estamos quase no final. Para concluir, **adicione as seções finais** ao documento. Não repita nada do que já foi escrito. Foque **exclusivamente** em **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie guias 'Primeiros Passos', snippets de código para casos de uso comuns e ofereça recomendações sobre melhores práticas e manutenção. Se o pedido original incluía um guia de suporte, gere-o agora. Sua resposta deve começar diretamente com o título da nova seção."
     ];
     const totalLevels = 1 + levelPrompts.length;
 
