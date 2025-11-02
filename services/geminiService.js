@@ -173,6 +173,7 @@ export const generateDocumentContent = async (params, progressCallback) => {
 
     teamContext += teamData.databaseSchema ? `**Esquema do Banco de Dados:**\n${teamData.databaseSchema}\n` : '';
     teamContext += teamData.dependencies ? `**Dependências e Bibliotecas:**\n${teamData.dependencies}\n` : '';
+    teamContext += teamData.deploymentInfo ? `**Informações sobre Deploy:**\n${teamData.deploymentInfo}\n` : '';
     teamContext += (teamData.images && teamData.images.length > 0) ? 'Analise as imagens fornecidas como contexto visual para o projeto (ex: diagramas de fluxo, screenshots de interface).\n' : '';
     teamContext += teamData.personas ? `**Personas:**\n${teamData.personas}\n` : '';
     teamContext += teamData.userFlows ? `**Fluxos de Usuário (descrição textual):**\n${teamData.userFlows}\n` : '';
@@ -206,6 +207,7 @@ export const generateDocumentContent = async (params, progressCallback) => {
       8.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
       9.  **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
       10. **Listas Consistentes:** Dentro de uma mesma lista, use um estilo consistente. Se for uma lista numerada, use \`1.\`, \`2.\`, \`3.\`, etc. para todos os itens. Se for uma lista com marcadores, use \`-\` ou \`*\` para todos os itens. NÃO misture os estilos na mesma lista. Para listas numeradas que representam um passo a passo contínuo, a numeração DEVE ser sequencial (1, 2, 3...), mesmo que haja texto ou quebras de linha entre os itens. NÃO reinicie a contagem para cada sub-tópico.
+      11. **Deploy e Uso (CRÍTICO):** Se o usuário fornecer informações específicas sobre o deploy na seção "Informações sobre Deploy", use-as para criar uma seção detalhada. Se nenhuma informação for dada, **NÃO INVENTE** um processo de deploy (ex: npm, Docker, CI/CD). Para arquivos simples (HTML/CSS/JS), sua seção de 'Uso' ou 'Deploy' deve simplesmente explicar como abrir o arquivo em um navegador ou incorporá-lo em outra plataforma, se o contexto sugerir.
 
       **Instruções Específicas para Análise de Código-Fonte (OBRIGATÓRIO):**
       Se o contexto fornecido incluir código-fonte, sua análise DEVE ser muito mais profunda do que um resumo. Aja como um arquiteto de software sênior fazendo uma revisão de código completa.
@@ -346,7 +348,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
             levelPrompts = [
                 { message: "Código e lógica interna...", prompt: "O documento está excelente. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente ou classe, descreva seus parâmetros, props, e a lógica de negócios passo a passo. Comece diretamente com o título da nova seção." },
                 { message: "Fluxo de dados e APIs...", prompt: "Ótimo. Agora **adicione a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** no **fluxo de dados, integração com APIs e banco de dados**. Descreva como os dados se movem através do sistema. Comece diretamente com o título da nova seção." },
-                { message: "Testes e deploy...", prompt: "Perfeito. **Adicione a próxima seção**, sem repetir o que já foi escrito, focando em **Estratégias de Testes, Configuração de Ambiente e Deploy**. Detalhe como testar a funcionalidade, variáveis de ambiente necessárias e o processo de build/deploy. Comece diretamente com o título da nova seção." },
+                { message: "Testes e deploy...", prompt: "Perfeito. **Adicione a próxima seção**, sem repetir o que já foi escrito. Foque em **Estratégias de Testes, Configuração de Ambiente e Como Usar/Deploy**. Com base nas informações fornecidas pelo usuário, detalhe o processo de deploy. Se NENHUMA informação de deploy foi fornecida, explique como executar o projeto localmente ou, para arquivos simples, como usá-los diretamente. NÃO INVENTE um processo de deploy complexo. Comece diretamente com o título da nova seção." },
                 { message: "Manutenção e boas práticas...", prompt: "Para concluir, **adicione a seção final**, sem repetir o que já foi escrito, focada em **Manutenção e Melhores Práticas**. Discuta monitoramento, logging e boas práticas específicas ao código para manter a qualidade. Comece diretamente com o título da nova seção." }
             ];
             break;

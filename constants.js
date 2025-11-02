@@ -37,6 +37,7 @@ export const TEMPLATES = {
 }`,
         databaseSchema: 'N/A',
         dependencies: '',
+        deploymentInfo: '',
       }
     },
     {
@@ -47,7 +48,7 @@ export const TEMPLATES = {
 
 **Finalidade:** [Descreva a responsabilidade principal e o local de uso do componente].
 
-**Props (Propriedades):**
+**Props (Propriediedades):**
 - \`propNome\` (\`tipo\`, obrigatória): [Descrição da prop e seu impacto no componente].
 - \`onAction\` (\`(data: any) => void\`, opcional): [Descrição do callback, ex: "Função chamada quando o usuário clica no botão principal."].
 
@@ -77,6 +78,7 @@ const [NomeDoComponente] = ({ propNome, onAction }) => {
 export default [NomeDoComponente];`,
         databaseSchema: '',
         dependencies: 'react, prop-types',
+        deploymentInfo: 'Este componente faz parte de uma aplicação React. O deploy é feito através de um pipeline de CI/CD para a Vercel.',
       }
     },
      {
@@ -101,6 +103,7 @@ export default [NomeDoComponente];`,
 // Ex: Serviço de frontend que consome a API`,
         databaseSchema: `ALTER TABLE "users" ADD COLUMN "new_feature_flag" BOOLEAN DEFAULT false;`,
         dependencies: 'prisma, next.js, zod',
+        deploymentInfo: '',
       }
     }
   ],

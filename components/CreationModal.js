@@ -214,6 +214,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const [pastedCode, setPastedCode] = useState('');
   const [databaseSchema, setDatabaseSchema] = useState('');
   const [dependencies, setDependencies] = useState('');
+  const [deploymentInfo, setDeploymentInfo] = useState('');
 
   // Team AI
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -438,6 +439,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
             pastedCode: pastedCode || undefined,
             databaseSchema,
             dependencies,
+            deploymentInfo: deploymentInfo || undefined,
             json: allJson || undefined,
             triggerInfo,
             externalApis,
@@ -494,6 +496,7 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
     setPastedCode(template.content.pastedCode || '');
     setDatabaseSchema(template.content.databaseSchema || '');
     setDependencies(template.content.dependencies || '');
+    setDeploymentInfo(template.content.deploymentInfo || '');
     setPersonas(template.content.personas || '');
     setUserFlows(template.content.userFlows || '');
     setPastedJson(template.content.pastedJson || '');
@@ -613,6 +616,16 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                      React.createElement('h4', { className: "text-sm font-medium text-gray-300" }, "Contexto Adicional"),
                      React.createElement('textarea', { rows: 2, value: databaseSchema, onChange: e => setDatabaseSchema(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Esquema do banco de dados (SQL, Prisma, etc)..." }),
                      React.createElement('textarea', { rows: 2, value: dependencies, onChange: e => setDependencies(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Dependências ou bibliotecas importantes..." })
+                  ),
+                  React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
+                    React.createElement('h4', { className: "text-sm font-medium text-gray-300" }, "Informações de Deploy (Opcional)"),
+                    React.createElement('textarea', { 
+                        rows: 2, 
+                        value: deploymentInfo, 
+                        onChange: e => setDeploymentInfo(e.target.value), 
+                        className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", 
+                        placeholder: "Como este projeto é publicado ou utilizado? Ex: 'Publicado na Vercel via GitHub Actions', 'O arquivo HTML é copiado e colado na plataforma Learnworlds'." 
+                    })
                   ),
                    React.createElement(ImageUploader, null)
                 )
