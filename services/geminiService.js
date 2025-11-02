@@ -120,7 +120,9 @@ const callOpenAI = async (messages) => {
     }
 
     const data = await apiResponse.json();
-    return data.choices[0]?.message?.content || "";
+    const aiContent = data.choices[0]?.message?.content || "";
+    console.log("%c[DEBUG] Resposta Bruta da IA:", "color: #ff9800; font-weight: bold;", `\n\n${aiContent}`);
+    return aiContent;
 };
 
 export const generateDocumentContent = async (params, progressCallback) => {
@@ -329,7 +331,9 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
           contentMarkdown = lines.slice(1).join('\n');
       }
       
+      console.log("%c[DEBUG] Markdown Final (Suporte):", "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
       const htmlContent = markdownToHtml(contentMarkdown);
+      console.log("%c[DEBUG] HTML Final (Suporte):", "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
       return { title, content: htmlContent };
     }
 
@@ -427,8 +431,10 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
            contentMarkdown = fullLines.slice(1).join('\n');
         }
     }
-
+    
+    console.log("%c[DEBUG] Markdown Final (Técnico/Ambos):", "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
     const htmlContent = markdownToHtml(contentMarkdown);
+    console.log("%c[DEBUG] HTML Final (Técnico/Ambos):", "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
     return { title, content: htmlContent };
 
   } catch (error) {
