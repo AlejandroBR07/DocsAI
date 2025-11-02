@@ -335,24 +335,41 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     // Para 'technical' e 'both', execute o processo de várias etapas.
     let fullMarkdownResponse = "";
     
-    const levelPrompts = [
-        {
-            message: "Código e lógica interna...",
-            prompt: "O documento está excelente até agora. Sua tarefa é **adicionar o conteúdo seguinte**, continuando de onde a resposta anterior parou. Não repita nenhuma seção já escrita. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente, classe ou endpoint, descreva em detalhes seus parâmetros, props, argumentos, valores de retorno e a lógica de negócios passo a passo. Inclua exemplos de código relevantes e bem comentados. Sua resposta deve começar diretamente com o título da nova seção (ex: '## Análise de Código e Lógica Interna')."
-        },
-        {
-            message: "Fluxo de dados e integração...",
-            prompt: "A análise do código foi ótima. Dando continuidade, sua tarefa é **adicionar a próxima seção** ao documento. Não repita o conteúdo anterior. Foque **exclusivamente** no **fluxo de dados e integração**. Descreva como os dados se movem através do sistema, como os diferentes componentes interagem e como a aplicação se conecta com APIs externas ou bancos de dados. Sua resposta deve começar diretamente com o título da nova seção."
-        },
-        {
-            message: "Segurança e performance...",
-            prompt: "Perfeito. Agora, **adicione a próxima seção** ao documento. Não repita o conteúdo já gerado. Foque **exclusivamente** em **Segurança, Performance e Escalabilidade**. Discuta potenciais vulnerabilidades, gargalos de performance com sugestões de otimização, e a capacidade da arquitetura de escalar. Sua resposta deve começar diretamente com o título da nova seção."
-        },
-        {
-            message: "Tutoriais e exemplos...",
-            prompt: "Estamos quase no final da parte técnica. Para concluir, **adicione as seções finais** ao documento. Não repita nada do que já foi escrito. Foque **exclusivamente** em **exemplos práticos, tutoriais e recomendações para desenvolvedores**. Crie guias 'Primeiros Passos', snippets de código para casos de uso comuns e ofereça recomendações sobre melhores práticas e manutenção. Sua resposta deve começar diretamente com o título da nova seção."
-        }
-    ];
+    let levelPrompts = [];
+    switch (team) {
+        case Team.Developers:
+            levelPrompts = [
+                { message: "Código e lógica interna...", prompt: "O documento está excelente. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente ou classe, descreva seus parâmetros, props, e a lógica de negócios passo a passo. Comece diretamente com o título da nova seção." },
+                { message: "Fluxo de dados e APIs...", prompt: "Ótimo. Agora **adicione a próxima seção**, focando **exclusivamente** no **fluxo de dados, integração com APIs e banco de dados**. Descreva como os dados se movem através do sistema. Comece diretamente com o título da nova seção." },
+                { message: "Testes e deploy...", prompt: "Perfeito. **Adicione a próxima seção**, focando em **Estratégias de Testes, Configuração de Ambiente e Deploy**. Detalhe como testar a funcionalidade, variáveis de ambiente necessárias e o processo de build/deploy. Comece diretamente com o título da nova seção." },
+                { message: "Manutenção e boas práticas...", prompt: "Para concluir, **adicione a seção final** focada em **Manutenção e Melhores Práticas**. Discuta monitoramento, logging e boas práticas específicas ao código para manter a qualidade. Comece diretamente com o título da nova seção." }
+            ];
+            break;
+        case Team.UXUI:
+            levelPrompts = [
+                { message: "Fluxo do usuário...", prompt: "A análise inicial está ótima. Continue **adicionando a próxima seção**, focando **exclusivamente** em detalhar o **Fluxo do Usuário e as Micro-interações**. Mapeie a jornada passo a passo e descreva o propósito e os estados de cada elemento interativo. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." },
+                { message: "Componentes e design system...", prompt: "Excelente. **Adicione a próxima seção** focada em **Componentização e Design System**. Identifique componentes reutilizáveis, suas variações e quando usá-los. Use negrito para nomes de componentes, não crases. Comece diretamente com o título da nova seção." },
+                { message: "Acessibilidade e handoff...", prompt: "Para finalizar, **adicione a seção final** focada em **Acessibilidade (WCAG) e Handoff para Desenvolvedores**. Analise o design em relação a contraste, navegação por teclado e forneça especificações (cores, fontes, etc.) para a equipe de desenvolvimento. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." }
+            ];
+            break;
+        case Team.Automations:
+            levelPrompts = [
+                { message: "Análise nó a nó...", prompt: "O resumo está bom. Continue **adicionando a próxima seção** com uma **Análise Detalhada Passo a Passo (Nó a Nó)**. Para cada etapa, descreva sua função, o serviço utilizado e as configurações chave. Comece diretamente com o título da nova seção." },
+                { message: "Lógica e tratamento de erros...", prompt: "Ótimo. **Adicione a próxima seção** focada na **Lógica Condicional, Mapeamento de Dados e Tratamento de Erros**. Detalhe os nós de IF/Switch e as rotas de erro. Comece diretamente com o título da nova seção." },
+                { message: "Monitoramento e manutenção...", prompt: "Para finalizar, **adicione a seção final** sobre **Monitoramento e Manutenção**. Descreva como verificar a saúde da automação, acessar logs e atualizar credenciais. Comece diretamente com o título da nova seção." }
+            ];
+            break;
+        case Team.AI:
+            levelPrompts = [
+                { message: "Análise do System Prompt...", prompt: "A missão está clara. Continue **adicionando a próxima seção** com uma **Análise Profunda do Prompt de Sistema e dos Guardrails**. Desmembre cada regra e explique seu impacto no comportamento do agente. Comece diretamente com o título da nova seção." },
+                { message: "Ferramentas e fluxo de trabalho...", prompt: "Excelente. **Adicione a próxima seção** focada na **Análise das Ferramentas (Tools) e na Lógica do Fluxo de Trabalho**. Detalhe os parâmetros de cada ferramenta e a lógica de decisão do agente. Comece diretamente com o título da nova seção." },
+                { message: "Testes e fine-tuning...", prompt: "Para concluir, **adicione a seção final** sobre **Estratégias de Teste e Recomendações de Ajuste Fino (Fine-Tuning)**. Crie cenários de teste e dê sugestões para modificar o prompt ou as ferramentas para melhor performance. Comece diretamente com o título da nova seção." }
+            ];
+            break;
+        default:
+            levelPrompts = [];
+    }
+
 
     const totalLevels = docType === 'both' ? 1 + levelPrompts.length + 1 : 1 + levelPrompts.length;
 
