@@ -1,4 +1,5 @@
 
+
 import { Team } from "../types.js";
 
 let openAIApiKey = null;
@@ -230,45 +231,36 @@ export const generateDocumentContent = async (params, progressCallback) => {
     `;
 
     const supportInstruction = `
----
-## 📖 Guia Completo do Usuário (Help Center)
+**Sua Missão: Criar um Guia de Usuário Memorável**
 
-**Instrução Adicional OBRIGATÓRIA (LEIA COM ATENÇÃO):** Sua tarefa é criar um guia de usuário final **EXTREMAMENTE DETALHADO, INTELIGENTE, CRIATIVO e PRÁTICO**. A linguagem deve ser a mais simples possível, como se você estivesse explicando para alguém que nunca usou um computador. O objetivo é criar uma experiência de aprendizado única e agradável para cada projeto.
+Sua tarefa é criar um guia de usuário final que seja **EXTREMAMENTE DETALHADO, INTELIGENTE, CRIATIVO e PRÁTICO**. Abandone a ideia de um "manual chato". Pense como um especialista em experiência do usuário escrevendo o guia mais claro e útil possível. A linguagem deve ser simples, como se você estivesse explicando para um amigo. O objetivo é criar uma experiência de aprendizado única e agradável para cada projeto.
 
-**INSTRUÇÃO CRÍTICA PARA ANÁLISE DE QUALQUER CÓDIGO-FONTE:**
-O contexto que você recebeu pode ser de QUALQUER TIPO de projeto. Sua inteligência será medida pela sua capacidade de analisar um código-fonte desconhecido e **deduzir** suas funcionalidades do ponto de vista de um usuário final. Você **NÃO** deve resumir o código; você deve **TRADUZIR O CÓDIGO EM AÇÕES PRÁTICAS E GUIAS PASSO A PASSO**.
+**PRINCÍPIOS-CHAVE INEGOCIÁVEIS:**
 
-**PRINCÍPIOS-CHAVE PARA A GERAÇÃO DO GUIA:**
+1.  **TÍTULO E ESTRUTURA 100% ORIGINAIS (A REGRA MAIS IMPORTANTE):**
+    *   **PROIBIDO USAR TEMPLATES:** A estrutura que você gerar para este documento **NÃO PODE** ser repetida no próximo. Cada guia de usuário deve ser uma obra de arte única, moldada pelo contexto específico do projeto.
+    *   **INVENTE UM TÍTULO CRIATIVO:** Sua primeira tarefa é criar um título principal (H1) que seja envolvente e que capture a essência do projeto. Esqueça títulos genéricos como "Guia de Suporte" ou "Help Center". Pense em algo como "Dominando o ${projectName}: Do Zero ao Herói" ou "Sua Jornada com ${projectName}". Seja criativo!
+    *   **ESTRUTURA ORGÂNICA:** A estrutura do guia (seções, subtítulos) deve emergir **naturalmente** da sua análise do código e dos objetivos do projeto. Se é um app de uma única funcionalidade, aprofunde-se nela com exemplos práticos. Se é um dashboard complexo, divida-o em missões ou objetivos do usuário. Use sua criatividade para organizar a informação da forma mais lógica e intuitiva possível.
 
-1.  **ESTRUTURA 100% DINÂMICA E ADAPTÁVEL (A REGRA MAIS IMPORTANTE):**
-    *   **PROIBIDO:** **NÃO USE UM TEMPLATE FIXO.** A estrutura que você gerou para um documento não deve ser repetida no próximo. Cada guia de usuário deve ser uma obra única, moldada pelo contexto específico do projeto.
-    *   **SEJA CRIATIVO:** Pense fora da caixa. Em vez de sempre usar "Primeiros Passos" ou "Funcionalidades", você pode estruturar o guia como:
-        *   Uma narrativa: "Sua Jornada com o ${projectName}: Do Zero ao Herói".
-        *   Baseado em objetivos: "O que você quer fazer hoje? (Ex: Quero criar um relatório, Quero convidar um amigo)".
-        *   Um formato de perguntas e respostas aprofundado, onde cada "pergunta" é um tutorial completo de uma funcionalidade.
-        *   Um guia visual, se houver muitas imagens, explicando cada tela e componente.
-    *   A estrutura deve emergir **naturalmente** da sua análise do código e dos objetivos do projeto. Se é um app de uma única funcionalidade, aprofunde-se nela. Se é um dashboard complexo, divida-o em seções lógicas.
-
-2.  **TRADUÇÃO PROFUNDA DE CÓDIGO PARA AÇÕES:**
-    *   Vasculhe o código em busca de interações do usuário (componentes, manipuladores de eventos, formulários).
-    *   Para **CADA** funcionalidade que você identificar, crie um tutorial detalhado e passo a passo. Seja visual na sua descrição ("Você verá um botão azul no canto superior direito...", "Preencha o campo 'Nome' que tem um ícone de pessoa ao lado...").
+2.  **TRADUÇÃO PROFUNDA DE CÓDIGO PARA AÇÕES PRÁTICAS:**
+    *   Vasculhe o código em busca de interações do usuário (componentes visíveis, botões, formulários, eventos).
+    *   Para **CADA** funcionalidade que você identificar, crie um tutorial detalhado e passo a passo. Seja visual na sua descrição ("No canto superior direito, você verá um botão azul com um ícone de engrenagem...", "Preencha o campo 'Nome' para habilitar o botão 'Salvar'...").
 
 3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL (NÃO UM FAQ GENÉRICO):**
     *   Em vez de uma seção de "Perguntas Frequentes" padronizada, crie uma seção de "Solução de Problemas" ou "Dicas e Truques" que seja **altamente específica** para as dificuldades que um usuário poderia enfrentar com **este aplicativo**.
-    *   **Inferir problemas do código:** Se você vê uma validação de formulário complexa, um problema comum pode ser "Por que meu formulário não envia?". Se há um processo de upload, uma dica pode ser "O que fazer se meu arquivo for muito grande?".
-    *   As perguntas e soluções devem ser originais e diretamente derivadas do contexto fornecido, não uma lista genérica.
+    *   **Inferir problemas do código:** Se você vê uma validação de formulário complexa, um problema comum pode ser "Por que meu formulário não envia?". Se há um processo de upload, uma dica pode ser "O que fazer se meu arquivo for muito grande?". As perguntas e soluções devem ser originais e diretamente derivadas do contexto fornecido.
 
-4.  **UNICIDADE E CRIATIVIDADE (COMO NA DOCUMENTAÇÃO TÉCNICA):**
-    *   Cada documento que você cria deve ser único. Evite repetir o mesmo tom de voz ou exemplos. Adapte o estilo para melhor se adequar ao público-alvo do projeto. Um app para designers pode ter uma linguagem mais visual, enquanto uma ferramenta para analistas de dados pode ser mais direta.
-    *   Garanta que cada guia de usuário tenha uma identidade própria e ofereça uma experiência de leitura completamente nova.
+4.  **UNICIDADE E EMPATIA:**
+    *   Adapte o tom de voz para o público-alvo do projeto. Um app para designers pode ter uma linguagem mais visual e inspiradora. Uma ferramenta para analistas de dados pode ser mais direta e focada em resultados.
+    *   Garanta que cada guia de usuário tenha uma identidade própria e ofereça uma experiência de leitura completamente nova e empática.
 
-Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que o aplicativo oferece, de uma maneira que seja sempre nova, interessante e perfeitamente adaptada ao projeto em questão.
+Este guia deve ser um manual tão completo e bem escrito que o usuário se sinta confiante e capacitado para usar **TUDO** que o aplicativo oferece.
 `;
     
     let userTextPrompt = '';
 
     if (docType === 'support') {
-      const supportOnlyIntro = `Com base nas informações e contexto do projeto fornecidos, sua única tarefa é criar um "Guia Completo do Usuário (Help Center)". Ignore completamente a criação de documentação técnica. Foque apenas na perspectiva de um usuário final não técnico.`;
+      const supportOnlyIntro = `Com base nas informações e contexto do projeto fornecidos, sua única tarefa é criar um guia de usuário excepcional. Ignore completamente a criação de documentação técnica. Foque apenas na perspectiva de um usuário final não técnico.`;
       
       userTextPrompt = `
         **Informações do Projeto:**
@@ -280,14 +272,14 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
         ${teamContext || "Nenhum contexto adicional foi fornecido."}
         
         ${supportOnlyIntro}
-        ${supportInstruction}
+        ${supportInstruction.replace(/\$\{projectName\}/g, projectName)}
 
-        **Sua Resposta (gere APENAS o Guia do Usuário completo e preenchido, começando com o título principal como '# Guia de Suporte para ${projectName}'):**
+        **Sua Resposta (gere APENAS o Guia do Usuário completo e preenchido, começando com o título criativo que você criar):**
       `;
     } else { // 'technical' or 'both'
       userTextPrompt = `
         ${mainPrompt}
-        **Sua Resposta (gere APENAS a documentação técnica completa e preenchida, começando com o título principal como '# Nome do Projeto'):**
+        **Sua Resposta (gere APENAS a documentação técnica completa e preenchida, começando com o título principal como '# Documentação Técnica: ${projectName}'):**
       `;
     }
     
@@ -308,127 +300,75 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     }
 
     messages.push({ role: "user", content: userMessageContent });
-
-    // Se for apenas um documento de suporte, o processo de várias etapas não é necessário.
-    if (docType === 'support') {
-      progressCallback({ progress: 25, message: 'Traduzindo o técnico para o humano...' });
-      const text = await callOpenAI(messages);
-      progressCallback({ progress: 95, message: 'Polindo os últimos detalhes...' });
-      
-      const lines = text.trim().split('\n');
-      let title = projectName;
-      let contentMarkdown = text.trim();
-
-      if (lines[0].startsWith('# ')) {
-          let extractedTitle = lines[0].substring(2).trim();
-          extractedTitle = extractedTitle.replace(/(\*\*|__|\*|_)/g, ''); // Remove markdown formatting
-          title = extractedTitle;
-          contentMarkdown = lines.slice(1).join('\n');
-      }
-      
-      console.log("%c[DEBUG] Markdown Final (Suporte):", "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
-      const htmlContent = markdownToHtml(contentMarkdown);
-      console.log("%c[DEBUG] HTML Final (Suporte):", "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
-      return { title, content: htmlContent };
-    }
-
-    // Para 'technical' e 'both', execute o processo de várias etapas.
-    let fullMarkdownResponse = "";
     
-    let levelPrompts = [];
-    switch (team) {
-        case Team.Developers:
-            levelPrompts = [
-                { message: "Decodificando a lógica interna...", prompt: "O documento está excelente. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente ou classe, descreva seus parâmetros, props, e a lógica de negócios passo a passo. Comece diretamente com o título da nova seção." },
-                { message: "Traçando o fluxo de dados e conexões...", prompt: "Ótimo. Agora **adicione a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** no **fluxo de dados, integração com APIs e banco de dados**. Descreva como os dados se movem através do sistema. Comece diretamente com o título da nova seção." },
-                { message: "Planejando os testes e o deploy...", prompt: "Perfeito. **Adicione a próxima e última seção**, sem repetir o que já foi escrito. Foque em **Estratégias de Testes, Configuração de Ambiente e Como Usar/Deploy**. Com base nas informações fornecidas pelo usuário, detalhe o processo de deploy. Se NENHUMA informação de deploy foi fornecida, explique como executar o projeto localmente ou, para arquivos simples, como usá-los diretamente. NÃO INVENTE um processo de deploy complexo ou seções de manutenção. Comece diretamente com o título da nova seção." }
-            ];
-            break;
-        case Team.UXUI:
-            levelPrompts = [
-                { message: "Mapeando a jornada do usuário...", prompt: "A análise inicial está ótima. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** em detalhar o **Fluxo do Usuário e as Micro-interações**. Mapeie a jornada passo a passo e descreva o propósito e os estados de cada elemento interativo. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." },
-                { message: "Catalogando os componentes do design...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focada em **Componentização e Design System**. Identifique componentes reutilizáveis, suas variações e quando usá-los. Use negrito para nomes de componentes, não crases. Comece diretamente com o título da nova seção." },
-                { message: "Garantindo uma experiência acessível...", prompt: "Para finalizar, **adicione a seção final**, sem repetir o que já foi escrito, focada em **Acessibilidade (WCAG) e Handoff para Desenvolvedores**. Analise o design em relação a contraste, navegação por teclado e forneça especificações (cores, fontes, etc.) para a equipe de desenvolvimento. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." }
-            ];
-            break;
-        case Team.Automations:
-            levelPrompts = [
-                { message: "Desvendando o fluxo da automação...", prompt: "A visão geral está ótima. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** no **Fluxo de Dados e Mapeamento de Campos**. Descreva em detalhes como os dados são transformados em cada etapa, desde o gatrilho até a saída final, especificando os campos chave. Comece diretamente com o título da nova seção." },
-                { message: "Fortalecendo a automação contra falhas...", prompt: "Excelente. Para finalizar, **adicione a próxima e última seção**, sem repetir o que já foi escrito, focando **exclusivamente** na **Lógica Condicional e Tratamento de Erros**. Detalhe a lógica condicional (ex: regras 'se-então', filtros) e como os erros são capturados e tratados em cada rota do fluxo. NÃO adicione seções sobre manutenção ou evolução. Comece diretamente com o título da nova seção." }
-            ];
-            break;
-        case Team.AI:
-            levelPrompts = [
-                { message: "Analisando a personalidade da IA...", prompt: "A missão está clara. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito, com uma **Análise Profunda do Prompt de Sistema e dos Guardrails**. Desmembre cada regra e explique seu impacto no comportamento do agente. Comece diretamente com o título da nova seção." },
-                { message: "Equipando o agente com suas ferramentas...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focada na **Análise das Ferramentas (Tools) e na Lógica do Fluxo de Trabalho**. Detalhe os parâmetros de cada ferramenta e a lógica de decisão do agente. Comece diretamente com o título da nova seção." },
-                { message: "Preparando cenários para treinar a IA...", prompt: "Para concluir, **adicione a seção final**, sem repetir o que já foi escrito, sobre **Estratégias de Teste e Recomendações de Ajuste Fino (Fine-Tuning)**. Crie cenários de teste e dê sugestões para modificar o prompt ou as ferramentas para melhor performance. Comece diretamente com o título da nova seção." }
-            ];
-            break;
-        default:
-            levelPrompts = [];
-    }
+    const processAIResponse = (text, defaultTitle) => {
+        const lines = text.trim().split('\n');
+        let title = defaultTitle;
+        let contentMarkdown = text.trim();
 
-
-    const totalLevels = docType === 'both' ? 1 + levelPrompts.length + 1 : 1 + levelPrompts.length;
-
-    // Nível 1: Chamada Inicial
-    progressCallback({ progress: (100 / totalLevels), message: 'Analisando o DNA do seu projeto...' });
-    const text1 = await callOpenAI(messages);
-    if (!text1) throw new Error("A resposta inicial da IA estava vazia.");
-    fullMarkdownResponse += text1;
-    messages.push({ role: "assistant", content: text1 });
-
-    // Níveis de Aprofundamento Técnico
-    for (let i = 0; i < levelPrompts.length; i++) {
-        const level = i + 2;
-        progressCallback({ progress: (100 / totalLevels) * level, message: levelPrompts[i].message });
-        
-        messages.push({ role: "user", content: levelPrompts[i].prompt });
-        const loopText = await callOpenAI(messages);
-        fullMarkdownResponse += "\n\n" + loopText;
-        messages.push({ role: "assistant", content: loopText });
-    }
-    
-    // Nível Final: Guia do Usuário (apenas se 'both')
-    if (docType === 'both') {
-      const supportLevel = totalLevels;
-      progressCallback({ progress: (100 / totalLevels) * supportLevel, message: 'Escrevendo o manual do usuário final...' });
-      
-      const supportUserPrompt = `
-        A documentação técnica está completa. Baseado em TODO o contexto e conversa anteriores, sua tarefa final e separada é criar o guia de usuário.
-        ${supportInstruction}
-        Sua resposta deve começar diretamente com o título '## 📖 Guia Completo do Usuário (Help Center)'. NÃO inclua nenhum outro texto, introdução ou despedida.
-      `;
-      messages.push({ role: "user", content: supportUserPrompt });
-      const supportText = await callOpenAI(messages);
-      fullMarkdownResponse += "\n\n---\n\n" + supportText;
-      // Não adicionamos a resposta do suporte ao histórico de mensagens para manter o contexto técnico limpo caso houvesse mais etapas.
-    }
-
-
-    progressCallback({ progress: 98, message: 'Polindo os últimos detalhes...' });
-    
-    let text = fullMarkdownResponse;
-    const lines = text1.trim().split('\n');
-    let title = projectName;
-    let contentMarkdown = text.trim();
-
-    if (lines[0].startsWith('# ')) {
-        let extractedTitle = lines[0].substring(2).trim();
-        extractedTitle = extractedTitle.replace(/(\*\*|__|\*|_)/g, ''); // Remove markdown from title
-        const titleParts = extractedTitle.split(':');
-        title = titleParts.length > 1 ? titleParts[1].trim() : extractedTitle;
-        
-        const fullLines = contentMarkdown.split('\n');
-        if (fullLines[0].trim() === lines[0].trim()) {
-           contentMarkdown = fullLines.slice(1).join('\n');
+        if (lines[0].startsWith('# ')) {
+            let extractedTitle = lines[0].substring(2).trim();
+            extractedTitle = extractedTitle.replace(/(\*\*|__|\*|_)/g, '');
+            
+            const titleParts = extractedTitle.split(':');
+            title = titleParts.length > 1 ? titleParts[1].trim() : extractedTitle;
+            
+            contentMarkdown = lines.slice(1).join('\n');
         }
+        
+        console.log(`%c[DEBUG] Markdown Final:`, "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
+        const htmlContent = markdownToHtml(contentMarkdown);
+        console.log(`%c[DEBUG] HTML Final:`, "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
+        return { title, content: htmlContent, markdown: contentMarkdown };
+    };
+
+    if (docType === 'support') {
+        progressCallback({ progress: 25, message: 'Traduzindo o técnico para o humano...' });
+        const supportText = await callOpenAI(messages);
+        progressCallback({ progress: 95, message: 'Polindo os últimos detalhes...' });
+        const { title, content } = processAIResponse(supportText, projectName);
+        return { title, content };
     }
-    
-    console.log("%c[DEBUG] Markdown Final (Técnico/Ambos):", "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
-    const htmlContent = markdownToHtml(contentMarkdown);
-    console.log("%c[DEBUG] HTML Final (Técnico/Ambos):", "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
-    return { title, content: htmlContent };
+
+    if (docType === 'technical') {
+        progressCallback({ progress: 25, message: 'Analisando o DNA do seu projeto...' });
+        const technicalText = await callOpenAI(messages);
+        progressCallback({ progress: 95, message: 'Estruturando o conhecimento técnico...' });
+        const { title, content } = processAIResponse(technicalText, projectName);
+        return { title, content };
+    }
+
+    if (docType === 'both') {
+        // 1. Generate Technical Documentation
+        progressCallback({ progress: 10, message: 'Analisando o DNA do seu projeto...' });
+        const technicalText = await callOpenAI(messages);
+        if (!technicalText) throw new Error("A resposta da IA para a documentação técnica estava vazia.");
+        
+        progressCallback({ progress: 45, message: 'Estruturando o conhecimento técnico...' });
+        const { markdown: techMarkdown, title: techTitle } = processAIResponse(technicalText, projectName);
+        messages.push({ role: "assistant", content: technicalText });
+
+        // 2. Generate Support Documentation
+        progressCallback({ progress: 55, message: 'Escrevendo o manual do usuário...' });
+        const supportUserPrompt = `A documentação técnica foi criada. Agora, com base em TODO o contexto e na documentação que você acabou de gerar, sua tarefa final e separada é criar um guia de usuário excepcional.
+        ${supportInstruction.replace(/\$\{projectName\}/g, projectName)}
+        Sua resposta deve conter APENAS o guia do usuário, começando com o título criativo que você inventar.`;
+        messages.push({ role: "user", content: supportUserPrompt });
+
+        const supportText = await callOpenAI(messages);
+        if (!supportText) throw new Error("A resposta da IA para o guia de usuário estava vazia.");
+
+        progressCallback({ progress: 95, message: 'Polindo os últimos detalhes...' });
+        const { markdown: supportMarkdown } = processAIResponse(supportText, projectName);
+
+        // Combine both documents
+        const fullMarkdownResponse = techMarkdown + "\n\n---\n\n" + supportMarkdown;
+        const combinedHtml = markdownToHtml(fullMarkdownResponse);
+        
+        return { title: techTitle, content: combinedHtml };
+    }
+
+    throw new Error(`Tipo de documento desconhecido: ${docType}`);
 
   } catch (error) {
     console.error("Erro ao gerar conteúdo com a API OpenAI:", error);
