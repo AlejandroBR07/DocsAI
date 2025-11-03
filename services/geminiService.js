@@ -1,5 +1,4 @@
 
-
 import { Team } from "../types.js";
 
 let openAIApiKey = null;
@@ -189,29 +188,30 @@ export const generateDocumentContent = async (params, progressCallback) => {
     teamContext += teamData.guardrails ? `**Guardrails e Regras de Segurança:**\n${teamData.guardrails}\n` : '';
     
     const mainPrompt = `
-      Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação **extremamente detalhada, completa e exaustiva** para o projeto a seguir.
+      Sua tarefa é atuar como um escritor técnico especialista e criar uma documentação **extremamente detalhada, completa, exaustiva e prolixa** para o projeto a seguir. O objetivo é gerar um documento **grande e aprofundado**, a menos que o projeto seja trivialmente simples.
 
       **Instruções Chave:**
       0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (imagens, textos, códigos). **NÃO INVENTE** detalhes técnicos que não possam ser inferidos diretamente do material. Se nenhum código for fornecido, não especule sobre a tecnologia (ex: React, Node.js) ou a estrutura do código. Se apenas uma imagem for fornecida, foque sua análise nos aspectos visuais, de layout, fluxo do usuário e componentes de interface visíveis.
       1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA E INFLEXÍVEL):** Sua única função é documentar o estado **ATUAL** do projeto. É estritamente **PROIBIDO** sugerir melhorias, funcionalidades futuras, otimizações, ou criar seções de "Próximos Passos", "A Fazer", "Manutenção", "Melhores Práticas para Evolução" ou qualquer outro tópico que discuta o futuro do projeto. A documentação deve ser um reflexo 100% fiel do que existe, não do que poderia ou deveria existir.
-      2.  **Análise Holística:** Você recebeu um contexto de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado, imagens). Analise e relacione **TODAS** as fontes para entender o projeto de forma completa antes de escrever. Se houver múltiplos arquivos, sintetize a informação de todos eles em uma documentação coesa.
-      3.  **Unicidade e Criatividade:** Cada documento que você cria deve ser único. Evite repetir a mesma estrutura, tom de voz ou exemplos de documentos gerados anteriormente. Seja criativo na organização do conteúdo e nos títulos das seções. Por exemplo, em vez de sempre usar "Visão Geral", você pode usar "O Problema e a Solução" ou "Objetivo Principal". Adapte o estilo e a estrutura para melhor se adequar ao contexto específico fornecido, garantindo que cada documentação tenha uma identidade própria.
-      4.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do contexto, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
-      5.  **Detalhe Exaustivo:** Para cada elemento encontrado no contexto (funções, componentes, endpoints, nós de automação), detalhe CADA parâmetro, prop, argumento, campo de dados e opção de configuração. Seja explícito sobre tipos, obrigatoriedade e valores padrão. O objetivo é um manual de referência, não um resumo. Não omita nenhum detalhe.
-      6.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria. O resultado final não deve conter placeholders.
-      7.  **Guia "Primeiros Passos":** Se for relevante para o tipo de projeto, adicione uma seção "Primeiros Passos" logo após a introdução. Esta seção deve ser um guia rápido com etapas claras e práticas para que alguém possa começar a usar ou entender a funcionalidade principal rapidamente.
-      8.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
+      2.  **Tamanho e Verbosisade (REGRA CRÍTICA):** Não hesite em criar um documento longo. A preferência é por um excesso de detalhes em vez de concisão. Se o projeto for complexo, o documento final DEVE ser extenso. Explore cada tópico a fundo, explicando o 'porquê' das decisões de arquitetura, detalhando fluxos de dados e fornecendo exemplos de código sempre que possível. A meta é a profundidade, não a brevidade.
+      3.  **Análise Holística:** Você recebeu um contexto de múltiplas fontes (pastas de projeto, arquivos avulsos, código colado, imagens). Analise e relacione **TODAS** as fontes para entender o projeto de forma completa antes de escrever. Se houver múltiplos arquivos, sintetize a informação de todos eles em uma documentação coesa.
+      4.  **Unicidade e Criatividade:** Cada documento que você cria deve ser único. Evite repetir a mesma estrutura, tom de voz ou exemplos de documentos gerados anteriormente. Seja criativo na organização do conteúdo e nos títulos das seções. Por exemplo, em vez de sempre usar "Visão Geral", você pode usar "O Problema e a Solução" ou "Objetivo Principal". Adapte o estilo e a estrutura para melhor se adequar ao contexto específico fornecido, garantindo que cada documentação tenha uma identidade própria.
+      5.  **Estrutura Dinâmica:** NÃO use um template fixo. Com base na sua análise holística do contexto, gere as seções e tópicos mais lógicos e úteis para ESTE projeto específico. Se o usuário fornecer um texto com placeholders como "[Descreva aqui]", sua tarefa é PREENCHER esses placeholders com conteúdo detalhado e relevante, usando o resto do contexto.
+      6.  **Detalhe Exaustivo:** Para cada elemento encontrado no contexto (funções, componentes, endpoints, nós de automação), detalhe CADA parâmetro, prop, argumento, campo de dados e opção de configuração. Seja explícito sobre tipos, obrigatoriedade e valores padrão. O objetivo é um manual de referência, não um resumo. Não omita nenhum detalhe.
+      7.  **Profundidade e Completude:** Sua meta é criar um documento tão completo que um novo membro da equipe possa entender o projeto de ponta a ponta sem precisar perguntar a ninguém. Não deixe lacunas. Se uma parte do contexto não for clara, use seu conhecimento como especialista para fazer suposições informadas e preencher os detalhes com as melhores práticas da indústria. O resultado final não deve conter placeholders.
+      8.  **Guia "Primeiros Passos":** Se for relevante para o tipo de projeto, adicione uma seção "Primeiros Passos" logo após a introdução. Esta seção deve ser um guia rápido com etapas claras e práticas para que alguém possa começar a usar ou entender a funcionalidade principal rapidamente.
+      9.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
           - **PROIBIDO:** NUNCA, sob nenhuma circunstância, use blocos de código com três crases (\`\`\`). A saída NÃO DEVE conter \`\`\`.
           - **PROIBIDO:** NUNCA formate blocos de código usando a sintaxe de tabelas Markdown (| ... |). O código deve ser texto simples.
           - **CORRETO:** Para código em linha (nomes de variáveis, funções, arquivos), use crases SIMPLES (\`). Exemplo: \`minhaFuncao()\`.
           - **PROIBIDO:** Não gere crases vazias ou com apenas espaços, como \` \` ou \`\`.
           - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação e as quebras de linha, sem usar crases ou tabelas.
           - Use negrito (\*\*) para ênfase e títulos de seção.
-      9.  **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
-      10. **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
-      11. **Listas Consistentes:** Dentro de uma mesma lista, use um estilo consistente. Se for uma lista numerada, use \`1.\`, \`2.\`, \`3.\`, etc. para todos os itens. Se for uma lista com marcadores, use \`-\` ou \`*\` para todos os itens. NÃO misture os estilos na mesma lista. Para listas numeradas que representam um passo a passo contínuo, a numeração DEVE ser sequencial (1, 2, 3...), mesmo que haja texto ou quebras de linha entre os itens. NÃO reinicie a contagem para cada sub-tópico.
-      12. **Deploy e Uso (CRÍTICO):** Se o usuário fornecer informações específicas sobre o deploy na seção "Informações sobre Deploy", use-as para criar uma seção detalhada. Se nenhuma informação for dada, **NÃO INVENTE** um processo de deploy (ex: npm, Docker, CI/CD). Para arquivos simples (HTML/CSS/JS), sua seção de 'Uso' ou 'Deploy' deve simplesmente explicar como abrir o arquivo em um navegador ou incorporá-lo em outra plataforma, se o contexto sugerir.
-      13. **Tradução de JSON de Automação (REGRA CRÍTICA para Automações):** Se o contexto for da equipe de Automações e contiver um JSON de uma ferramenta como N8N ou Make, sua tarefa **NÃO É** descrever a estrutura do JSON. Em vez disso, você deve **TRADUZIR** esse JSON em uma descrição funcional do fluxo de trabalho. Descreva cada **NÓ** (node) da automação pelo seu nome e tipo, explique sua finalidade, detalhe seus parâmetros e configurações de forma clara e legível, e descreva como ele se conecta aos nós seguintes. A documentação deve ser útil para alguém que usa a interface visual da ferramenta, não para um programador lendo o JSON.
+      10. **Padrão Google Docs:** A formatação final deve ser 100% compatível com o estilo e a estrutura de um documento profissional do Google Docs. Pense em como o conteúdo ficaria ao ser colado diretamente no Google Docs: títulos claros (usando #, ##, etc.), listas com marcadores ou números, e uso de negrito para destaque.
+      11. **Foco Interno:** Se estiver gerando documentação técnica, o foco é a equipe interna. EVITE adicionar seções genéricas de "Suporte e Contato", pois a equipe já conhece os canais de comunicação. Foque estritamente no conteúdo técnico e de processo do projeto.
+      12. **Listas Consistentes:** Dentro de uma mesma lista, use um estilo consistente. Se for uma lista numerada, use \`1.\`, \`2.\`, \`3.\`, etc. para todos os itens. Se for uma lista com marcadores, use \`-\` ou \`*\` para todos os itens. NÃO misture os estilos na mesma lista. Para listas numeradas que representam um passo a passo contínuo, a numeração DEVE ser sequencial (1, 2, 3...), mesmo que haja texto ou quebras de linha entre os itens. NÃO reinicie a contagem para cada sub-tópico.
+      13. **Deploy e Uso (CRÍTICO):** Se o usuário fornecer informações específicas sobre o deploy na seção "Informações sobre Deploy", use-as para criar uma seção detalhada. Se nenhuma informação for dada, **NÃO INVENTE** um processo de deploy (ex: npm, Docker, CI/CD). Para arquivos simples (HTML/CSS/JS), sua seção de 'Uso' ou 'Deploy' deve simplesmente explicar como abrir o arquivo em um navegador ou incorporá-lo em outra plataforma, se o contexto sugerir.
+      14. **Tradução de JSON de Automação (REGRA CRÍTICA para Automações):** Se o contexto for da equipe de Automações e contiver um JSON de uma ferramenta como N8N ou Make, sua tarefa **NÃO É** descrever a estrutura do JSON. Em vez disso, você deve **TRADUZIR** esse JSON em uma descrição funcional do fluxo de trabalho. Descreva cada **NÓ** (node) da automação pelo seu nome e tipo, explique sua finalidade, detalhe seus parâmetros e configurações de forma clara e legível, e descreva como ele se conecta aos nós seguintes. A documentação deve ser útil para alguém que usa a interface visual da ferramenta, não para um programador lendo o JSON.
 
       **Instruções Específicas para Análise de Código-Fonte (OBRIGATÓRIO):**
       Se o contexto fornecido incluir código-fonte, sua análise DEVE ser muito mais profunda do que um resumo. Aja como um arquiteto de software sênior fazendo uma revisão de código completa.
@@ -231,9 +231,9 @@ export const generateDocumentContent = async (params, progressCallback) => {
     `;
 
     const supportInstruction = `
-**Sua Missão: Criar um Guia de Usuário Memorável**
+**Sua Missão: Criar um Guia de Usuário Memorável e Exaustivo**
 
-Sua tarefa é criar um guia de usuário final que seja **EXTREMAMENTE DETALHADO, INTELIGENTE, CRIATIVO e PRÁTICO**. Abandone a ideia de um "manual chato". Pense como um especialista em experiência do usuário escrevendo o guia mais claro e útil possível. A linguagem deve ser simples, como se você estivesse explicando para um amigo. O objetivo é criar uma experiência de aprendizado única e agradável para cada projeto.
+Sua tarefa é criar um guia de usuário final que seja **EXTREMAMENTE DETALHADO, INTELIGENTE, CRIATIVO, PRÁTICO e PROLIXO**. O guia deve ser **longo e completo**, explicando pacientemente cada passo, mesmo que pareça óbvio. Abandone a ideia de um "manual chato". Pense como um especialista em experiência do usuário escrevendo o guia mais claro e útil possível. A linguagem deve ser simples, como se você estivesse explicando para um amigo. O objetivo é criar uma experiência de aprendizado única e agradável para cada projeto.
 
 **PRINCÍPIOS-CHAVE INEGOCIÁVEIS:**
 
@@ -242,15 +242,17 @@ Sua tarefa é criar um guia de usuário final que seja **EXTREMAMENTE DETALHADO,
     *   **INVENTE UM TÍTULO CRIATIVO:** Sua primeira tarefa é criar um título principal (H1) que seja envolvente e que capture a essência do projeto. Esqueça títulos genéricos como "Guia de Suporte" ou "Help Center". Pense em algo como "Dominando o ${projectName}: Do Zero ao Herói" ou "Sua Jornada com ${projectName}". Seja criativo!
     *   **ESTRUTURA ORGÂNICA:** A estrutura do guia (seções, subtítulos) deve emergir **naturalmente** da sua análise do código e dos objetivos do projeto. Se é um app de uma única funcionalidade, aprofunde-se nela com exemplos práticos. Se é um dashboard complexo, divida-o em missões ou objetivos do usuário. Use sua criatividade para organizar a informação da forma mais lógica e intuitiva possível.
 
-2.  **TRADUÇÃO PROFUNDA DE CÓDIGO PARA AÇÕES PRÁTICAS:**
+2.  **PROFUNDIDADE E VERBOSIDADE:** Não economize palavras. Mergulhe fundo em cada funcionalidade. Crie múltiplos exemplos, descreva diferentes cenários de uso e explique o 'porquê' por trás das funcionalidades do ponto de vista do usuário. Se uma tela tem 5 botões, explique todos os 5 em detalhe. A meta é não deixar nenhuma dúvida para trás, mesmo que isso torne o guia extenso.
+
+3.  **TRADUÇÃO PROFUNDA DE CÓDIGO PARA AÇÕES PRÁTICAS:**
     *   Vasculhe o código em busca de interações do usuário (componentes visíveis, botões, formulários, eventos).
     *   Para **CADA** funcionalidade que você identificar, crie um tutorial detalhado e passo a passo. Seja visual na sua descrição ("No canto superior direito, você verá um botão azul com um ícone de engrenagem...", "Preencha o campo 'Nome' para habilitar o botão 'Salvar'...").
 
-3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL (NÃO UM FAQ GENÉRICO):**
+4.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL (NÃO UM FAQ GENÉRICO):**
     *   Em vez de uma seção de "Perguntas Frequentes" padronizada, crie uma seção de "Solução de Problemas" ou "Dicas e Truques" que seja **altamente específica** para as dificuldades que um usuário poderia enfrentar com **este aplicativo**.
     *   **Inferir problemas do código:** Se você vê uma validação de formulário complexa, um problema comum pode ser "Por que meu formulário não envia?". Se há um processo de upload, uma dica pode ser "O que fazer se meu arquivo for muito grande?". As perguntas e soluções devem ser originais e diretamente derivadas do contexto fornecido.
 
-4.  **UNICIDADE E EMPATIA:**
+5.  **UNICIDADE E EMPATIA:**
     *   Adapte o tom de voz para o público-alvo do projeto. Um app para designers pode ter uma linguagem mais visual e inspiradora. Uma ferramenta para analistas de dados pode ser mais direta e focada em resultados.
     *   Garanta que cada guia de usuário tenha uma identidade própria e ofereça uma experiência de leitura completamente nova e empática.
 
