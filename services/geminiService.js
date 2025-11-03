@@ -46,7 +46,7 @@ const markdownToHtml = (text) => {
     htmlContent = htmlContent
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
+      .replace(/`+([^`]+?)`+/g, '<code>$1</code>');
 
     // Lists (process unordered lists first)
     // Matches blocks of lines starting with * or -
@@ -230,46 +230,36 @@ export const generateDocumentContent = async (params, progressCallback) => {
 ---
 ## 📖 Guia Completo do Usuário (Help Center)
 
-**Instrução Adicional OBRIGATÓRIA (LEIA COM ATENÇÃO):** Sua tarefa é criar um guia de usuário final **EXTREMAMENTE DETALHADO, INTELIGENTE e PRÁTICO**. A linguagem deve ser a mais simples possível, como se você estivesse explicando para alguém que nunca usou um computador.
+**Instrução Adicional OBRIGATÓRIA (LEIA COM ATENÇÃO):** Sua tarefa é criar um guia de usuário final **EXTREMAMENTE DETALHADO, INTELIGENTE, CRIATIVO e PRÁTICO**. A linguagem deve ser a mais simples possível, como se você estivesse explicando para alguém que nunca usou um computador. O objetivo é criar uma experiência de aprendizado única e agradável para cada projeto.
 
 **INSTRUÇÃO CRÍTICA PARA ANÁLISE DE QUALQUER CÓDIGO-FONTE:**
-O contexto que você recebeu pode ser de QUALQUER TIPO de projeto (React, HTML/CSS/JS puro, Node.js, etc.). Sua inteligência será medida pela sua capacidade de analisar um código-fonte desconhecido e **deduzir** suas funcionalidades do ponto de vista de um usuário final. Você **NÃO** deve resumir o código; você deve **TRADUZIR O CÓDIGO EM AÇÕES PRÁTICAS**.
+O contexto que você recebeu pode ser de QUALQUER TIPO de projeto. Sua inteligência será medida pela sua capacidade de analisar um código-fonte desconhecido e **deduzir** suas funcionalidades do ponto de vista de um usuário final. Você **NÃO** deve resumir o código; você deve **TRADUZIR O CÓDIGO EM AÇÕES PRÁTICAS E GUIAS PASSO A PASSO**.
 
-Siga esta metodologia de análise:
+**PRINCÍPIOS-CHAVE PARA A GERAÇÃO DO GUIA:**
 
-1.  **Entenda o Propósito Geral:** Primeiro, analise todos os arquivos fornecidos para entender o objetivo principal da aplicação. Qual problema ela resolve? A quem se destina? Comece o guia com essa explicação simples.
+1.  **ESTRUTURA 100% DINÂMICA E ADAPTÁVEL (A REGRA MAIS IMPORTANTE):**
+    *   **PROIBIDO:** **NÃO USE UM TEMPLATE FIXO.** A estrutura que você gerou para um documento não deve ser repetida no próximo. Cada guia de usuário deve ser uma obra única, moldada pelo contexto específico do projeto.
+    *   **SEJA CRIATIVO:** Pense fora da caixa. Em vez de sempre usar "Primeiros Passos" ou "Funcionalidades", você pode estruturar o guia como:
+        *   Uma narrativa: "Sua Jornada com o ${projectName}: Do Zero ao Herói".
+        *   Baseado em objetivos: "O que você quer fazer hoje? (Ex: Quero criar um relatório, Quero convidar um amigo)".
+        *   Um formato de perguntas e respostas aprofundado, onde cada "pergunta" é um tutorial completo de uma funcionalidade.
+        *   Um guia visual, se houver muitas imagens, explicando cada tela e componente.
+    *   A estrutura deve emergir **naturalmente** da sua análise do código e dos objetivos do projeto. Se é um app de uma única funcionalidade, aprofunde-se nela. Se é um dashboard complexo, divida-o em seções lógicas.
 
-2.  **Identifique as Funcionalidades-Chave:** Vasculhe o código em busca de interações do usuário. Procure por:
-    *   **Componentes ou seções de HTML:** Nomes como \`Login\`, \`Dashboard\`, \`Editor\`, \`Settings\`, \`CreateUserForm\` são pistas fortes.
-    *   **Manipuladores de Eventos:** Funções como \`handleClick\`, \`onSubmit\`, \`handleDelete\`, \`saveChanges\` revelam as ações que um usuário pode tomar.
-    *   **Formulários e Entradas:** Elementos \`<form>\`, \`<input>\`, \`<button>\` indicam onde o usuário insere dados ou inicia ações.
+2.  **TRADUÇÃO PROFUNDA DE CÓDIGO PARA AÇÕES:**
+    *   Vasculhe o código em busca de interações do usuário (componentes, manipuladores de eventos, formulários).
+    *   Para **CADA** funcionalidade que você identificar, crie um tutorial detalhado e passo a passo. Seja visual na sua descrição ("Você verá um botão azul no canto superior direito...", "Preencha o campo 'Nome' que tem um ícone de pessoa ao lado...").
 
-3.  **Crie um Tutorial para Cada Funcionalidade:** Para **CADA** funcionalidade principal que você identificar, crie um tutorial detalhado e passo a passo.
-    *   **Exemplo para um App de Tarefas:** Se você encontrar um formulário para adicionar tarefas e uma lista para exibi-las, crie tutoriais separados como "Como Adicionar uma Nova Tarefa" e "Como Marcar uma Tarefa como Concluída".
-    *   **Exemplo para um Site Simples:** Se for um arquivo \`index.html\` com uma galeria de imagens e um formulário de contato, crie um tutorial para "Como Navegar pela Galeria" e "Como Enviar uma Mensagem de Contato", detalhando cada campo do formulário.
+3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL (NÃO UM FAQ GENÉRICO):**
+    *   Em vez de uma seção de "Perguntas Frequentes" padronizada, crie uma seção de "Solução de Problemas" ou "Dicas e Truques" que seja **altamente específica** para as dificuldades que um usuário poderia enfrentar com **este aplicativo**.
+    *   **Inferir problemas do código:** Se você vê uma validação de formulário complexa, um problema comum pode ser "Por que meu formulário não envia?". Se há um processo de upload, uma dica pode ser "O que fazer se meu arquivo for muito grande?".
+    *   As perguntas e soluções devem ser originais e diretamente derivadas do contexto fornecido, não uma lista genérica.
 
-**ESTRUTURA OBRIGATÓRIA E DETALHADA:**
+4.  **UNICIDADE E CRIATIVIDADE (COMO NA DOCUMENTAÇÃO TÉCNICA):**
+    *   Cada documento que você cria deve ser único. Evite repetir o mesmo tom de voz ou exemplos. Adapte o estilo para melhor se adequar ao público-alvo do projeto. Um app para designers pode ter uma linguagem mais visual, enquanto uma ferramenta para analistas de dados pode ser mais direta.
+    *   Garanta que cada guia de usuário tenha uma identidade própria e ofereça uma experiência de leitura completamente nova.
 
-### 1. Bem-vindo ao ${projectName}!
-- **O que é isso?** Explique de forma muito simples o que o aplicativo faz, com base na sua análise do código.
-- **Para quem é isso?** Descreva o perfil de usuário ideal.
-
-### 2. Guia de Primeiros Passos
-- Descreva a primeira ação que um usuário deve realizar. Se houver uma tela de configuração, um login ou um passo inicial obrigatório, detalhe-o aqui.
-
-### 3. Usando o Aplicativo: Tutoriais Passo a Passo
-- Crie um subtítulo (###) para **CADA UMA** das funcionalidades que você identificou na análise do código (ex: "Como Criar um Novo Relatório", "Como Editar seu Perfil", "Como Excluir um Item").
-- Cada tutorial deve ser uma lista numerada (\`1.\`, \`2.\`, \`3.\`...) com ações claras (Ex: "1. Vá para a seção 'Relatórios' no menu principal.").
-- Descreva o que o usuário vê na tela. (Ex: "2. Preencha o campo 'Nome do Relatório' com...").
-
-### 4. Solução de Problemas e Perguntas Frequentes (FAQ)
-- Com base nas funcionalidades que você documentou, crie uma seção robusta com 5 a 8 perguntas que um usuário real faria.
-- **Exemplos de perguntas a inferir:** "Onde meus dados são salvos?", "Posso exportar meu trabalho?", "O que acontece se eu preencher o formulário incorretamente?".
-- Para cada item, use o formato:
-    - **🤔 Pergunta/Problema:** [A pergunta do usuário]
-    - **💡 Solução/Resposta:** [Uma resposta clara e direta com os passos para resolver].
-
-Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que o aplicativo oferece, **independentemente da tecnologia ou estrutura do projeto**.
+Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que o aplicativo oferece, de uma maneira que seja sempre nova, interessante e perfeitamente adaptada ao projeto em questão.
 `;
     
     let userTextPrompt = '';
@@ -318,9 +308,9 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
 
     // Se for apenas um documento de suporte, o processo de várias etapas não é necessário.
     if (docType === 'support') {
-      progressCallback({ progress: 25, message: 'Estruturando o guia...' });
+      progressCallback({ progress: 25, message: 'Traduzindo o técnico para o humano...' });
       const text = await callOpenAI(messages);
-      progressCallback({ progress: 95, message: 'Finalizando...' });
+      progressCallback({ progress: 95, message: 'Polindo os últimos detalhes...' });
       
       const lines = text.trim().split('\n');
       let title = projectName;
@@ -346,31 +336,31 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     switch (team) {
         case Team.Developers:
             levelPrompts = [
-                { message: "Código e lógica interna...", prompt: "O documento está excelente. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente ou classe, descreva seus parâmetros, props, e a lógica de negócios passo a passo. Comece diretamente com o título da nova seção." },
-                { message: "Fluxo de dados e APIs...", prompt: "Ótimo. Agora **adicione a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** no **fluxo de dados, integração com APIs e banco de dados**. Descreva como os dados se movem através do sistema. Comece diretamente com o título da nova seção." },
-                { message: "Testes e deploy...", prompt: "Perfeito. **Adicione a próxima seção**, sem repetir o que já foi escrito. Foque em **Estratégias de Testes, Configuração de Ambiente e Como Usar/Deploy**. Com base nas informações fornecidas pelo usuário, detalhe o processo de deploy. Se NENHUMA informação de deploy foi fornecida, explique como executar o projeto localmente ou, para arquivos simples, como usá-los diretamente. NÃO INVENTE um processo de deploy complexo. Comece diretamente com o título da nova seção." },
-                { message: "Manutenção e boas práticas...", prompt: "Para concluir, **adicione a seção final**, sem repetir o que já foi escrito, focada em **Manutenção e Melhores Práticas**. Discuta monitoramento, logging e boas práticas específicas ao código para manter a qualidade. Comece diretamente com o título da nova seção." }
+                { message: "Decodificando a lógica interna...", prompt: "O documento está excelente. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** em detalhar o **código e a lógica interna**. Para cada função, componente ou classe, descreva seus parâmetros, props, e a lógica de negócios passo a passo. Comece diretamente com o título da nova seção." },
+                { message: "Traçando o fluxo de dados e conexões...", prompt: "Ótimo. Agora **adicione a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** no **fluxo de dados, integração com APIs e banco de dados**. Descreva como os dados se movem através do sistema. Comece diretamente com o título da nova seção." },
+                { message: "Planejando os testes e o deploy...", prompt: "Perfeito. **Adicione a próxima seção**, sem repetir o que já foi escrito. Foque em **Estratégias de Testes, Configuração de Ambiente e Como Usar/Deploy**. Com base nas informações fornecidas pelo usuário, detalhe o processo de deploy. Se NENHUMA informação de deploy foi fornecida, explique como executar o projeto localmente ou, para arquivos simples, como usá-los diretamente. NÃO INVENTE um processo de deploy complexo. Comece diretamente com o título da nova seção." },
+                { message: "Adicionando sabedoria de manutenção...", prompt: "Para concluir, **adicione a seção final**, sem repetir o que já foi escrito, focada em **Manutenção e Melhores Práticas**. Discuta monitoramento, logging e boas práticas específicas ao código para manter a qualidade. Comece diretamente com o título da nova seção." }
             ];
             break;
         case Team.UXUI:
             levelPrompts = [
-                { message: "Fluxo do usuário...", prompt: "A análise inicial está ótima. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** em detalhar o **Fluxo do Usuário e as Micro-interações**. Mapeie a jornada passo a passo e descreva o propósito e os estados de cada elemento interativo. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." },
-                { message: "Componentes e design system...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focada em **Componentização e Design System**. Identifique componentes reutilizáveis, suas variações e quando usá-los. Use negrito para nomes de componentes, não crases. Comece diretamente com o título da nova seção." },
-                { message: "Acessibilidade e handoff...", prompt: "Para finalizar, **adicione a seção final**, sem repetir o que já foi escrito, focada em **Acessibilidade (WCAG) e Handoff para Desenvolvedores**. Analise o design em relação a contraste, navegação por teclado e forneça especificações (cores, fontes, etc.) para a equipe de desenvolvimento. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." }
+                { message: "Mapeando a jornada do usuário...", prompt: "A análise inicial está ótima. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** em detalhar o **Fluxo do Usuário e as Micro-interações**. Mapeie a jornada passo a passo e descreva o propósito e os estados de cada elemento interativo. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." },
+                { message: "Catalogando os componentes do design...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focada em **Componentização e Design System**. Identifique componentes reutilizáveis, suas variações e quando usá-los. Use negrito para nomes de componentes, não crases. Comece diretamente com o título da nova seção." },
+                { message: "Garantindo uma experiência acessível...", prompt: "Para finalizar, **adicione a seção final**, sem repetir o que já foi escrito, focada em **Acessibilidade (WCAG) e Handoff para Desenvolvedores**. Analise o design em relação a contraste, navegação por teclado e forneça especificações (cores, fontes, etc.) para a equipe de desenvolvimento. NÃO GERE CÓDIGO. Comece diretamente com o título da nova seção." }
             ];
             break;
         case Team.Automations:
             levelPrompts = [
-                { message: "Fluxo de dados e mapeamento...", prompt: "A visão geral está ótima. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** no **Fluxo de Dados e Mapeamento de Campos**. Descreva em detalhes como os dados são transformados em cada etapa, desde o gatilho até a saída final, especificando os campos chave. Comece diretamente com o título da nova seção." },
-                { message: "Lógica e tratamento de erros...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** na **Lógica Condicional e Tratamento de Erros**. Detalhe as condições dos nós IF/Switch e como os erros são capturados e tratados em cada rota do fluxo. Comece diretamente com o título da nova seção." },
-                { message: "Monitoramento e manutenção...", prompt: "Para finalizar, **adicione a seção final**, sem repetir o que já foi escrito, sobre **Monitoramento e Manutenção**. Descreva como verificar a saúde da automação, acessar logs, gerenciar credenciais e quais são as melhores práticas para a sua evolução. Comece diretamente com o título da nova seção." }
+                { message: "Desvendando o fluxo da automação...", prompt: "A visão geral está ótima. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito. Foque **exclusivamente** no **Fluxo de Dados e Mapeamento de Campos**. Descreva em detalhes como os dados são transformados em cada etapa, desde o gatilho até a saída final, especificando os campos chave. Comece diretamente com o título da nova seção." },
+                { message: "Fortalecendo a automação contra falhas...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focando **exclusivamente** na **Lógica Condicional e Tratamento de Erros**. Detalhe as condições dos nós IF/Switch e como os erros são capturados e tratados em cada rota do fluxo. Comece diretamente com o título da nova seção." },
+                { message: "Criando um plano de monitoramento...", prompt: "Para finalizar, **adicione a seção final**, sem repetir o que já foi escrito, sobre **Monitoramento e Manutenção**. Descreva como verificar a saúde da automação, acessar logs, gerenciar credenciais e quais são as melhores práticas para a sua evolução. Comece diretamente com o título da nova seção." }
             ];
             break;
         case Team.AI:
             levelPrompts = [
-                { message: "Análise do System Prompt...", prompt: "A missão está clara. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito, com uma **Análise Profunda do Prompt de Sistema e dos Guardrails**. Desmembre cada regra e explique seu impacto no comportamento do agente. Comece diretamente com o título da nova seção." },
-                { message: "Ferramentas e fluxo de trabalho...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focada na **Análise das Ferramentas (Tools) e na Lógica do Fluxo de Trabalho**. Detalhe os parâmetros de cada ferramenta e a lógica de decisão do agente. Comece diretamente com o título da nova seção." },
-                { message: "Testes e fine-tuning...", prompt: "Para concluir, **adicione a seção final**, sem repetir o que já foi escrito, sobre **Estratégias de Teste e Recomendações de Ajuste Fino (Fine-Tuning)**. Crie cenários de teste e dê sugestões para modificar o prompt ou as ferramentas para melhor performance. Comece diretamente com o título da nova seção." }
+                { message: "Analisando a personalidade da IA...", prompt: "A missão está clara. Continue **adicionando a próxima seção**, sem repetir o que já foi escrito, com uma **Análise Profunda do Prompt de Sistema e dos Guardrails**. Desmembre cada regra e explique seu impacto no comportamento do agente. Comece diretamente com o título da nova seção." },
+                { message: "Equipando o agente com suas ferramentas...", prompt: "Excelente. **Adicione a próxima seção**, sem repetir o que já foi escrito, focada na **Análise das Ferramentas (Tools) e na Lógica do Fluxo de Trabalho**. Detalhe os parâmetros de cada ferramenta e a lógica de decisão do agente. Comece diretamente com o título da nova seção." },
+                { message: "Preparando cenários para treinar a IA...", prompt: "Para concluir, **adicione a seção final**, sem repetir o que já foi escrito, sobre **Estratégias de Teste e Recomendações de Ajuste Fino (Fine-Tuning)**. Crie cenários de teste e dê sugestões para modificar o prompt ou as ferramentas para melhor performance. Comece diretamente com o título da nova seção." }
             ];
             break;
         default:
@@ -381,7 +371,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     const totalLevels = docType === 'both' ? 1 + levelPrompts.length + 1 : 1 + levelPrompts.length;
 
     // Nível 1: Chamada Inicial
-    progressCallback({ progress: (100 / totalLevels), message: `Nível 1/${totalLevels}: Estrutura e arquitetura...` });
+    progressCallback({ progress: (100 / totalLevels), message: 'Analisando o DNA do seu projeto...' });
     const text1 = await callOpenAI(messages);
     if (!text1) throw new Error("A resposta inicial da IA estava vazia.");
     fullMarkdownResponse += text1;
@@ -390,7 +380,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     // Níveis de Aprofundamento Técnico
     for (let i = 0; i < levelPrompts.length; i++) {
         const level = i + 2;
-        progressCallback({ progress: (100 / totalLevels) * level, message: `Nível ${level}/${totalLevels}: ${levelPrompts[i].message}` });
+        progressCallback({ progress: (100 / totalLevels) * level, message: levelPrompts[i].message });
         
         messages.push({ role: "user", content: levelPrompts[i].prompt });
         const loopText = await callOpenAI(messages);
@@ -401,7 +391,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     // Nível Final: Guia do Usuário (apenas se 'both')
     if (docType === 'both') {
       const supportLevel = totalLevels;
-      progressCallback({ progress: (100 / totalLevels) * supportLevel, message: `Nível ${supportLevel}/${totalLevels}: Guia do usuário...` });
+      progressCallback({ progress: (100 / totalLevels) * supportLevel, message: 'Escrevendo o manual do usuário final...' });
       
       const supportUserPrompt = `
         A documentação técnica está completa. Baseado em TODO o contexto e conversa anteriores, sua tarefa final e separada é criar o guia de usuário.
@@ -415,7 +405,7 @@ Este guia deve ser um manual completo que ensine um usuário a usar **TUDO** que
     }
 
 
-    progressCallback({ progress: 98, message: 'Finalizando formatação...' });
+    progressCallback({ progress: 98, message: 'Polindo os últimos detalhes...' });
     
     let text = fullMarkdownResponse;
     const lines = text1.trim().split('\n');
