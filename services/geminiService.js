@@ -1,17 +1,32 @@
 
+
 import { Team } from "../types.js";
 
 let openAIApiKey = null;
 
-// NOTE: The function name is kept as `initializeGemini` to avoid extensive refactoring,
-// but it now initializes the OpenAI API key.
-export const initializeGemini = (apiKey) => {
+export const initializeOpenAI = (apiKey) => {
   if (!apiKey) {
     console.error("A chave de API é necessária para inicializar o serviço OpenAI.");
     return false;
   }
   openAIApiKey = apiKey;
   return true;
+};
+
+export const validateApiKey = async (apiKey) => {
+  if (!apiKey) return false;
+  try {
+    const response = await fetch("https://api.openai.com/v1/models", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Falha ao validar a chave de API:", error);
+    return false;
+  }
 };
 
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header.js';
 import CreationModal from './components/CreationModal.js';
@@ -5,21 +6,32 @@ import DocumentPreview from './components/DocumentPreview.js';
 import Onboarding from './components/Onboarding.js';
 import ApiKeySetup from './components/ApiKeySetup.js';
 import ConfirmationModal from './components/ConfirmationModal.js';
-import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon } from './components/Icons.js';
+import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner } from './components/Icons.js';
 import { Team } from './types.js';
-import { generateDocumentContent, initializeGemini } from './services/geminiService.js';
+import { generateDocumentContent, initializeOpenAI, validateApiKey } from './services/geminiService.js';
 
 // Modal para alterar a chave de API, definido localmente.
 const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
   const [apiKey, setApiKey] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (apiKey.trim()) {
+    if (!apiKey.trim() || isVerifying) return;
+
+    setIsVerifying(true);
+    setError('');
+    const isValid = await validateApiKey(apiKey.trim());
+    setIsVerifying(false);
+
+    if (isValid) {
       onApiKeySet(apiKey.trim());
       onClose();
+    } else {
+      setError('A chave de API fornecida é inválida. Verifique e tente novamente.');
     }
   };
 
@@ -53,6 +65,7 @@ const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
                         autoFocus: true
                     })
                 ),
+                error && React.createElement('p', { className: 'text-sm text-red-400' }, error),
                  React.createElement('div', { className: "text-center text-sm text-gray-500" },
                     React.createElement('a', {
                         href: "https://platform.openai.com/account/api-keys",
@@ -70,9 +83,9 @@ const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
                 }, "Cancelar"),
                 React.createElement('button', {
                     type: "submit",
-                    disabled: !apiKey.trim(),
-                    className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors disabled:opacity-50",
-                }, "Salvar Nova Chave")
+                    disabled: !apiKey.trim() || isVerifying,
+                    className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 flex items-center gap-2",
+                }, isVerifying ? React.createElement(LoadingSpinner, null) : null, isVerifying ? 'Verificando...' : 'Salvar Nova Chave')
             )
         )
       )
@@ -87,6 +100,7 @@ const App = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isApiInitialized, setIsApiInitialized] = useState(false);
+  const [apiKeyStatus, setApiKeyStatus] = useState('unknown'); // 'unknown', 'valid', 'invalid'
   
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
@@ -100,28 +114,37 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    try {
-      const savedApiKey = localStorage.getItem('synapsedocs-apikey');
-      if (savedApiKey && initializeGemini(savedApiKey)) {
-        setIsApiInitialized(true);
-      }
+    const loadData = async () => {
+      try {
+        const savedApiKey = localStorage.getItem('synapsedocs-apikey');
+        if (savedApiKey) {
+          const isValid = await validateApiKey(savedApiKey);
+          setApiKeyStatus(isValid ? 'valid' : 'invalid');
+          if (initializeOpenAI(savedApiKey)) {
+            setIsApiInitialized(true);
+          }
+        } else {
+            setApiKeyStatus('invalid');
+        }
 
-      const savedDocs = localStorage.getItem('synapsedocs-documents');
-      const savedTeam = localStorage.getItem('synapsedocs-team');
-      const hasOnboarded = localStorage.getItem('synapsedocs-onboarded');
+        const savedDocs = localStorage.getItem('synapsedocs-documents');
+        const savedTeam = localStorage.getItem('synapsedocs-team');
+        const hasOnboarded = localStorage.getItem('synapsedocs-onboarded');
 
-      if (savedDocs) {
-        setDocuments(JSON.parse(savedDocs));
+        if (savedDocs) {
+          setDocuments(JSON.parse(savedDocs));
+        }
+        if (savedTeam && Object.values(Team).includes(savedTeam)) {
+          setCurrentTeam(savedTeam);
+        }
+        if (hasOnboarded) {
+          setShowOnboarding(false);
+        }
+      } catch (error) {
+          console.error("Failed to load from local storage", error);
       }
-      if (savedTeam && Object.values(Team).includes(savedTeam)) {
-        setCurrentTeam(savedTeam);
-      }
-      if (hasOnboarded) {
-        setShowOnboarding(false);
-      }
-    } catch (error) {
-        console.error("Failed to load from local storage", error);
-    }
+    };
+    loadData();
   }, []);
 
   // Save state to localStorage on change
@@ -195,10 +218,11 @@ const App = () => {
 
   const handleApiKeySet = (apiKey) => {
     localStorage.setItem('synapsedocs-apikey', apiKey);
-    if (initializeGemini(apiKey)) {
+    setApiKeyStatus('valid');
+    if (initializeOpenAI(apiKey)) {
       setIsApiInitialized(true);
     } else {
-        // You could add some user-facing error handling here
+        setApiKeyStatus('invalid');
         console.error("Failed to initialize API with provided key.");
     }
   };
@@ -277,15 +301,6 @@ const App = () => {
     );
   }
 
-  if (selectedDocument) {
-    return React.createElement(DocumentPreview, { 
-        doc: selectedDocument, 
-        onBack: handleBackFromPreview,
-        onUpdateContent: handleDocumentUpdate,
-        isExiting: isExitingPreview,
-    });
-  }
-
   return (
     React.createElement('div', { className: "bg-gray-900 min-h-screen text-white font-sans" },
       React.createElement(Header, { 
@@ -294,7 +309,8 @@ const App = () => {
           setCurrentTeam(team);
           setSearchQuery(''); // Clear search when changing teams
         }, 
-        onOpenSettings: () => setIsApiKeyChangeModalOpen(true)
+        onOpenSettings: () => setIsApiKeyChangeModalOpen(true),
+        apiKeyStatus: apiKeyStatus
       }),
        React.createElement('div', { className: "bg-amber-900/50 text-amber-200 text-sm text-center p-2 border-b border-amber-800 flex items-center justify-center gap-2" },
         React.createElement(InfoIcon, null),
@@ -351,8 +367,10 @@ const App = () => {
                         React.createElement('h2', { className: "text-3xl font-bold" }, `Documentos de ${currentTeam}`),
                         React.createElement('button', {
                             onClick: () => setIsModalOpen(true),
-                            className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-transform transform hover:scale-105",
-                            "aria-label": "Criar novo documento"
+                            disabled: apiKeyStatus !== 'valid',
+                            className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed",
+                            "aria-label": "Criar novo documento",
+                            title: apiKeyStatus !== 'valid' ? 'Configure uma chave de API válida para criar documentos.' : 'Criar novo documento'
                         },
                             React.createElement(PlusIcon, null),
                             React.createElement('span', null, "Novo Documento")
@@ -393,7 +411,9 @@ const App = () => {
                             React.createElement('p', { className: "text-gray-400 mb-6" }, `Sua jornada começa aqui. Crie seu primeiro documento para a equipe de ${currentTeam}.`),
                             React.createElement('button', {
                                 onClick: () => setIsModalOpen(true),
-                                className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 mx-auto transition-transform transform hover:scale-105"
+                                disabled: apiKeyStatus !== 'valid',
+                                className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 mx-auto transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed",
+                                title: apiKeyStatus !== 'valid' ? 'Configure uma chave de API válida para criar documentos.' : 'Criar primeiro documento'
                             },
                                 React.createElement(PlusIcon, null),
                                 React.createElement('span', null, "Criar Primeiro Documento")
