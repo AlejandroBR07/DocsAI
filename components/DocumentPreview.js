@@ -275,7 +275,7 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
   }
 
   return (
-    React.createElement('div', { className: `flex flex-col h-[calc(100vh-80px)] ${animationClass}` },
+    React.createElement('div', { className: `flex flex-col h-screen ${animationClass}` },
       React.createElement('div', { className: "bg-gray-800/80 backdrop-blur-sm p-4 sticky top-0 z-20 border-b border-gray-700" },
         React.createElement('div', { className: "container mx-auto flex justify-between items-center gap-2" },
           React.createElement('div', { className: "flex items-center gap-2" },

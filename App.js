@@ -304,15 +304,6 @@ const App = () => {
 
   return (
     React.createElement('div', { className: "bg-gray-900 min-h-screen text-white font-sans" },
-      React.createElement(Header, { 
-        currentTeam: currentTeam, 
-        onTeamChange: (team) => {
-          setCurrentTeam(team);
-          setSearchQuery(''); // Clear search when changing teams
-        }, 
-        onOpenSettings: () => setIsApiKeyChangeModalOpen(true),
-        apiKeyStatus: apiKeyStatus
-      }),
       selectedDocument ? (
         React.createElement(DocumentPreview, {
           doc: selectedDocument,
@@ -322,6 +313,15 @@ const App = () => {
         })
       ) : (
         React.createElement(React.Fragment, null,
+          React.createElement(Header, { 
+            currentTeam: currentTeam, 
+            onTeamChange: (team) => {
+              setCurrentTeam(team);
+              setSearchQuery(''); // Clear search when changing teams
+            }, 
+            onOpenSettings: () => setIsApiKeyChangeModalOpen(true),
+            apiKeyStatus: apiKeyStatus
+          }),
           React.createElement('div', { className: "bg-amber-900/50 text-amber-200 text-sm text-center p-2 border-b border-amber-800 flex items-center justify-center gap-2" },
             React.createElement(InfoIcon, null),
             "Seus documentos são salvos localmente no seu navegador. Para maior segurança, copie o conteúdo para o Google Docs ou outro local seguro."
