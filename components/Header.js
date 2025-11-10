@@ -51,7 +51,7 @@ const Header = ({ currentTeam, onTeamChange, onOpenSettings, apiKeyStatus }) => 
     React.createElement('header', { className: "bg-gray-800/50 backdrop-blur-sm p-4 sticky top-0 z-20 border-b border-gray-700" },
       React.createElement('div', { className: "container mx-auto flex justify-between items-center" },
         React.createElement('h1', { className: "text-2xl font-bold text-white" },
-          React.createElement('span', { className: "text-indigo-400" }, "Synapse"), " Docs"
+          "Trade", React.createElement('span', { className: "text-indigo-400" }, "Synapse")
         ),
         React.createElement('div', { className: "flex items-center gap-4" },
           React.createElement('div', { className: "relative" },

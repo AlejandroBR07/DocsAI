@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon, ChevronRightIcon } from './Icons.js';
+import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon, ChevronRightIcon, TrashIcon, PlusIcon } from './Icons.js';
 import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
+import { generateDocumentStructure, generateFullDocumentContent } from '../services/openAIService.js';
 
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
@@ -188,17 +189,24 @@ const FileTree = ({ nodes, selectedPaths, onToggleNode }) => {
 };
 
 
-const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam }) => {
+const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
+  // Step 1: Form state
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
-  const [docType, setDocType] = useState('both'); // 'technical', 'support', 'both'
+  const [docType, setDocType] = useState('both');
+  
+  // Step 2: Structure Review state
+  const [documentStructure, setDocumentStructure] = useState([]);
+  
+  // General state
+  const [generationStep, setGenerationStep] = useState('form'); // 'form', 'structuring', 'review', 'generating'
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
   const [displayedLoadingMessage, setDisplayedLoadingMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
 
-  // Team specific state
+  // Team specific context state
   const [jsonFiles, setJsonFiles] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [pastedJson, setPastedJson] = useState('');
@@ -234,312 +242,184 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
   const isCancelled = useRef(false);
   const [activeTemplate, setActiveTemplate] = useState(null);
 
-  // Handle cancellation
+  useEffect(() => { return () => { isCancelled.current = true; }; }, []);
   useEffect(() => {
-    return () => {
-      isCancelled.current = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (pastedJson.trim() === '') {
-      setIsJsonValid(true);
-      setJsonErrorMessage('');
-      return;
-    }
-    try {
-      JSON.parse(pastedJson);
-      setIsJsonValid(true);
-      setJsonErrorMessage('');
-    } catch (e) {
-      setIsJsonValid(false);
-      setJsonErrorMessage(`Erro no JSON: ${e.message}`);
-    }
+    if (pastedJson.trim() === '') { setIsJsonValid(true); setJsonErrorMessage(''); return; }
+    try { JSON.parse(pastedJson); setIsJsonValid(true); setJsonErrorMessage(''); } catch (e) { setIsJsonValid(false); setJsonErrorMessage(`Erro no JSON: ${e.message}`); }
   }, [pastedJson]);
-
-  // Effect for typing animation
   useEffect(() => {
-    if (!isLoading) {
-      setDisplayedLoadingMessage('');
-      return;
-    }
-
-    let currentText = '';
-    let charIndex = 0;
-    // Reset message before starting to type
-    setDisplayedLoadingMessage('');
-
+    if (!isLoading) { setDisplayedLoadingMessage(''); return; }
+    let currentText = ''; let charIndex = 0; setDisplayedLoadingMessage('');
     const intervalId = setInterval(() => {
       if (charIndex < loadingMessage.length) {
-        currentText += loadingMessage.charAt(charIndex);
-        setDisplayedLoadingMessage(currentText);
-        charIndex++;
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 50); // Typing speed in ms
-
+        currentText += loadingMessage.charAt(charIndex); setDisplayedLoadingMessage(currentText); charIndex++;
+      } else { clearInterval(intervalId); }
+    }, 50);
     return () => clearInterval(intervalId);
   }, [loadingMessage, isLoading]);
-
   const handleJsonFileChange = async (e) => {
-      const files = e.target.files;
-      if (!files) return;
-
+      const files = e.target.files; if (!files) return;
       try {
-          const newFilesPromises = Array.from(files).map(file => 
-            fileToText(file).then(content => ({ name: file.name, content }))
-          );
-          const newFiles = await Promise.all(newFilesPromises);
-
+          const newFiles = await Promise.all(Array.from(files).map(file => fileToText(file).then(content => ({ name: file.name, content }))));
           if (currentTeam === Team.Automations) setJsonFiles(prev => [...prev, ...newFiles]);
-      } catch (err) {
-          setError('Falha ao ler um ou mais arquivos.');
-      }
+      } catch (err) { setError('Falha ao ler um ou mais arquivos.'); }
   }
-
   const handleCodeFileChange = async (e) => {
-    const files = e.target.files;
-    if (!files) return;
+    const files = e.target.files; if (!files) return;
      try {
-        const newFilesPromises = Array.from(files).map(file => 
-          fileToText(file).then(content => ({ name: file.name, content }))
-        );
-        const newFiles = await Promise.all(newFilesPromises);
+        const newFiles = await Promise.all(Array.from(files).map(file => fileToText(file).then(content => ({ name: file.name, content }))));
         setUploadedCodeFiles(prev => [...prev, ...newFiles]);
-     } catch (err) {
-        setError('Falha ao ler um ou mais arquivos de código.');
-     }
+     } catch (err) { setError('Falha ao ler um ou mais arquivos de código.'); }
   };
-
-
   const addImages = (files) => {
       if (!files) return;
-      const imageFiles = Array.from(files)
-        .filter(file => file.type.startsWith('image/'))
-        .map(file => ({
-            id: `${file.name}-${file.lastModified}`,
-            file: file,
-            preview: URL.createObjectURL(file)
-        }));
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/')).map(file => ({ id: `${file.name}-${file.lastModified}`, file: file, preview: URL.createObjectURL(file) }));
       setUploadedImages(prev => [...prev, ...imageFiles]);
   }
-  
-  const removeImage = (idToRemove) => {
-      setUploadedImages(prev => prev.filter(img => img.id !== idToRemove));
-  }
-
+  const removeImage = (idToRemove) => setUploadedImages(prev => prev.filter(img => img.id !== idToRemove));
   const handleImageChange = (e) => addImages(e.target.files);
-  
   const handleImagePaste = (e) => addImages(e.clipboardData.files);
-
-  const handleDragEvents = (e, isEntering) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(isEntering);
-  };
-  
-  const handleDrop = (e) => {
-    handleDragEvents(e, false);
-    addImages(e.dataTransfer.files);
-  };
-
+  const handleDragEvents = (e, isEntering) => { e.preventDefault(); e.stopPropagation(); setIsDragging(isEntering); };
+  const handleDrop = (e) => { handleDragEvents(e, false); addImages(e.dataTransfer.files); };
   const canGenerate = () => !!projectName && !!description && !!docType;
 
   const handleSelectFolder = async () => {
     setError('');
-
     const hasAistudioPicker = window.aistudio && typeof window.aistudio.showDirectoryPicker === 'function';
     const hasNativePicker = 'showDirectoryPicker' in window;
-    
     try {
         let directoryHandle = null;
-        if (hasAistudioPicker) {
-            directoryHandle = await window.aistudio.showDirectoryPicker();
-        } else if (hasNativePicker) {
-            directoryHandle = await window.showDirectoryPicker();
-        } else {
-            setError("Seu navegador não suporta a seleção de pastas. Por favor, use um navegador como Chrome ou Edge.");
-            return;
-        }
-
-        if (!directoryHandle) {
-            return; // User cancelled
-        }
-
+        if (hasAistudioPicker) { directoryHandle = await window.aistudio.showDirectoryPicker(); }
+        else if (hasNativePicker) { directoryHandle = await window.showDirectoryPicker(); }
+        else { setError("Seu navegador não suporta a seleção de pastas. Por favor, use um navegador como Chrome ou Edge."); return; }
+        if (!directoryHandle) return;
         setLoadingMessage('Processando pasta...');
         const files = await processDirectory(directoryHandle);
         const codeFileExtensions = ['.js', '.ts', '.tsx', '.py', '.java', '.cs', '.go', '.rs', '.php', '.html', '.css', '.scss', '.json', '.md', 'Dockerfile', '.yml', '.yaml'];
         const filteredFiles = files.filter(file => codeFileExtensions.some(ext => file.path.endsWith(ext)));
-        
         setAllFolderFiles(filteredFiles);
         setFileTreeData(buildFileTree(filteredFiles));
         setSelectedFilePaths(new Set(filteredFiles.map(f => f.path)));
-
-
     } catch (err) {
-        if (err.name === 'AbortError') {
-            return;
-        }
+        if (err.name === 'AbortError') return;
         console.error("Erro ao selecionar a pasta:", err);
-        
         if (err.name === 'SecurityError' || (err.message && err.message.toLowerCase().includes("cross origin"))) {
-            setError("A seleção de pastas é bloqueada neste ambiente por segurança (cross-origin). Por favor, use a opção 'Enviar Arquivos Avulsos' como alternativa.");
-        } else {
-            setError("Não foi possível acessar a pasta. Verifique as permissões do navegador ou tente novamente.");
-        }
-    } finally {
-        setLoadingMessage('');
-    }
+            setError("A seleção de pastas é bloqueada neste ambiente por segurança (cross-origin). Use 'Enviar Arquivos Avulsos'.");
+        } else { setError("Não foi possível acessar a pasta. Verifique as permissões do navegador."); }
+    } finally { setLoadingMessage(''); }
   };
-
   const handleToggleNodeSelection = (node) => {
     const descendantFiles = getAllDescendantFilePaths(node);
-
     setSelectedFilePaths(currentPaths => {
         const newPaths = new Set(currentPaths);
         const areAllSelected = descendantFiles.every(p => newPaths.has(p));
-
-        if (areAllSelected) {
-            descendantFiles.forEach(p => newPaths.delete(p));
-        } else {
-            descendantFiles.forEach(p => newPaths.add(p));
-        }
+        if (areAllSelected) { descendantFiles.forEach(p => newPaths.delete(p)); }
+        else { descendantFiles.forEach(p => newPaths.add(p)); }
         return newPaths;
     });
   };
 
-  const handleGenerate = async () => {
-    if (!canGenerate() || isLoading) {
-      setError('Por favor, preencha o nome do projeto e a descrição.');
-      return;
-    }
-    
-    setIsLoading(true);
-    setError('');
-    isCancelled.current = false;
-    setProgress(0);
-    setLoadingMessage('Iniciando...');
+  const getTeamDataContext = async () => {
+      const jsonFromFiles = jsonFiles.map(f => `--- JSON do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
+      const allJson = [pastedJson, jsonFromFiles].filter(Boolean).join('\n\n');
+      const selectedFolderFiles = allFolderFiles.filter(file => selectedFilePaths.has(file.path));
 
-    const progressCallback = (update) => {
-        if (isCancelled.current) return;
-        setLoadingMessage(update.message);
-        setProgress(update.progress);
-    };
+      let teamData = {
+          folderFiles: selectedFolderFiles.length > 0 ? selectedFolderFiles : undefined,
+          uploadedCodeFiles: uploadedCodeFiles.length > 0 ? uploadedCodeFiles : undefined,
+          pastedCode: pastedCode || undefined, databaseSchema, dependencies, deploymentInfo: deploymentInfo || undefined,
+          json: allJson || undefined, triggerInfo, externalApis, systemPrompt, workflow, tools, exampleIO, guardrails, personas, userFlows,
+      };
+      if (uploadedImages.length > 0) {
+          teamData.images = await Promise.all(uploadedImages.map(img => fileToBase64(img.file)));
+      }
+      return teamData;
+  }
+
+  const handleGenerateStructure = async () => {
+    if (!canGenerate()) { setError('Por favor, preencha o nome do projeto e a descrição.'); return; }
+    
+    setIsLoading(true); setError(''); isCancelled.current = false;
+    setGenerationStep('structuring'); setLoadingMessage('Analisando contexto...');
 
     try {
-        const jsonFromFiles = jsonFiles.map(f => `--- JSON do arquivo: ${f.name} ---\n${f.content}`).join('\n\n');
-        const allJson = [pastedJson, jsonFromFiles].filter(Boolean).join('\n\n');
-        
-        const selectedFolderFiles = allFolderFiles.filter(file => selectedFilePaths.has(file.path));
+        const teamData = await getTeamDataContext();
+        const params = { projectName, description, team: currentTeam, teamData };
+        const structure = await generateDocumentStructure(params);
 
-        let teamData = {
-            folderFiles: selectedFolderFiles.length > 0 ? selectedFolderFiles : undefined,
-            uploadedCodeFiles: uploadedCodeFiles.length > 0 ? uploadedCodeFiles : undefined,
-            pastedCode: pastedCode || undefined,
-            databaseSchema,
-            dependencies,
-            deploymentInfo: deploymentInfo || undefined,
-            json: allJson || undefined,
-            triggerInfo,
-            externalApis,
-            systemPrompt,
-            workflow,
-            tools,
-            exampleIO,
-            guardrails,
-            personas,
-            userFlows,
-        };
-      
-      if (uploadedImages.length > 0) {
-        teamData.images = await Promise.all(
-          uploadedImages.map(img => fileToBase64(img.file))
-        );
-      }
-      
-      const params = {
-        projectName,
-        description,
-        team: currentTeam,
-        docType: docType,
-        teamData,
-      };
-
-      const result = await generateContent(params, progressCallback);
-      
-      if (!isCancelled.current) {
-        setLoadingMessage('Documento pronto!');
-        setProgress(100);
-        
-        setTimeout(() => {
-          if (!isCancelled.current) {
-            onDocumentCreate(result.title, result.content);
-            onClose();
-          }
-        }, 500);
-      }
-
+        if (!isCancelled.current) {
+            setDocumentStructure(structure.map((item, index) => ({ ...item, id: index })));
+            setGenerationStep('review');
+        }
     } catch (err) {
       if (!isCancelled.current) {
         setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
-        setIsLoading(false);
-        setProgress(0);
+        setGenerationStep('form');
       }
+    } finally {
+        if (!isCancelled.current) setIsLoading(false);
     }
   };
 
+  const handleGenerateFullContent = async () => {
+      setGenerationStep('generating');
+      setIsLoading(true);
+      setError('');
+      isCancelled.current = false;
+      setProgress(0);
+      setLoadingMessage('Iniciando geração...');
+
+      const progressCallback = (update) => {
+          if (isCancelled.current) return;
+          setLoadingMessage(update.message);
+          setProgress(update.progress);
+      };
+
+      try {
+          const teamData = await getTeamDataContext();
+          const params = { projectName, description, team: currentTeam, docType, teamData };
+          const result = await generateFullDocumentContent(params, documentStructure, progressCallback);
+
+          if (!isCancelled.current) {
+              setLoadingMessage('Documento pronto!'); setProgress(100);
+              setTimeout(() => { if (!isCancelled.current) { onDocumentCreate(result.title, result.content); onClose(); } }, 500);
+          }
+      } catch (err) {
+          if (!isCancelled.current) {
+              setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
+              setGenerationStep('review'); // Go back to review step on error
+              setIsLoading(false);
+              setProgress(0);
+          }
+      }
+  }
+
   const handleSelectTemplate = (template) => {
     setActiveTemplate(template.name);
-    // Set state based on template content, using empty string as fallback
-    setDescription(template.content.description || '');
-    setPastedCode(template.content.pastedCode || '');
-    setDatabaseSchema(template.content.databaseSchema || '');
-    setDependencies(template.content.dependencies || '');
-    setDeploymentInfo(template.content.deploymentInfo || '');
-    setPersonas(template.content.personas || '');
-    setUserFlows(template.content.userFlows || '');
-    setPastedJson(template.content.pastedJson || '');
-    setTriggerInfo(template.content.triggerInfo || '');
-    setExternalApis(template.content.externalApis || '');
-    setSystemPrompt(template.content.systemPrompt || '');
-    setWorkflow(template.content.workflow || '');
-    setTools(template.content.tools || '');
-    setExampleIO(template.content.exampleIO || '');
+    setDescription(template.content.description || ''); setPastedCode(template.content.pastedCode || '');
+    setDatabaseSchema(template.content.databaseSchema || ''); setDependencies(template.content.dependencies || '');
+    setDeploymentInfo(template.content.deploymentInfo || ''); setPersonas(template.content.personas || '');
+    setUserFlows(template.content.userFlows || ''); setPastedJson(template.content.pastedJson || '');
+    setTriggerInfo(template.content.triggerInfo || ''); setExternalApis(template.content.externalApis || '');
+    setSystemPrompt(template.content.systemPrompt || ''); setWorkflow(template.content.workflow || '');
+    setTools(template.content.tools || ''); setExampleIO(template.content.exampleIO || '');
     setGuardrails(template.content.guardrails || '');
-    // Reset folder/file inputs when using a template
-    setAllFolderFiles([]);
-    setFileTreeData([]);
-    setSelectedFilePaths(new Set());
-    setUploadedCodeFiles([]);
-    setUploadedImages([]);
+    setAllFolderFiles([]); setFileTreeData([]); setSelectedFilePaths(new Set());
+    setUploadedCodeFiles([]); setUploadedImages([]);
   };
 
   const FileChip = ({ file, onRemove, isPath = false }) => (
     React.createElement('div', { className: "bg-gray-700 p-2 rounded-md flex items-center justify-between text-gray-300" },
-      React.createElement('div', { className: "flex items-center gap-2 min-w-0" },
-        React.createElement(FileIcon, null),
-        React.createElement('span', { className: "text-sm font-mono truncate", title: isPath ? file.path : file.name }, isPath ? file.path : file.name)
-      ),
-      onRemove && React.createElement('button', { onClick: onRemove, className: "text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500 ml-2 flex-shrink-0" },
-        React.createElement(CloseIcon, null)
-      )
+      React.createElement('div', { className: "flex items-center gap-2 min-w-0" }, React.createElement(FileIcon, null), React.createElement('span', { className: "text-sm font-mono truncate", title: isPath ? file.path : file.name }, isPath ? file.path : file.name)),
+      onRemove && React.createElement('button', { onClick: onRemove, className: "text-gray-400 hover:text-white p-1 rounded-full bg-gray-600 hover:bg-red-500 ml-2 flex-shrink-0" }, React.createElement(CloseIcon, null))
     )
   );
   
   const ImageUploader = () => (
-    React.createElement('div', { 
-        onPaste: handleImagePaste,
-        onDragEnter: (e) => handleDragEvents(e, true),
-        onDragLeave: (e) => handleDragEvents(e, false),
-        onDragOver: (e) => handleDragEvents(e, true),
-        onDrop: handleDrop,
-        className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700"
-      },
+    React.createElement('div', { onPaste: handleImagePaste, onDragEnter: (e) => handleDragEvents(e, true), onDragLeave: (e) => handleDragEvents(e, false), onDragOver: (e) => handleDragEvents(e, true), onDrop: handleDrop, className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
         React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(UploadIcon, null), " Imagens de Contexto (Opcional)"),
         React.createElement('label', { className: `w-full flex flex-col items-center justify-center gap-2 px-4 py-6 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 border-2 border-dashed transition-colors ${isDragging ? 'border-indigo-500 bg-gray-600' : 'border-gray-500'}` },
-            React.createElement(UploadIcon, null),
-            React.createElement('span', null, "Arraste e solte, cole, ou clique para enviar"),
+            React.createElement(UploadIcon, null), React.createElement('span', null, "Arraste e solte, cole, ou clique para enviar"),
             React.createElement('input', { type: "file", multiple: true, className: "hidden", onChange: handleImageChange, accept: "image/*" })
         ),
         uploadedImages.length > 0 && (
@@ -547,41 +427,25 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                 uploadedImages.map((img) => (
                   React.createElement('div', { key: img.id, className: "relative group" },
                     React.createElement('img', { src: img.preview, alt: "preview", className: "w-full h-20 object-cover rounded" }),
-                    React.createElement('button', { 
-                        onClick: () => removeImage(img.id), 
-                        className: "absolute top-1 right-1 text-white bg-red-600/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                      }, 
-                      React.createElement(CloseIcon, null)
-                    )
+                    React.createElement('button', { onClick: () => removeImage(img.id), className: "absolute top-1 right-1 text-white bg-red-600/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500" }, React.createElement(CloseIcon, null))
                   )
                 ))
             )
         )
     )
   );
-
   const PastedCodeInput = () => (
       React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
           React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(CodeIcon, null), "Colar Código (Opcional)"),
-          React.createElement('textarea', { 
-              rows: 4, 
-              value: pastedCode, 
-              onChange: e => setPastedCode(e.target.value), 
-              className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", 
-              placeholder: "Cole trechos de código, logs, ou outros contextos de texto aqui..." 
-          })
+          React.createElement('textarea', { rows: 4, value: pastedCode, onChange: e => setPastedCode(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole trechos de código, logs, ou outros contextos de texto aqui..." })
       )
   );
-
-
   const renderTeamSpecificInputs = () => {
       switch (currentTeam) {
           case Team.Developers:
               return (
                 React.createElement('div', { className: "space-y-4" },
                   React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, "Central de Contexto do Código"),
-                  
-                  // 1. Select Folder
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                     React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(FolderIcon, null), "Pasta do Projeto (Recomendado)"),
                      React.createElement('p', { className: "text-xs text-gray-400" }, "Desmarque os arquivos ou pastas que deseja excluir do contexto."),
@@ -590,28 +454,17 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                             React.createElement(FileTree, { nodes: fileTreeData, selectedPaths: selectedFilePaths, onToggleNode: handleToggleNodeSelection }),
                             React.createElement('button', { onClick: () => { setAllFolderFiles([]); setFileTreeData([]); setSelectedFilePaths(new Set()); }, className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1 mt-2" }, "Limpar Pasta")
                         )
-                    ) : (
-                      React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))
-                    )
+                    ) : ( React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta")))
                   ),
-
-                  // 2. Upload Files
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                       React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(UploadIcon, null), "Arquivos Avulsos"),
-                      uploadedCodeFiles.length > 0 && (
-                          React.createElement('div', { className: 'max-h-28 overflow-y-auto space-y-1' },
-                              uploadedCodeFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setUploadedCodeFiles(prev => prev.filter((_, i) => i !== index)) }))
-                          )
-                      ),
+                      uploadedCodeFiles.length > 0 && ( React.createElement('div', { className: 'max-h-28 overflow-y-auto space-y-1' }, uploadedCodeFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setUploadedCodeFiles(prev => prev.filter((_, i) => i !== index)) })))),
                       React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(UploadIcon, null),React.createElement('span', null, "Enviar Arquivo(s) de Código"),React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleCodeFileChange }))
                   ),
-
-                  // 3. Paste Code
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                       React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(CodeIcon, null), "Colar Código"),
                       React.createElement('textarea', { rows: 4, value: pastedCode, onChange: e => setPastedCode(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole trechos de código, logs, ou outros contextos de texto aqui..." })
                   ),
-
                    React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                      React.createElement('h4', { className: "text-sm font-medium text-gray-300" }, "Contexto Adicional"),
                      React.createElement('textarea', { rows: 2, value: databaseSchema, onChange: e => setDatabaseSchema(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Esquema do banco de dados (SQL, Prisma, etc)..." }),
@@ -619,175 +472,172 @@ const CreationModal = ({ onClose, onDocumentCreate, generateContent, currentTeam
                   ),
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                     React.createElement('h4', { className: "text-sm font-medium text-gray-300" }, "Informações de Deploy (Opcional)"),
-                    React.createElement('textarea', { 
-                        rows: 2, 
-                        value: deploymentInfo, 
-                        onChange: e => setDeploymentInfo(e.target.value), 
-                        className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", 
-                        placeholder: "Como este projeto é publicado ou utilizado? Ex: 'Publicado na Vercel via GitHub Actions', 'O arquivo HTML é copiado e colado na plataforma Learnworlds'." 
-                    })
-                  ),
-                   React.createElement(ImageUploader, null)
-                )
-              )
-          case Team.UXUI:
-              return (
-                React.createElement('div', { className: "space-y-4" },
-                   React.createElement(ImageUploader, null),
-                  React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto de UX (Opcional)"),
-                     React.createElement('textarea', { rows: 3, value: personas, onChange: e => setPersonas(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva as personas dos usuários..." }),
-                     React.createElement('textarea', { rows: 3, value: userFlows, onChange: e => setUserFlows(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva os principais fluxos de usuário em texto..." })
-                  ),
-                  React.createElement(PastedCodeInput, null)
-                )
-              )
-          case Team.Automations:
-              return (
-                React.createElement('div', { className: "space-y-4" },
-                   React.createElement(ImageUploader, null),
-                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                      React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, 
-                          React.createElement(JsonIcon, null), 
-                          " Estrutura da Automação (Opcional)",
-                          pastedJson.trim() && (
-                            isJsonValid 
-                              ? React.createElement('span', { className: 'text-green-400', title: 'JSON Válido'}, React.createElement(CheckIcon, null))
-                              : React.createElement('span', { className: 'text-red-400', title: 'JSON Inválido'}, React.createElement(AlertTriangleIcon, null))
-                          )
-                      ),
-                       React.createElement('div', { className: "space-y-2" },
-                        jsonFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setJsonFiles(prev => prev.filter((_, i) => i !== index)) }))
-                       ),
-                        React.createElement('textarea', { rows: 6, value: pastedJson, onChange: e => setPastedJson(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o JSON dos nós (N8N) aqui..." }),
-                        !isJsonValid && jsonErrorMessage && React.createElement('p', { className: "text-xs text-red-400 mt-1 font-mono" }, jsonErrorMessage),
-                        React.createElement('div', { className: "text-center text-sm text-gray-400" }, "e/ou"),
-                         React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" },
-                            React.createElement(UploadIcon, null),
-                            React.createElement('span', null, "Enviar Arquivo(s) JSON"),
-                            React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleJsonFileChange, accept: ".json" })
-                        )
-                  ),
-                   React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" },
-                     React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"),
-                     React.createElement('textarea', { rows: 3, value: triggerInfo, onChange: e => setTriggerInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o gatilho (trigger) da automação..." }),
-                     React.createElement('textarea', { rows: 3, value: externalApis, onChange: e => setExternalApis(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as APIs externas envolvidas..." })
-                  ),
-                  React.createElement(PastedCodeInput, null)
-                )
-              )
-          case Team.AI:
-              return (
-                   React.createElement('div', { className: "space-y-4" },
-                       React.createElement(ImageUploader, null),
-                       React.createElement('div', { className: "p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4" },
-                           React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(BrainIcon, null), " Componentes da IA (Opcional)"),
-                           React.createElement('textarea', { value: systemPrompt, onChange: e => setSystemPrompt(e.target.value), rows: 4, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "System Prompt: 'Você é um assistente prestativo que...' " }),
-                           React.createElement('textarea', { value: workflow, onChange: e => setWorkflow(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Fluxo de Trabalho: '1. Usuário pergunta sobre o produto X. 2. O agente usa a ferramenta Y para buscar detalhes...'" }),
-                           React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas: 'getProductInfo(productId: string): Product - Retorna informações de um produto.'" }),
-                           React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos I/O: 'Entrada: Qual o preço do item X? Saída: { name: X, price: 19.99 }'" }),
-                           React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails: 'Não responda a perguntas sobre tópicos sensíveis. Se o usuário insistir, encerre a conversa.'" })
-                       ),
-                       React.createElement(PastedCodeInput, null)
-                  )
-              )
-          default:
-              return null;
+                    React.createElement('textarea', { rows: 2, value: deploymentInfo, onChange: e => setDeploymentInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Como este projeto é publicado ou utilizado?" })
+                  ), React.createElement(ImageUploader, null))
+              );
+          case Team.UXUI: return ( React.createElement('div', { className: "space-y-4" }, React.createElement(ImageUploader, null), React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" }, React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto de UX (Opcional)"), React.createElement('textarea', { rows: 3, value: personas, onChange: e => setPersonas(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva as personas dos usuários..." }), React.createElement('textarea', { rows: 3, value: userFlows, onChange: e => setUserFlows(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva os principais fluxos de usuário em texto..." })), React.createElement(PastedCodeInput, null)));
+          case Team.Automations: return ( React.createElement('div', { className: "space-y-4" }, React.createElement(ImageUploader, null), React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" }, React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(JsonIcon, null), " Estrutura da Automação (Opcional)", pastedJson.trim() && ( isJsonValid ? React.createElement('span', { className: 'text-green-400', title: 'JSON Válido'}, React.createElement(CheckIcon, null)) : React.createElement('span', { className: 'text-red-400', title: 'JSON Inválido'}, React.createElement(AlertTriangleIcon, null)))), React.createElement('div', { className: "space-y-2" }, jsonFiles.map((file, index) => React.createElement(FileChip, { key: index, file: file, onRemove: () => setJsonFiles(prev => prev.filter((_, i) => i !== index)) }))), React.createElement('textarea', { rows: 6, value: pastedJson, onChange: e => setPastedJson(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm", placeholder: "Cole o JSON dos nós (N8N) aqui..." }), !isJsonValid && jsonErrorMessage && React.createElement('p', { className: "text-xs text-red-400 mt-1 font-mono" }, jsonErrorMessage), React.createElement('div', { className: "text-center text-sm text-gray-400" }, "e/ou"), React.createElement('label', { className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(UploadIcon, null), React.createElement('span', null, "Enviar Arquivo(s) JSON"), React.createElement('input', { type: "file", className: "hidden", multiple: true, onChange: handleJsonFileChange, accept: ".json" }))), React.createElement('div', { className: "space-y-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700" }, React.createElement('h3', { className: "text-sm font-medium text-indigo-300" }, "Contexto Adicional (Opcional)"), React.createElement('textarea', { rows: 3, value: triggerInfo, onChange: e => setTriggerInfo(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o gatilho (trigger) da automação..." }), React.createElement('textarea', { rows: 3, value: externalApis, onChange: e => setExternalApis(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Liste as APIs externas envolvidas..." })), React.createElement(PastedCodeInput, null)));
+          case Team.AI: return ( React.createElement('div', { className: "space-y-4" }, React.createElement(ImageUploader, null), React.createElement('div', { className: "p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-4" }, React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(BrainIcon, null), " Componentes da IA (Opcional)"), React.createElement('textarea', { value: systemPrompt, onChange: e => setSystemPrompt(e.target.value), rows: 4, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "System Prompt: 'Você é um assistente prestativo que...' " }), React.createElement('textarea', { value: workflow, onChange: e => setWorkflow(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Fluxo de Trabalho: '1. Usuário pergunta...'" }), React.createElement('textarea', { value: tools, onChange: e => setTools(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ferramentas: '[{ name: 'X', ... }]'" }), React.createElement('textarea', { value: exampleIO, onChange: e => setExampleIO(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Exemplos I/O: 'Entrada: ... Saída: ...'" }), React.createElement('textarea', { value: guardrails, onChange: e => setGuardrails(e.target.value), rows: 3, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Guardrails: 'Não responda a perguntas sobre X.'" })), React.createElement(PastedCodeInput, null)));
+          default: return null;
       }
   }
 
   const teamTemplates = TEMPLATES[currentTeam] || [];
-  const docTypeOptions = [
-    { id: 'technical', label: 'Técnica' },
-    { id: 'support', label: 'Suporte' },
-    { id: 'both', label: 'Ambas' }
-  ];
+  const docTypeOptions = [ { id: 'technical', label: 'Técnica' }, { id: 'support', label: 'Suporte' }, { id: 'both', label: 'Ambas' }];
+  
+  const handleStructureChange = (index, subIndex, newTitle) => {
+    const newStructure = [...documentStructure];
+    if (subIndex === null) {
+      newStructure[index].title = newTitle;
+    } else {
+      newStructure[index].children[subIndex].title = newTitle;
+    }
+    setDocumentStructure(newStructure);
+  };
+  const addStructureItem = (index) => {
+      const newStructure = [...documentStructure];
+      const newItem = { title: 'Novo Tópico', id: Date.now() };
+      if (index === null) {
+          newStructure.push(newItem);
+      } else {
+          if (!newStructure[index].children) newStructure[index].children = [];
+          newStructure[index].children.push({ ...newItem, id: Date.now() + 1});
+      }
+      setDocumentStructure(newStructure);
+  };
+  const removeStructureItem = (index, subIndex) => {
+      let newStructure = [...documentStructure];
+      if (subIndex === null) {
+          newStructure = newStructure.filter((_, i) => i !== index);
+      } else {
+          newStructure[index].children = newStructure[index].children.filter((_, i) => i !== subIndex);
+      }
+      setDocumentStructure(newStructure);
+  }
+  
+  const renderContent = () => {
+    switch(generationStep) {
+        case 'structuring':
+        case 'generating':
+             return React.createElement('div', { className: 'p-6 flex flex-col items-center justify-center text-center h-64' },
+                React.createElement(LoadingSpinner, { className: 'h-12 w-12 text-indigo-400' }),
+                React.createElement('p', { className: 'mt-4 text-lg text-white typing-cursor' }, displayedLoadingMessage),
+                generationStep === 'generating' && React.createElement('div', { className: "w-full mt-4 max-w-sm" },
+                     React.createElement('div', { className: "w-full bg-gray-600 rounded-full h-1.5" },
+                        React.createElement('div', {
+                            className: "bg-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out",
+                            style: { width: `${progress}%` }
+                        })
+                    )
+                )
+            );
+        case 'review':
+             return (
+                React.createElement('div', { className: "p-6 space-y-4" },
+                    React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, "Revise a Estrutura Proposta"),
+                    React.createElement('p', { className: "text-sm text-gray-400" }, "A IA analisou seu contexto e sugere a estrutura abaixo. Você pode editar, remover ou adicionar tópicos antes de gerar o conteúdo final."),
+                    React.createElement('div', { className: "space-y-2 max-h-96 overflow-y-auto pr-2" },
+                        documentStructure.map((item, index) => (
+                            React.createElement('div', { key: item.id },
+                                React.createElement('div', { className: 'flex items-center gap-2' },
+                                    React.createElement('input', { type: 'text', value: item.title, onChange: (e) => handleStructureChange(index, null, e.target.value), className: 'w-full bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500 font-semibold' }),
+                                    React.createElement('button', { onClick: () => addStructureItem(index), className: 'p-1.5 text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
+                                    React.createElement('button', { onClick: () => removeStructureItem(index, null), className: 'p-1.5 text-gray-400 hover:text-white bg-gray-700 hover:bg-red-500 rounded' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
+                                ),
+                                item.children && React.createElement('div', { className: "ml-6 mt-2 space-y-2" },
+                                    item.children.map((child, subIndex) => (
+                                        React.createElement('div', { key: child.id, className: 'flex items-center gap-2' },
+                                            React.createElement('input', { type: 'text', value: child.title, onChange: (e) => handleStructureChange(index, subIndex, e.target.value), className: 'w-full bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500' }),
+                                            React.createElement('button', { onClick: () => removeStructureItem(index, subIndex), className: 'p-1.5 text-gray-400 hover:text-white bg-gray-700 hover:bg-red-500 rounded' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
+                                        )
+                                    ))
+                                )
+                            )
+                        ))
+                    ),
+                    React.createElement('button', { onClick: () => addStructureItem(null), className: 'text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1' }, React.createElement(PlusIcon, { className: 'h-4 w-4' }), "Adicionar Tópico Principal")
+                )
+             );
+        case 'form':
+        default:
+            return (
+                React.createElement('div', { className: "p-6 space-y-4" },
+                    React.createElement('div', null,
+                      React.createElement('label', { htmlFor: "project-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nome do Projeto"),
+                      React.createElement('input', { type: "text", id: "project-name", value: projectName, onChange: (e) => setProjectName(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ex: Novo Sistema de Autenticação" })
+                    ),
+                     React.createElement('div', null,
+                      React.createElement('label', { htmlFor: "description", className: "block text-sm font-medium text-gray-300 mb-2" }, "Descrição Breve ou Objetivo"),
+                      React.createElement('textarea', { id: "description", rows: 3, value: description, onChange: (e) => setDescription(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o objetivo principal do projeto ou da funcionalidade..." })
+                    ),
+                    teamTemplates.length > 0 && React.createElement('div', { className: "space-y-3" },
+                        React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(TemplateIcon, null), "Começar com um Template (Opcional)"),
+                        React.createElement('div', { className: "flex flex-wrap gap-2" },
+                            teamTemplates.map(template => ( React.createElement('button', { key: template.name, onClick: () => handleSelectTemplate(template), className: `px-3 py-1.5 text-sm rounded-full transition-colors ${activeTemplate === template.name ? 'bg-indigo-600 text-white font-semibold' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}` }, template.name)))
+                        )
+                    ),
+                     React.createElement('div', { className: "pt-2" },
+                        React.createElement('label', { className: "block text-sm font-medium text-gray-300 mb-2" }, "Tipo de Documento (Obrigatório)"),
+                         React.createElement('div', { className: "flex rounded-md shadow-sm", role:"group" },
+                            docTypeOptions.map((option, index) => (
+                                React.createElement('button', { key: option.id, type: 'button', onClick: () => setDocType(option.id),
+                                    className: `relative inline-flex items-center justify-center px-4 py-2 text-sm font-medium focus:z-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-1/3 transition-colors ${index === 0 ? 'rounded-l-md' : ''} ${index === docTypeOptions.length - 1 ? 'rounded-r-md' : ''} ${docType === option.id ? 'bg-indigo-600 text-white border border-indigo-500' : 'bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600'}`
+                                }, option.label)
+                            ))
+                        )
+                    ),
+                     React.createElement('hr', { className: "border-gray-600" }),
+                    renderTeamSpecificInputs()
+                )
+            );
+    }
+  }
+  
+  const renderFooter = () => {
+      let backButton = null;
+      let primaryButton = null;
 
+      switch(generationStep) {
+          case 'review':
+              backButton = { label: "Voltar", action: () => setGenerationStep('form'), disabled: isLoading };
+              primaryButton = { label: "Gerar Conteúdo Completo", action: handleGenerateFullContent, disabled: isLoading || documentStructure.length === 0 };
+              break;
+          case 'form':
+              backButton = { label: "Cancelar", action: onClose, disabled: isLoading };
+              primaryButton = { label: "Gerar Estrutura com IA", action: handleGenerateStructure, disabled: !canGenerate() || !isJsonValid || isLoading };
+              break;
+          case 'structuring':
+          case 'generating':
+              backButton = { label: "Cancelar", action: () => { isCancelled.current = true; setIsLoading(false); setGenerationStep('form'); }, disabled: false };
+              primaryButton = { label: loadingMessage, action: () => {}, disabled: true, showSpinner: true };
+              break;
+      }
+
+      return (
+         React.createElement('div', { className: "mt-auto p-6 bg-gray-800/50 border-t border-gray-700" },
+           React.createElement('div', { className: "flex flex-col sm:flex-row justify-end items-center gap-4" },
+                React.createElement('button', { onClick: backButton.action, disabled: backButton.disabled, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50" }, backButton.label),
+                React.createElement('button', { onClick: primaryButton.action, disabled: primaryButton.disabled, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-start disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-64 min-h-[40px] transition-all duration-300"},
+                    primaryButton.showSpinner ? React.createElement(React.Fragment, null, React.createElement(LoadingSpinner, null), React.createElement('span', { className: 'ml-3 text-left w-full typing-cursor' }, displayedLoadingMessage))
+                                            : React.createElement('span', {className: 'mx-auto'}, primaryButton.label)
+                )
+            )
+        )
+      );
+  }
 
   return (
     React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: isLoading ? undefined : onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
       React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col animate-slide-up", onClick: (e) => e.stopPropagation() },
-        React.createElement('div', { className: "p-6 border-b border-gray-700" },
-          React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, "Criar Documento para ", React.createElement('span', { className: "text-indigo-400" }, currentTeam))
+        React.createElement('div', { className: "p-6 border-b border-gray-700 flex justify-between items-center" },
+          React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, "Criar Documento para ", React.createElement('span', { className: "text-indigo-400" }, currentTeam)),
+          generationStep === 'review' && React.createElement('span', { className: 'text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full'}, 'Etapa 2 de 2')
         ),
-        React.createElement('div', { className: "p-6 space-y-4 overflow-y-auto" },
-            // Common Inputs
-            React.createElement('div', null,
-              React.createElement('label', { htmlFor: "project-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nome do Projeto"),
-              React.createElement('input', { type: "text", id: "project-name", value: projectName, onChange: (e) => setProjectName(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ex: Novo Sistema de Autenticação" })
-            ),
-             React.createElement('div', null,
-              React.createElement('label', { htmlFor: "description", className: "block text-sm font-medium text-gray-300 mb-2" }, "Descrição Breve ou Objetivo"),
-              React.createElement('textarea', { id: "description", rows: 3, value: description, onChange: (e) => setDescription(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Descreva o objetivo principal do projeto ou da funcionalidade..." })
-            ),
-            
-            // Templates section
-            teamTemplates.length > 0 && React.createElement('div', { className: "space-y-3" },
-                React.createElement('h3', { className: "flex items-center gap-2 text-sm font-medium text-indigo-300" }, React.createElement(TemplateIcon, null), "Começar com um Template (Opcional)"),
-                React.createElement('div', { className: "flex flex-wrap gap-2" },
-                    teamTemplates.map(template => (
-                        React.createElement('button', {
-                            key: template.name,
-                            onClick: () => handleSelectTemplate(template),
-                            className: `px-3 py-1.5 text-sm rounded-full transition-colors ${activeTemplate === template.name ? 'bg-indigo-600 text-white font-semibold' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`
-                        }, template.name)
-                    ))
-                )
-            ),
-            
-            // Doc Type Selector
-             React.createElement('div', { className: "pt-2" },
-                React.createElement('label', { className: "block text-sm font-medium text-gray-300 mb-2" }, "Tipo de Documento (Obrigatório)"),
-                 React.createElement('div', { className: "flex rounded-md shadow-sm", role:"group" },
-                    docTypeOptions.map((option, index) => (
-                        React.createElement('button', {
-                            key: option.id,
-                            type: 'button',
-                            onClick: () => setDocType(option.id),
-                            className: `relative inline-flex items-center justify-center px-4 py-2 text-sm font-medium focus:z-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-1/3 transition-colors
-                                ${index === 0 ? 'rounded-l-md' : ''}
-                                ${index === docTypeOptions.length - 1 ? 'rounded-r-md' : ''}
-                                ${docType === option.id
-                                    ? 'bg-indigo-600 text-white border border-indigo-500'
-                                    : 'bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600'
-                                }`
-                        }, option.label)
-                    ))
-                )
-            ),
-
-             React.createElement('hr', { className: "border-gray-600" }),
-            // Team Specific Inputs
-            renderTeamSpecificInputs()
+        React.createElement('div', { className: "overflow-y-auto" },
+            error && React.createElement('div', { className: 'p-4 m-6 mb-0 bg-red-900/50 border border-red-500/30 rounded-md text-red-300 text-sm' }, error),
+            renderContent()
         ),
-
-          error && React.createElement('p', { className: "text-red-400 text-sm text-center px-6 pb-4" }, error),
-          
-        React.createElement('div', { className: "mt-auto p-6 bg-gray-800/50 border-t border-gray-700" },
-           React.createElement('div', { className: "flex flex-col sm:flex-row justify-end items-center gap-4" },
-                React.createElement('button', { onClick: onClose, disabled: isLoading, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50" }, "Cancelar"),
-                React.createElement('button', {
-                    onClick: handleGenerate,
-                    disabled: !canGenerate() || !isJsonValid || isLoading,
-                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-start disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-64 min-h-[40px] transition-all duration-300"
-                },
-                    isLoading 
-                        ? React.createElement(React.Fragment, null, 
-                            React.createElement(LoadingSpinner, null), 
-                            React.createElement('span', { className: 'ml-3 text-left w-full typing-cursor' }, displayedLoadingMessage)
-                          )
-                        : React.createElement('span', {className: 'mx-auto'}, 'Gerar com IA')
-                )
-            ),
-            isLoading && React.createElement('div', { className: "w-full mt-4" },
-                 React.createElement('div', { className: "w-full bg-gray-600 rounded-full h-1.5" },
-                    React.createElement('div', {
-                        className: "bg-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out",
-                        style: { width: `${progress}%` }
-                    })
-                )
-            )
-        )
+        renderFooter()
       )
     )
   );

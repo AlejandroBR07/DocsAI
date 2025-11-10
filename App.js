@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header.js';
 import CreationModal from './components/CreationModal.js';
@@ -9,7 +7,7 @@ import ApiKeySetup from './components/ApiKeySetup.js';
 import ConfirmationModal from './components/ConfirmationModal.js';
 import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner } from './components/Icons.js';
 import { Team } from './types.js';
-import { generateDocumentContent, initializeOpenAI, validateApiKey } from './services/geminiService.js';
+import { initializeAiService, validateApiKey } from './services/openAIService.js';
 
 // Modal para alterar a chave de API, definido localmente.
 const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
@@ -121,7 +119,7 @@ const App = () => {
         if (savedApiKey) {
           const isValid = await validateApiKey(savedApiKey);
           setApiKeyStatus(isValid ? 'valid' : 'invalid');
-          if (initializeOpenAI(savedApiKey)) {
+          if (initializeAiService(savedApiKey)) {
             setIsApiInitialized(true);
           }
         } else {
@@ -220,7 +218,7 @@ const App = () => {
   const handleApiKeySet = (apiKey) => {
     localStorage.setItem('synapsedocs-apikey', apiKey);
     setApiKeyStatus('valid');
-    if (initializeOpenAI(apiKey)) {
+    if (initializeAiService(apiKey)) {
       setIsApiInitialized(true);
     } else {
         setApiKeyStatus('invalid');
@@ -435,7 +433,6 @@ const App = () => {
         React.createElement(CreationModal, {
           onClose: () => setIsModalOpen(false),
           onDocumentCreate: handleDocumentCreate,
-          generateContent: generateDocumentContent,
           currentTeam: currentTeam
         })
       ),

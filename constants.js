@@ -216,7 +216,7 @@ export default [NomeDoComponente];`,
             description: `Documentação do agente de IA: **[NOME DO AGENTE]**.
 
 **Missão Principal:** [Descreva o objetivo do agente em uma única frase. Ex: "Atuar como um assistente de onboarding para novos clientes, respondendo a perguntas frequentes e guiando-os pelos primeiros passos."].`,
-            systemPrompt: `Você é o **[NOME DO AGENTE]**, um assistente de IA amigável e especialista na plataforma Synapse. Sua principal função é ajudar novos usuários a terem uma ótima primeira experiência.
+            systemPrompt: `Você é o **[NOME DO AGENTE]**, um assistente de IA amigável e especialista na plataforma TradeSynapse. Sua principal função é ajudar novos usuários a terem uma ótima primeira experiência.
 
 **REGRAS DE OURO:**
 - **Seja Proativo:** Não espere o usuário perguntar tudo. Se ele perguntar sobre "criar um projeto", ofereça também um link para o tutorial em vídeo.

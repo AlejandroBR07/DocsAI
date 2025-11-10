@@ -16,7 +16,7 @@ const Onboarding = ({ onComplete }) => {
     React.createElement('div', { className: "flex-grow flex items-center justify-center p-4 animate-fade-in" },
       React.createElement('div', { className: "text-center p-8 max-w-3xl mx-auto bg-gray-800/50 rounded-lg animate-slide-up" },
         React.createElement('h1', { className: "text-4xl font-bold text-white mb-3" },
-          "Bem-vindo ao ", React.createElement('span', { className: "text-indigo-400" }, "Synapse"), " Docs"
+          "Bem-vindo ao ", "Trade", React.createElement('span', { className: "text-indigo-400" }, "Synapse")
         ),
         React.createElement('p', { className: "text-lg text-gray-300 mb-8" },
           "Sua central de documentos inteligente. Comece gerando documentação rica e completa com IA. Para começar, selecione sua equipe principal."
