@@ -227,16 +227,6 @@ const markdownToHtml = (text) => {
     return htmlContent;
 }
 
-const structureToString = (structure) => {
-  return structure.map(item => {
-      let s = `- ${item.title}`;
-      if (item.children && item.children.length > 0) {
-          s += `\n${item.children.map(child => `  - ${child.title}`).join('\n')}`;
-      }
-      return s;
-  }).join('\n');
-};
-
 const estimateTokens = (text) => text ? Math.ceil(text.length / 4) : 0;
 
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
@@ -245,17 +235,17 @@ export const generateFullDocumentContent = async (params, structures, progressCa
   const { projectName, description, team, docType, teamData } = params;
   const { technicalStructure, supportStructure } = structures;
   const persona = getBaseSystemPersona(team);
-
+  
+  // --- FASE 1: Resumo do Código para criar a base de conhecimento ---
+  progressCallback({ progress: 5, message: 'Analisando o código-fonte...' });
   const allCodeFiles = [...(teamData.folderFiles || []), ...(teamData.uploadedCodeFiles || [])];
   let summarizedContext = '';
-  const CHUNK_TOKEN_LIMIT = 100000; // Limite seguro para a janela de contexto do gpt-4o
+  const CHUNK_TOKEN_LIMIT = 100000;
 
   if (allCodeFiles.length > 0) {
-      // Cria "chunks" (partes) de arquivos com base no limite de tokens
       const chunks = [];
       let currentChunkFiles = [];
       let currentChunkTokens = 0;
-
       for (const file of allCodeFiles) {
           const fileTokens = estimateTokens(file.content);
           if (currentChunkTokens + fileTokens > CHUNK_TOKEN_LIMIT && currentChunkFiles.length > 0) {
@@ -266,136 +256,89 @@ export const generateFullDocumentContent = async (params, structures, progressCa
           currentChunkFiles.push(file);
           currentChunkTokens += fileTokens;
       }
-      if (currentChunkFiles.length > 0) {
-          chunks.push(currentChunkFiles);
-      }
+      if (currentChunkFiles.length > 0) chunks.push(currentChunkFiles);
 
       const summaryPersona = 'Você é um engenheiro de software sênior. Sua tarefa é ler o código-fonte e criar um resumo técnico conciso e informativo. Foque no propósito, principais funcionalidades, lógica de negócios e como ele se conecta com outras partes de um sistema. O resumo será usado como contexto para gerar uma documentação completa. Responda APENAS com o resumo, em Português do Brasil.';
+      
+      const summaryPromises = chunks.map(async (chunk, i) => {
+          const progress = 5 + Math.round(((i + 1) / chunks.length) * 45); // Summarization takes ~45% of progress
+          progressCallback({ progress, message: chunks.length > 1 ? `Resumindo parte ${i + 1} de ${chunks.length}...` : `Resumindo arquivos...` });
+          
+          const chunkContent = chunk.map(file => `--- Arquivo: ${file.path || file.name} ---\n${file.content}`).join('\n\n');
+          const summaryPrompt = `Analise este CONJUNTO de arquivos de código e crie um resumo técnico. Descreva a arquitetura, as responsabilidades e as interações.\n\n${chunkContent}`;
+          const summary = await callOpenAI([{ role: "system", content: summaryPersona }, { role: "user", content: summaryPrompt }]);
+          return `--- Resumo da Parte ${i + 1} de ${chunks.length} ---\n${summary}`;
+      });
 
-      if (chunks.length > 1) {
-          progressCallback({ progress: 5, message: `Projeto grande detectado. Resumindo em ${chunks.length} partes...` });
-          const chunkSummaries = [];
-          for (let i = 0; i < chunks.length; i++) {
-              const chunk = chunks[i];
-              const progress = 5 + Math.round(((i + 1) / chunks.length) * 60);
-              progressCallback({ progress, message: `Analisando parte ${i + 1} de ${chunks.length}...` });
-
-              const chunkContent = chunk.map(file => `--- Arquivo: ${file.path || file.name} ---\n${file.content}`).join('\n\n');
-              const summaryPrompt = `Analise este CONJUNTO de arquivos de código e crie um resumo técnico de alto nível sobre o que eles fazem juntos. Descreva a arquitetura, as responsabilidades e as interações entre eles.\n\n${chunkContent}`;
-              
-              const summary = await callOpenAI([{ role: "system", content: summaryPersona }, { role: "user", content: summaryPrompt }]);
-              chunkSummaries.push(`--- Resumo da Parte ${i + 1} de ${chunks.length} ---\n${summary}`);
-          }
-          summarizedContext = chunkSummaries.join('\n\n');
-      } else if (chunks.length === 1) {
-          const fileSummaries = [];
-          const filesToSummarize = chunks[0];
-          for (let i = 0; i < filesToSummarize.length; i++) {
-              const file = filesToSummarize[i];
-              const progress = 5 + Math.round(((i + 1) / filesToSummarize.length) * 60);
-              const fileName = file.path || file.name;
-              progressCallback({ progress, message: `Resumindo arquivo ${i + 1} de ${filesToSummarize.length}: ${fileName}` });
-
-              const summaryPrompt = `Analise e resuma o seguinte arquivo de código:\n\n--- Arquivo: ${fileName} ---\n\n${file.content}`;
-              const summary = await callOpenAI([{ role: "system", content: summaryPersona }, { role: "user", content: summaryPrompt }]);
-              fileSummaries.push(`--- Resumo do arquivo: ${fileName} ---\n${summary}`);
-          }
-          summarizedContext = fileSummaries.join('\n\n');
-      }
+      const summaries = await Promise.all(summaryPromises);
+      summarizedContext = summaries.join('\n\n');
   }
 
-  progressCallback({ progress: 70, message: 'Compilando resumos e contexto...' });
-  const otherTeamData = { ...teamData, folderFiles: [], uploadedCodeFiles: [] }; // Remove arquivos de código completo para evitar duplicação
+  progressCallback({ progress: 50, message: 'Compilando base de conhecimento...' });
+  const otherTeamData = { ...teamData, folderFiles: [], uploadedCodeFiles: [] };
   const otherContext = buildTeamContext(otherTeamData);
   const finalContext = summarizedContext ? `**Resumos do Código-Fonte:**\n${summarizedContext}\n\n**Outros Contextos Fornecidos:**\n${otherContext}` : otherContext;
 
-  let messages = [{ role: "system", content: persona }];
+  // --- FASE 2: Geração de conteúdo, seção por seção ---
   let fullMarkdownResponse = "";
-
+  const allStructures = [];
   if ((docType === 'technical' || docType === 'both') && technicalStructure?.length > 0) {
-    progressCallback({ progress: 75, message: 'Escrevendo a documentação técnica...' });
-    const technicalStructureString = structureToString(technicalStructure);
-    const mainPrompt = `Sua tarefa é atuar como um escritor técnico especialista e criar o conteúdo completo para um documento, seguindo a estrutura pré-aprovada.
-
-**Estrutura Técnica Aprovada (Siga FIELMENTE):**
-${technicalStructureString}
-
-**Instruções Chave:**
-0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (resumos de código, imagens, textos). **NÃO INVENTE** detalhes técnicos ou funcionalidades que não existam explicitamente no contexto.
-1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA):** Documente o estado **ATUAL** do projeto. É estritamente **PROIBIDO** sugerir melhorias, funcionalidades futuras, ou próximos passos. Foque apenas no que existe.
-2.  **COMPLETUDE MÁXIMA:** Seja **exaustivo** e **extremamente detalhado**. Sua missão é extrair e explicar **TODA** a informação relevante do contexto. Não resuma ou omita detalhes por brevidade. O objetivo é uma documentação completa, não um resumo. Imagine que o leitor não tem nenhum conhecimento prévio do projeto.
-3.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever. Por exemplo, explique como um screenshot de uma UI se conecta com os resumos dos componentes que a implementam.
-4.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
-    - **PROIBIDO:** NUNCA use blocos de código com três crases (\`\`\`).
-    - **CORRETO:** Para código em linha, use crases SIMPLES (\`).
-    - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação original e a sintaxe.
-    - Use títulos Markdown (#, ##) para as seções da estrutura aprovada.
-5.  **Deploy e Uso:** Se o usuário fornecer informações de deploy, use-as. Se não, **NÃO INVENTE**. Para arquivos simples (HTML/CSS/JS), explique como abrir diretamente no navegador.
-6.  **Tradução de JSON de Automação:** Se o contexto contiver um JSON de N8N, **TRADUZA** o JSON em uma descrição funcional e detalhada do fluxo de trabalho, explicando o propósito de cada nó, seus parâmetros mais importantes e como eles se conectam.
-
-**Informações do Projeto:**
-- Nome do Projeto: ${projectName}
-- Descrição/Objetivo Principal: ${description}
-- Equipe Alvo da Documentação: ${team}
-
-**Contexto Completo para sua Análise:**
-${finalContext}
-
-**Sua Resposta:**
-Gere a documentação técnica completa e detalhada, preenchendo cada seção da estrutura aprovada. Comece diretamente com o primeiro título da estrutura. NÃO inclua o nome do projeto como um título principal, ele será adicionado depois.`;
-    messages.push({ role: "user", content: buildUserMessageContent(mainPrompt, teamData) });
-    const technicalText = await callOpenAI(messages);
-    fullMarkdownResponse += technicalText;
+      allStructures.push({ type: 'Técnica', structure: technicalStructure });
   }
-  
   if ((docType === 'support' || docType === 'both') && supportStructure?.length > 0) {
-    const progressStart = (docType === 'both') ? 85 : 75;
-    progressCallback({ progress: progressStart, message: 'Criando o guia do usuário...' });
-    
-    if (fullMarkdownResponse) {
-        messages.push({ role: "assistant", content: fullMarkdownResponse });
-    }
-    const supportStructureString = structureToString(supportStructure);
-    const supportPrompt = `Com base em TODO o contexto do projeto, sua tarefa agora é criar o conteúdo detalhado para o **Guia do Usuário**, seguindo a estrutura pré-aprovada. A linguagem deve ser a mais simples possível, focada em um usuário não-técnico.
-
-**Estrutura de Suporte Aprovada (Siga FIELMENTE):**
-${supportStructureString}
-
-**PRINCÍPIOS-CHAVE:**
-1.  **TRADUÇÃO PROFUNDA DE CÓDIGO/IMAGENS PARA AÇÕES:** Para **CADA** funcionalidade identificada, crie um tutorial passo a passo. Seja visual na sua descrição.
-2.  **SIMPLICIDADE:** Evite jargões técnicos a todo custo.
-3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Na seção de "Solução de Problemas" (se houver), seja **altamente específico** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do contexto.
-
-**Contexto Completo para sua Análise:**
-${finalContext}
-
-**Sua Resposta (gere APENAS o Guia do Usuário completo, preenchendo a estrutura aprovada):**`;
-    messages.push({ role: "user", content: buildUserMessageContent(supportPrompt, teamData) });
-    const supportText = await callOpenAI(messages);
-    if (fullMarkdownResponse) {
-        fullMarkdownResponse += "\n\n---\n\n" + supportText;
-    } else {
-        fullMarkdownResponse = supportText;
-    }
+      allStructures.push({ type: 'Guia do Usuário', structure: supportStructure });
   }
+
+  const flattenedTopics = allStructures.flatMap(s => s.structure.flatMap(item => [{...item, type: s.type}, ...(item.children || []).map(child => ({...child, type: s.type}))]));
+  
+  for (let i = 0; i < flattenedTopics.length; i++) {
+      const topic = flattenedTopics[i];
+      const progress = 50 + Math.round(((i + 1) / flattenedTopics.length) * 48); // Generation takes ~48%
+      progressCallback({ progress, message: `Escrevendo seção: "${topic.title}"` });
+
+      const languageStyle = topic.type === 'Técnica' 
+          ? "linguagem técnica, precisa e detalhada" 
+          : "linguagem simples e direta, focada em um usuário não-técnico, com tutoriais passo a passo";
+
+      const sectionPrompt = `
+        Sua tarefa é escrever o conteúdo APENAS para a seguinte seção de um documento: **"${topic.title}"**.
+
+        **TIPO DE DOCUMENTO:** ${topic.type}
+        **ESTILO DE LINGUAGEM REQUERIDO:** Use uma ${languageStyle}.
+
+        **REGRAS CRÍTICAS:**
+        1.  **FOCO TOTAL:** Escreva **SOMENTE** sobre o tópico "${topic.title}". NÃO adicione introduções, conclusões ou informações de outras seções.
+        2.  **BASEADO EM EVIDÊNCIAS:** Sua análise deve se basear **estritamente** no contexto fornecido. **NÃO INVENTE** detalhes.
+        3.  **COMPLETUDE:** Seja **exaustivo** e **detalhado** sobre o tópico, usando todo o contexto relevante.
+        4.  **FORMATO MARKDOWN:** Use formatação Markdown (títulos com ##, listas com *, negrito com **). **PROIBIDO** o uso de blocos de código com três crases (\`\`\`). Para código em linha, use crases simples (\`).
+        
+        **BASE DE CONHECIMENTO COMPLETA DO PROJETO (Use para escrever a seção):**
+        ---
+        **Nome do Projeto:** ${projectName}
+        **Descrição:** ${description}
+        **Contexto Geral:**
+        ${finalContext}
+        ---
+
+        Agora, gere o conteúdo Markdown completo e detalhado exclusivamente para a seção: **"${topic.title}"**. Comece diretamente com o título da seção usando a formatação Markdown apropriada (ex: ## ${topic.title}).
+      `;
+      
+      const messages = [
+        { role: "system", content: getBaseSystemPersona(team) },
+        { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }
+      ];
+
+      const sectionContent = await callOpenAI(messages);
+      fullMarkdownResponse += sectionContent + "\n\n";
+  }
+
 
   progressCallback({ progress: 98, message: 'Polindo os últimos detalhes...' });
   
-  let text = fullMarkdownResponse.trim();
-  let title = projectName;
-  let contentMarkdown = text;
-
-  if (docType === 'support') {
-      const lines = text.split('\n');
-      if (lines[0].startsWith('# ')) {
-          let extractedTitle = lines[0].substring(2).trim().replace(/(\*\*|__|\*|_)/g, '');
-          title = extractedTitle || projectName;
-          contentMarkdown = lines.slice(1).join('\n');
-      }
-  }
-
+  const contentMarkdown = fullMarkdownResponse.trim();
   console.log("%c[DEBUG] Markdown Final:", "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
   const htmlContent = markdownToHtml(contentMarkdown);
   console.log("%c[DEBUG] HTML Final:", "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
-  return { title, content: htmlContent };
+  
+  return { title: projectName, content: htmlContent };
 };
