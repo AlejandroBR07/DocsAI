@@ -84,24 +84,20 @@ const getBaseSystemPersona = (team) => {
 const buildTeamContext = (teamData, options = { includeFileContent: true }) => {
     let context = '';
     
-    if (teamData.folderFiles && teamData.folderFiles.length > 0) {
-      if (options.includeFileContent) {
-        context += '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
-        context += teamData.folderFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
-      } else {
-        context += '**Estrutura de Arquivos do Projeto (Pasta):**\n\n';
-        context += teamData.folderFiles.map(file => `- ${file.path}`).join('\n') + '\n\n';
-      }
+    if (options.includeFileContent && teamData.folderFiles && teamData.folderFiles.length > 0) {
+      context += '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
+      context += teamData.folderFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
+    } else if (teamData.folderFiles && teamData.folderFiles.length > 0) {
+      context += '**Estrutura de Arquivos do Projeto (Pasta):**\n\n';
+      context += teamData.folderFiles.map(file => `- ${file.path}`).join('\n') + '\n\n';
     }
 
-    if (teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
-      if (options.includeFileContent) {
-        context += '**Arquivos Avulsos Anexados:**\n\n';
-        context += teamData.uploadedCodeFiles.map(file => `--- Arquivo: ${file.name} ---\n${file.content}\n\n`).join('');
-      } else {
-        context += '**Arquivos Avulsos Anexados (Nomes):**\n\n';
-        context += teamData.uploadedCodeFiles.map(file => `- ${file.name}`).join('\n') + '\n\n';
-      }
+    if (options.includeFileContent && teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
+      context += '**Arquivos Avulsos Anexados:**\n\n';
+      context += teamData.uploadedCodeFiles.map(file => `--- Arquivo: ${file.name} ---\n${file.content}\n\n`).join('');
+    } else if(teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
+      context += '**Arquivos Avulsos Anexados (Nomes):**\n\n';
+      context += teamData.uploadedCodeFiles.map(file => `- ${file.name}`).join('\n') + '\n\n';
     }
     
     if (teamData.pastedCode) context += `**Código Colado Adicional:**\n${teamData.pastedCode}\n\n`;
@@ -247,16 +243,41 @@ export const generateFullDocumentContent = async (params, structures, progressCa
   const { projectName, description, team, docType, teamData } = params;
   const { technicalStructure, supportStructure } = structures;
   const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData, { includeFileContent: true });
   
-  let messages = [
-    { role: "system", content: persona },
-  ];
+  // --- ETAPA DE RESUMO (MAP) ---
+  const allCodeFiles = [...(teamData.folderFiles || []), ...(teamData.uploadedCodeFiles || [])];
+  let summarizedCodeContext = '';
+  
+  if (allCodeFiles.length > 0) {
+    const summaryPersona = 'Você é um engenheiro de software sênior. Sua tarefa é ler o código-fonte de um arquivo e criar um resumo técnico conciso e informativo. Foque no propósito do arquivo, suas principais funcionalidades, a lógica de negócios implementada e como ele se conecta com outras partes de um sistema. O resumo será usado como contexto para gerar uma documentação completa posteriormente. Responda APENAS com o resumo do código, em Português do Brasil.';
+    
+    for (let i = 0; i < allCodeFiles.length; i++) {
+        const file = allCodeFiles[i];
+        const progress = 5 + Math.round((i / allCodeFiles.length) * 60); // Progress from 5% to 65%
+        const fileName = file.path || file.name;
+        progressCallback({ progress, message: `Resumindo arquivo ${i + 1} de ${allCodeFiles.length}: ${fileName}` });
+
+        const summaryPrompt = `Analise e resuma o seguinte arquivo de código:\n\n--- Arquivo: ${fileName} ---\n\n${file.content}`;
+        const summary = await callOpenAI([
+            { role: "system", content: summaryPersona },
+            { role: "user", content: summaryPrompt }
+        ]);
+        summarizedCodeContext += `--- Resumo do arquivo: ${fileName} ---\n${summary}\n\n`;
+    }
+  }
+
+  // --- ETAPA DE COMPILAÇÃO (REDUCE) ---
+  progressCallback({ progress: 70, message: 'Compilando resumos e contexto...' });
+  const otherTeamData = { ...teamData, folderFiles: [], uploadedCodeFiles: [] }; // Remove full code files
+  const otherContext = buildTeamContext(otherTeamData);
+  const finalContext = summarizedCodeContext ? `**Resumos dos Arquivos de Código:**\n${summarizedCodeContext}\n**Outros Contextos Fornecidos:**\n${otherContext}` : otherContext;
+
+  let messages = [ { role: "system", content: persona } ];
   let fullMarkdownResponse = "";
 
-  // Generate Technical Content if needed
+  // --- ETAPA DE GERAÇÃO (TECHNICAL) ---
   if ((docType === 'technical' || docType === 'both') && technicalStructure?.length > 0) {
-    progressCallback({ progress: 25, message: 'Escrevendo a documentação técnica...' });
+    progressCallback({ progress: 75, message: 'Escrevendo a documentação técnica...' });
     
     const technicalStructureString = structureToString(technicalStructure);
     const mainPrompt = `
@@ -266,10 +287,10 @@ export const generateFullDocumentContent = async (params, structures, progressCa
       ${technicalStructureString}
 
       **Instruções Chave:**
-      0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (imagens, textos, códigos). **NÃO INVENTE** detalhes técnicos ou funcionalidades que não existam explicitamente no contexto.
+      0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (resumos de código, imagens, textos). **NÃO INVENTE** detalhes técnicos ou funcionalidades que não existam explicitamente no contexto.
       1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA):** Documente o estado **ATUAL** do projeto. É estritamente **PROIBIDO** sugerir melhorias, funcionalidades futuras, ou próximos passos. Foque apenas no que existe.
       2.  **COMPLETUDE MÁXIMA:** Seja **exaustivo** e **extremamente detalhado**. Sua missão é extrair e explicar **TODA** a informação relevante do contexto. Não resuma ou omita detalhes por brevidade. O objetivo é uma documentação completa, não um resumo. Imagine que o leitor não tem nenhum conhecimento prévio do projeto.
-      3.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever. Por exemplo, explique como um screenshot de uma UI se conecta com o código React que a implementa.
+      3.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever. Por exemplo, explique como um screenshot de uma UI se conecta com os resumos dos componentes que a implementam.
       4.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
           - **PROIBIDO:** NUNCA use blocos de código com três crases (\`\`\`).
           - **CORRETO:** Para código em linha, use crases SIMPLES (\`).
@@ -278,19 +299,13 @@ export const generateFullDocumentContent = async (params, structures, progressCa
       5.  **Deploy e Uso:** Se o usuário fornecer informações de deploy, use-as. Se não, **NÃO INVENTE**. Para arquivos simples (HTML/CSS/JS), explique como abrir diretamente no navegador.
       6.  **Tradução de JSON de Automação:** Se o contexto contiver um JSON de N8N, **TRADUZA** o JSON em uma descrição funcional e detalhada do fluxo de trabalho, explicando o propósito de cada nó, seus parâmetros mais importantes e como eles se conectam.
 
-      **Instruções Específicas para Análise de Código-Fonte:**
-      Se o contexto incluir código-fonte, aja como um arquiteto sênior.
-      - **Identifique a Tecnologia** (React, Vue, Node.js, etc.).
-      - **Detalhe a Estrutura:** componentes, props, estados, DOM, CSS, e lógica.
-      - **Descreva a Lógica de Negócios** e o fluxo de interação.
-
       **Informações do Projeto:**
       - Nome do Projeto: ${projectName}
       - Descrição/Objetivo Principal: ${description}
       - Equipe Alvo da Documentação: ${team}
 
       **Contexto Completo para sua Análise:**
-      ${teamContext}
+      ${finalContext}
 
       **Sua Resposta:**
       Gere a documentação técnica completa e detalhada, preenchendo cada seção da estrutura aprovada. Comece diretamente com o primeiro título da estrutura. NÃO inclua o nome do projeto como um título principal, ele será adicionado depois.
@@ -300,9 +315,9 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     fullMarkdownResponse += technicalText;
   }
   
-  // Generate Support Content if needed
+  // --- ETAPA DE GERAÇÃO (SUPPORT) ---
   if ((docType === 'support' || docType === 'both') && supportStructure?.length > 0) {
-    const progressStart = (docType === 'both') ? 75 : 25;
+    const progressStart = (docType === 'both') ? 85 : 75;
     progressCallback({ progress: progressStart, message: 'Criando o guia do usuário...' });
     
     if (fullMarkdownResponse) {
@@ -319,10 +334,10 @@ export const generateFullDocumentContent = async (params, structures, progressCa
       **PRINCÍPIOS-CHAVE:**
       1.  **TRADUÇÃO PROFUNDA DE CÓDIGO/IMAGENS PARA AÇÕES:** Para **CADA** funcionalidade identificada, crie um tutorial passo a passo. Seja visual na sua descrição.
       2.  **SIMPLICIDADE:** Evite jargões técnicos a todo custo.
-      3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Na seção de "Solução de Problemas" (se houver), seja **altamente específico** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do código ou do design.
+      3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Na seção de "Solução de Problemas" (se houver), seja **altamente específico** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do contexto.
 
       **Contexto Completo para sua Análise:**
-      ${teamContext}
+      ${finalContext}
 
       **Sua Resposta (gere APENAS o Guia do Usuário completo, preenchendo a estrutura aprovada):**
     `;
