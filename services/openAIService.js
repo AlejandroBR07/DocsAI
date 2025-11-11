@@ -237,85 +237,117 @@ const structureToString = (structure) => {
   }).join('\n');
 };
 
+const estimateTokens = (text) => text ? Math.ceil(text.length / 4) : 0;
+
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
   if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
 
   const { projectName, description, team, docType, teamData } = params;
   const { technicalStructure, supportStructure } = structures;
   const persona = getBaseSystemPersona(team);
-  
-  // --- ETAPA DE RESUMO (MAP) ---
-  const allCodeFiles = [...(teamData.folderFiles || []), ...(teamData.uploadedCodeFiles || [])];
-  let summarizedCodeContext = '';
-  
-  if (allCodeFiles.length > 0) {
-    const summaryPersona = 'Você é um engenheiro de software sênior. Sua tarefa é ler o código-fonte de um arquivo e criar um resumo técnico conciso e informativo. Foque no propósito do arquivo, suas principais funcionalidades, a lógica de negócios implementada e como ele se conecta com outras partes de um sistema. O resumo será usado como contexto para gerar uma documentação completa posteriormente. Responda APENAS com o resumo do código, em Português do Brasil.';
-    
-    for (let i = 0; i < allCodeFiles.length; i++) {
-        const file = allCodeFiles[i];
-        const progress = 5 + Math.round((i / allCodeFiles.length) * 60); // Progress from 5% to 65%
-        const fileName = file.path || file.name;
-        progressCallback({ progress, message: `Resumindo arquivo ${i + 1} de ${allCodeFiles.length}: ${fileName}` });
 
-        const summaryPrompt = `Analise e resuma o seguinte arquivo de código:\n\n--- Arquivo: ${fileName} ---\n\n${file.content}`;
-        const summary = await callOpenAI([
-            { role: "system", content: summaryPersona },
-            { role: "user", content: summaryPrompt }
-        ]);
-        summarizedCodeContext += `--- Resumo do arquivo: ${fileName} ---\n${summary}\n\n`;
-    }
+  const allCodeFiles = [...(teamData.folderFiles || []), ...(teamData.uploadedCodeFiles || [])];
+  let summarizedContext = '';
+  const CHUNK_TOKEN_LIMIT = 100000; // Limite seguro para a janela de contexto do gpt-4o
+
+  if (allCodeFiles.length > 0) {
+      // Cria "chunks" (partes) de arquivos com base no limite de tokens
+      const chunks = [];
+      let currentChunkFiles = [];
+      let currentChunkTokens = 0;
+
+      for (const file of allCodeFiles) {
+          const fileTokens = estimateTokens(file.content);
+          if (currentChunkTokens + fileTokens > CHUNK_TOKEN_LIMIT && currentChunkFiles.length > 0) {
+              chunks.push(currentChunkFiles);
+              currentChunkFiles = [];
+              currentChunkTokens = 0;
+          }
+          currentChunkFiles.push(file);
+          currentChunkTokens += fileTokens;
+      }
+      if (currentChunkFiles.length > 0) {
+          chunks.push(currentChunkFiles);
+      }
+
+      const summaryPersona = 'Você é um engenheiro de software sênior. Sua tarefa é ler o código-fonte e criar um resumo técnico conciso e informativo. Foque no propósito, principais funcionalidades, lógica de negócios e como ele se conecta com outras partes de um sistema. O resumo será usado como contexto para gerar uma documentação completa. Responda APENAS com o resumo, em Português do Brasil.';
+
+      if (chunks.length > 1) {
+          progressCallback({ progress: 5, message: `Projeto grande detectado. Resumindo em ${chunks.length} partes...` });
+          const chunkSummaries = [];
+          for (let i = 0; i < chunks.length; i++) {
+              const chunk = chunks[i];
+              const progress = 5 + Math.round(((i + 1) / chunks.length) * 60);
+              progressCallback({ progress, message: `Analisando parte ${i + 1} de ${chunks.length}...` });
+
+              const chunkContent = chunk.map(file => `--- Arquivo: ${file.path || file.name} ---\n${file.content}`).join('\n\n');
+              const summaryPrompt = `Analise este CONJUNTO de arquivos de código e crie um resumo técnico de alto nível sobre o que eles fazem juntos. Descreva a arquitetura, as responsabilidades e as interações entre eles.\n\n${chunkContent}`;
+              
+              const summary = await callOpenAI([{ role: "system", content: summaryPersona }, { role: "user", content: summaryPrompt }]);
+              chunkSummaries.push(`--- Resumo da Parte ${i + 1} de ${chunks.length} ---\n${summary}`);
+          }
+          summarizedContext = chunkSummaries.join('\n\n');
+      } else if (chunks.length === 1) {
+          const fileSummaries = [];
+          const filesToSummarize = chunks[0];
+          for (let i = 0; i < filesToSummarize.length; i++) {
+              const file = filesToSummarize[i];
+              const progress = 5 + Math.round(((i + 1) / filesToSummarize.length) * 60);
+              const fileName = file.path || file.name;
+              progressCallback({ progress, message: `Resumindo arquivo ${i + 1} de ${filesToSummarize.length}: ${fileName}` });
+
+              const summaryPrompt = `Analise e resuma o seguinte arquivo de código:\n\n--- Arquivo: ${fileName} ---\n\n${file.content}`;
+              const summary = await callOpenAI([{ role: "system", content: summaryPersona }, { role: "user", content: summaryPrompt }]);
+              fileSummaries.push(`--- Resumo do arquivo: ${fileName} ---\n${summary}`);
+          }
+          summarizedContext = fileSummaries.join('\n\n');
+      }
   }
 
-  // --- ETAPA DE COMPILAÇÃO (REDUCE) ---
   progressCallback({ progress: 70, message: 'Compilando resumos e contexto...' });
-  const otherTeamData = { ...teamData, folderFiles: [], uploadedCodeFiles: [] }; // Remove full code files
+  const otherTeamData = { ...teamData, folderFiles: [], uploadedCodeFiles: [] }; // Remove arquivos de código completo para evitar duplicação
   const otherContext = buildTeamContext(otherTeamData);
-  const finalContext = summarizedCodeContext ? `**Resumos dos Arquivos de Código:**\n${summarizedCodeContext}\n**Outros Contextos Fornecidos:**\n${otherContext}` : otherContext;
+  const finalContext = summarizedContext ? `**Resumos do Código-Fonte:**\n${summarizedContext}\n\n**Outros Contextos Fornecidos:**\n${otherContext}` : otherContext;
 
-  let messages = [ { role: "system", content: persona } ];
+  let messages = [{ role: "system", content: persona }];
   let fullMarkdownResponse = "";
 
-  // --- ETAPA DE GERAÇÃO (TECHNICAL) ---
   if ((docType === 'technical' || docType === 'both') && technicalStructure?.length > 0) {
     progressCallback({ progress: 75, message: 'Escrevendo a documentação técnica...' });
-    
     const technicalStructureString = structureToString(technicalStructure);
-    const mainPrompt = `
-      Sua tarefa é atuar como um escritor técnico especialista e criar o conteúdo completo para um documento, seguindo a estrutura pré-aprovada.
+    const mainPrompt = `Sua tarefa é atuar como um escritor técnico especialista e criar o conteúdo completo para um documento, seguindo a estrutura pré-aprovada.
 
-      **Estrutura Técnica Aprovada (Siga FIELMENTE):**
-      ${technicalStructureString}
+**Estrutura Técnica Aprovada (Siga FIELMENTE):**
+${technicalStructureString}
 
-      **Instruções Chave:**
-      0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (resumos de código, imagens, textos). **NÃO INVENTE** detalhes técnicos ou funcionalidades que não existam explicitamente no contexto.
-      1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA):** Documente o estado **ATUAL** do projeto. É estritamente **PROIBIDO** sugerir melhorias, funcionalidades futuras, ou próximos passos. Foque apenas no que existe.
-      2.  **COMPLETUDE MÁXIMA:** Seja **exaustivo** e **extremamente detalhado**. Sua missão é extrair e explicar **TODA** a informação relevante do contexto. Não resuma ou omita detalhes por brevidade. O objetivo é uma documentação completa, não um resumo. Imagine que o leitor não tem nenhum conhecimento prévio do projeto.
-      3.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever. Por exemplo, explique como um screenshot de uma UI se conecta com os resumos dos componentes que a implementam.
-      4.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
-          - **PROIBIDO:** NUNCA use blocos de código com três crases (\`\`\`).
-          - **CORRETO:** Para código em linha, use crases SIMPLES (\`).
-          - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação original e a sintaxe.
-          - Use títulos Markdown (#, ##) para as seções da estrutura aprovada.
-      5.  **Deploy e Uso:** Se o usuário fornecer informações de deploy, use-as. Se não, **NÃO INVENTE**. Para arquivos simples (HTML/CSS/JS), explique como abrir diretamente no navegador.
-      6.  **Tradução de JSON de Automação:** Se o contexto contiver um JSON de N8N, **TRADUZA** o JSON em uma descrição funcional e detalhada do fluxo de trabalho, explicando o propósito de cada nó, seus parâmetros mais importantes e como eles se conectam.
+**Instruções Chave:**
+0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (resumos de código, imagens, textos). **NÃO INVENTE** detalhes técnicos ou funcionalidades que não existam explicitamente no contexto.
+1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA):** Documente o estado **ATUAL** do projeto. É estritamente **PROIBIDO** sugerir melhorias, funcionalidades futuras, ou próximos passos. Foque apenas no que existe.
+2.  **COMPLETUDE MÁXIMA:** Seja **exaustivo** e **extremamente detalhado**. Sua missão é extrair e explicar **TODA** a informação relevante do contexto. Não resuma ou omita detalhes por brevidade. O objetivo é uma documentação completa, não um resumo. Imagine que o leitor não tem nenhum conhecimento prévio do projeto.
+3.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever. Por exemplo, explique como um screenshot de uma UI se conecta com os resumos dos componentes que a implementam.
+4.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
+    - **PROIBIDO:** NUNCA use blocos de código com três crases (\`\`\`).
+    - **CORRETO:** Para código em linha, use crases SIMPLES (\`).
+    - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação original e a sintaxe.
+    - Use títulos Markdown (#, ##) para as seções da estrutura aprovada.
+5.  **Deploy e Uso:** Se o usuário fornecer informações de deploy, use-as. Se não, **NÃO INVENTE**. Para arquivos simples (HTML/CSS/JS), explique como abrir diretamente no navegador.
+6.  **Tradução de JSON de Automação:** Se o contexto contiver um JSON de N8N, **TRADUZA** o JSON em uma descrição funcional e detalhada do fluxo de trabalho, explicando o propósito de cada nó, seus parâmetros mais importantes e como eles se conectam.
 
-      **Informações do Projeto:**
-      - Nome do Projeto: ${projectName}
-      - Descrição/Objetivo Principal: ${description}
-      - Equipe Alvo da Documentação: ${team}
+**Informações do Projeto:**
+- Nome do Projeto: ${projectName}
+- Descrição/Objetivo Principal: ${description}
+- Equipe Alvo da Documentação: ${team}
 
-      **Contexto Completo para sua Análise:**
-      ${finalContext}
+**Contexto Completo para sua Análise:**
+${finalContext}
 
-      **Sua Resposta:**
-      Gere a documentação técnica completa e detalhada, preenchendo cada seção da estrutura aprovada. Comece diretamente com o primeiro título da estrutura. NÃO inclua o nome do projeto como um título principal, ele será adicionado depois.
-    `;
+**Sua Resposta:**
+Gere a documentação técnica completa e detalhada, preenchendo cada seção da estrutura aprovada. Comece diretamente com o primeiro título da estrutura. NÃO inclua o nome do projeto como um título principal, ele será adicionado depois.`;
     messages.push({ role: "user", content: buildUserMessageContent(mainPrompt, teamData) });
     const technicalText = await callOpenAI(messages);
     fullMarkdownResponse += technicalText;
   }
   
-  // --- ETAPA DE GERAÇÃO (SUPPORT) ---
   if ((docType === 'support' || docType === 'both') && supportStructure?.length > 0) {
     const progressStart = (docType === 'both') ? 85 : 75;
     progressCallback({ progress: progressStart, message: 'Criando o guia do usuário...' });
@@ -323,28 +355,23 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     if (fullMarkdownResponse) {
         messages.push({ role: "assistant", content: fullMarkdownResponse });
     }
-
     const supportStructureString = structureToString(supportStructure);
-    const supportPrompt = `
-      Com base em TODO o contexto do projeto, sua tarefa agora é criar o conteúdo detalhado para o **Guia do Usuário**, seguindo a estrutura pré-aprovada. A linguagem deve ser a mais simples possível, focada em um usuário não-técnico.
+    const supportPrompt = `Com base em TODO o contexto do projeto, sua tarefa agora é criar o conteúdo detalhado para o **Guia do Usuário**, seguindo a estrutura pré-aprovada. A linguagem deve ser a mais simples possível, focada em um usuário não-técnico.
 
-      **Estrutura de Suporte Aprovada (Siga FIELMENTE):**
-      ${supportStructureString}
+**Estrutura de Suporte Aprovada (Siga FIELMENTE):**
+${supportStructureString}
 
-      **PRINCÍPIOS-CHAVE:**
-      1.  **TRADUÇÃO PROFUNDA DE CÓDIGO/IMAGENS PARA AÇÕES:** Para **CADA** funcionalidade identificada, crie um tutorial passo a passo. Seja visual na sua descrição.
-      2.  **SIMPLICIDADE:** Evite jargões técnicos a todo custo.
-      3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Na seção de "Solução de Problemas" (se houver), seja **altamente específico** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do contexto.
+**PRINCÍPIOS-CHAVE:**
+1.  **TRADUÇÃO PROFUNDA DE CÓDIGO/IMAGENS PARA AÇÕES:** Para **CADA** funcionalidade identificada, crie um tutorial passo a passo. Seja visual na sua descrição.
+2.  **SIMPLICIDADE:** Evite jargões técnicos a todo custo.
+3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Na seção de "Solução de Problemas" (se houver), seja **altamente específico** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do contexto.
 
-      **Contexto Completo para sua Análise:**
-      ${finalContext}
+**Contexto Completo para sua Análise:**
+${finalContext}
 
-      **Sua Resposta (gere APENAS o Guia do Usuário completo, preenchendo a estrutura aprovada):**
-    `;
-
+**Sua Resposta (gere APENAS o Guia do Usuário completo, preenchendo a estrutura aprovada):**`;
     messages.push({ role: "user", content: buildUserMessageContent(supportPrompt, teamData) });
     const supportText = await callOpenAI(messages);
-    
     if (fullMarkdownResponse) {
         fullMarkdownResponse += "\n\n---\n\n" + supportText;
     } else {

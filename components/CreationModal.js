@@ -4,9 +4,6 @@ import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
 import { generateDocumentStructure, generateSupportStructure, generateFullDocumentContent } from '../services/openAIService.js';
 
-const TOKEN_LIMIT = 120000; // gpt-4o has 128k context, this leaves a safe buffer.
-const estimateTokens = (text) => text ? Math.ceil(text.length / 4) : 0;
-
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -428,8 +425,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   
   const isCancelled = useRef(false);
   const [activeTemplate, setActiveTemplate] = useState(null);
-  const [totalTokens, setTotalTokens] = useState(0);
-
+  
   const isLoading = generationStep.startsWith('structuring') || generationStep === 'generating';
 
   useEffect(() => { return () => { isCancelled.current = true; }; }, []);
@@ -438,38 +434,6 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
     try { JSON.parse(pastedJson); setIsJsonValid(true); setJsonErrorMessage(''); } catch (e) { setIsJsonValid(false); setJsonErrorMessage(`Erro no JSON: ${e.message}`); }
   }, [pastedJson]);
   
-  // Effect to calculate total token count for the context
-  useEffect(() => {
-    const calculateTokens = () => {
-        let currentTokens = 0;
-        const allText = [
-            description, pastedCode, databaseSchema, dependencies, deploymentInfo,
-            personas, userFlows, pastedJson, triggerInfo, externalApis, systemPrompt,
-            workflow, tools, exampleIO, guardrails
-        ].join('\n');
-        currentTokens += estimateTokens(allText);
-
-        const selectedFolderFilesContent = allFolderFiles
-            .filter(file => selectedFilePaths.has(file.path))
-            .map(file => file.content)
-            .join('\n');
-        currentTokens += estimateTokens(selectedFolderFilesContent);
-        
-        const uploadedCodeFilesContent = uploadedCodeFiles.map(f => f.content).join('\n');
-        currentTokens += estimateTokens(uploadedCodeFilesContent);
-
-        const jsonFilesContent = jsonFiles.map(f => f.content).join('\n');
-        currentTokens += estimateTokens(jsonFilesContent);
-
-        setTotalTokens(currentTokens);
-    };
-    calculateTokens();
-  }, [
-    description, pastedCode, databaseSchema, dependencies, deploymentInfo, personas, userFlows,
-    pastedJson, triggerInfo, externalApis, systemPrompt, workflow, tools, exampleIO, guardrails,
-    selectedFilePaths, allFolderFiles, uploadedCodeFiles, jsonFiles
-  ]);
-
 
   const handleJsonFileChange = async (e) => {
       const files = e.target.files; if (!files) return;
@@ -780,25 +744,24 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       let backButton = null;
       let primaryButton = null;
       let isPrimaryDisabled = false;
-      const isOverTokenLimit = totalTokens > TOKEN_LIMIT;
 
       switch(generationStep) {
           case 'reviewTechnical':
               backButton = { label: "Voltar", action: () => setGenerationStep('form') };
               primaryButton = { label: (docType === 'support' || docType === 'both') ? "Avançar para Guia do Usuário" : "Gerar Conteúdo", action: handleAdvanceFromTechnicalReview };
-              isPrimaryDisabled = technicalStructure.length === 0 || isOverTokenLimit;
+              isPrimaryDisabled = technicalStructure.length === 0;
               break;
           case 'reviewSupport':
               const backStep = docType === 'both' ? 'reviewTechnical' : 'form';
               backButton = { label: "Voltar", action: () => setGenerationStep(backStep) };
               primaryButton = { label: "Gerar Conteúdo Completo", action: handleGenerateFullContent };
-              isPrimaryDisabled = supportStructure.length === 0 || isOverTokenLimit;
+              isPrimaryDisabled = supportStructure.length === 0;
               break;
           case 'form':
               backButton = { label: "Cancelar", action: onClose };
               const actionText = docType === 'support' ? 'Gerar Estrutura do Usuário' : 'Gerar Estrutura Técnica';
               primaryButton = { label: actionText, action: handleGenerateTechnicalStructure };
-              isPrimaryDisabled = !canGenerate() || !isJsonValid || isOverTokenLimit;
+              isPrimaryDisabled = !canGenerate() || !isJsonValid;
               break;
           default:
               return null;
@@ -806,17 +769,10 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
 
       return (
          React.createElement('div', { className: "mt-auto p-6 bg-gray-800/50 border-t border-gray-700" },
-           React.createElement('div', { className: "flex flex-col sm:flex-row justify-between items-center gap-4" },
-                React.createElement('div', { className: "text-sm w-full sm:w-auto" },
-                    React.createElement('span', { className: `font-mono font-semibold ${isOverTokenLimit ? 'text-red-400' : 'text-gray-400'}` }, totalTokens.toLocaleString('pt-BR')),
-                    React.createElement('span', { className: "text-gray-500" }, ` / ${TOKEN_LIMIT.toLocaleString('pt-BR')} tokens`),
-                    isOverTokenLimit && React.createElement('p', { className: "text-xs text-red-400 mt-1" }, "Limite de tokens excedido. Remova arquivos ou texto.")
-                ),
-                React.createElement('div', { className: 'flex flex-col sm:flex-row justify-end items-center gap-4 w-full sm:w-auto' },
-                    React.createElement('button', { onClick: backButton.action, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors" }, backButton.label),
-                    React.createElement('button', { onClick: primaryButton.action, disabled: isPrimaryDisabled, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[40px] transition-all duration-300"},
-                        React.createElement('span', null, primaryButton.label)
-                    )
+           React.createElement('div', { className: "flex flex-col sm:flex-row justify-end items-center gap-4" },
+                React.createElement('button', { onClick: backButton.action, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors" }, backButton.label),
+                React.createElement('button', { onClick: primaryButton.action, disabled: isPrimaryDisabled, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[40px] transition-all duration-300"},
+                    React.createElement('span', null, primaryButton.label)
                 )
             )
         )
