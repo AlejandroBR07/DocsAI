@@ -126,23 +126,15 @@ const buildUserMessageContent = (prompt, teamData) => {
     return content;
 };
 
-export const generateDocumentStructure = async (params) => {
-  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
-  
-  const { projectName, description, team, teamData } = params;
-  const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData);
-
-  const structurePrompt = `
-    Sua primeira tarefa é atuar como um arquiteto de documentação. Analise de forma holística TODO o contexto fornecido abaixo e proponha a melhor estrutura possível para um documento técnico e/ou de suporte.
+const structurePromptTemplate = (promptType) => `
+    Sua primeira tarefa é atuar como um arquiteto de documentação. Analise de forma holística TODO o contexto fornecido abaixo e proponha a melhor estrutura possível para ${promptType}.
 
     **REGRAS CRÍTICAS PARA A ESTRUTURA:**
-    1.  **UNICIDADE:** A estrutura deve ser **100% única e adaptada** ao contexto. NÃO use um template genérico.
+    1.  **UNICIDADE E RELEVÂNCIA:** A estrutura deve ser **100% única e adaptada** ao contexto. ${promptType === 'um documento técnico' ? 'Crie seções que sejam genuinamente úteis com base no que você pode inferir do código, imagens e textos.' : 'Pense como um usuário final que não conhece o sistema. Crie seções como "Primeiros Passos", "Como Fazer X", "Solução de Problemas Comuns". NÃO use um template genérico.'}
     2.  **LÓGICA:** Os tópicos devem seguir uma ordem lógica que facilite o entendimento.
-    3.  **RELEVÂNCIA:** Crie seções que sejam genuinamente úteis com base no que você pode inferir do código, imagens e textos.
-    4.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON válido, contendo uma única chave "structure" que é um array de objetos. Cada objeto deve ter uma chave "title" (string) e opcionalmente uma chave "children" (um array de objetos com o mesmo formato, para sub-tópicos).
-    5.  **PROFUNDIDADE:** Crie no máximo 2 níveis de profundidade (tópicos e sub-tópicos).
-    6.  **IDIOMA:** Todos os títulos devem ser em Português do Brasil.
+    3.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON válido, contendo uma única chave "structure" que é um array de objetos. Cada objeto deve ter uma chave "title" (string) e opcionalmente uma chave "children" (um array de objetos com o mesmo formato, para sub-tópicos).
+    4.  **PROFUNDIDADE:** Crie no máximo 2 níveis de profundidade (tópicos e sub-tópicos).
+    5.  **IDIOMA:** Todos os títulos devem ser em Português do Brasil.
 
     **Exemplo de formato de saída JSON:**
     {
@@ -158,7 +150,18 @@ export const generateDocumentStructure = async (params) => {
         { "title": "Fluxo de Autenticação" }
       ]
     }
+`;
 
+const generateStructure = async (params, promptType) => {
+  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+  
+  const { projectName, description, team, teamData } = params;
+  const persona = getBaseSystemPersona(team);
+  const teamContext = buildTeamContext(teamData);
+
+  const structurePrompt = `
+    ${structurePromptTemplate(promptType)}
+    
     **Informações do Projeto para Análise:**
     - Nome do Projeto: ${projectName}
     - Descrição/Objetivo Principal: ${description}
@@ -185,58 +188,85 @@ export const generateDocumentStructure = async (params) => {
   }
 };
 
+export const generateDocumentStructure = (params) => generateStructure(params, 'um documento técnico');
+export const generateSupportStructure = (params) => generateStructure(params, 'um Guia do Usuário (documentação de suporte)');
+
 const markdownToHtml = (text) => {
     let htmlContent = text;
+    // Basic Sanitation & Table cleanup (simple version)
     htmlContent = htmlContent.replace(/^\s*\|?\s*:?-{3,}:?\s*\|?\s*$/gm, '').replace(/^\s*\|(.*?)\|?\s*$/gm, '$1').trim();
     htmlContent = htmlContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    htmlContent = htmlContent.replace(/^###### (.*$)/gm, '<h6>$1</h6>').replace(/^##### (.*$)/gm, '<h5>$1</h5>').replace(/^#### (.*$)/gm, '<h4>$1</h4>').replace(/^### (.*$)/gm, '<h3>$1</h3>').replace(/^## (.*$)/gm, '<h2>$1</h2>').replace(/^# (.*$)/gm, '<h1>$1</h1>');
-    htmlContent = htmlContent.replace(/^\s*(?:\*|-|_){3,}\s*$/gm, '<hr />');
-    htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/`+([^`]+?)`+/g, '<code>$1</code>');
+    
+    // Process lists first to keep them as single blocks
     htmlContent = htmlContent.replace(/((?:^[ \t]*[-*] .*(?:\n|$))+)/gm, (match) => `<ul>${match.trim().split('\n').map(line => `<li>${line.replace(/^[ \t]*[-*]\s+/, '')}</li>`).join('')}</ul>`);
     htmlContent = htmlContent.replace(/((?:^[ \t]*\d+\. .*(?:\n|$))+)/gm, (match) => `<ol>${match.trim().split('\n').map(line => `<li>${line.replace(/^[ \t]*\d+\.\s+/, '')}</li>`).join('')}</ol>`);
+
+    // Process other block-level elements
+    htmlContent = htmlContent.replace(/^###### (.*$)/gm, '<h6>$1</h6>').replace(/^##### (.*$)/gm, '<h5>$1</h5>').replace(/^#### (.*$)/gm, '<h4>$1</h4>').replace(/^### (.*$)/gm, '<h3>$1</h3>').replace(/^## (.*$)/gm, '<h2>$1</h2>').replace(/^# (.*$)/gm, '<h1>$1</h1>');
+    htmlContent = htmlContent.replace(/^\s*(?:\*|-|_){3,}\s*$/gm, '<hr />');
+
+    // Process inline elements
+    htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/`+([^`]+?)`+/g, '<code>$1</code>');
+
+    // Process paragraphs
     const paragraphs = htmlContent.split(/\n\n+/);
     htmlContent = paragraphs.map(p => {
         if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<ol') || p.startsWith('<hr')) return p;
         if (p.trim() === '') return '';
         return `<p>${p.replace(/\n/g, '<br />')}</p>`;
     }).join('');
+
+    // Final cleanup
     htmlContent = htmlContent.replace(/<p><br \/><\/p>/g, '');
     return htmlContent;
 }
 
-export const generateFullDocumentContent = async (params, structure, progressCallback) => {
-  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
-
-  const { projectName, description, team, docType, teamData } = params;
-  const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData);
-  
-  const structureString = structure.map(item => {
+const structureToString = (structure) => {
+  return structure.map(item => {
       let s = `- ${item.title}`;
       if (item.children && item.children.length > 0) {
           s += `\n${item.children.map(child => `  - ${child.title}`).join('\n')}`;
       }
       return s;
   }).join('\n');
+};
+
+export const generateFullDocumentContent = async (params, structures, progressCallback) => {
+  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+
+  const { projectName, description, team, docType, teamData } = params;
+  const { technicalStructure, supportStructure } = structures;
+  const persona = getBaseSystemPersona(team);
+  const teamContext = buildTeamContext(teamData);
   
-  const mainPrompt = `
+  let messages = [
+    { role: "system", content: persona },
+  ];
+  let fullMarkdownResponse = "";
+
+  // Generate Technical Content if needed
+  if ((docType === 'technical' || docType === 'both') && technicalStructure?.length > 0) {
+    progressCallback({ progress: 25, message: 'Escrevendo a documentação técnica...' });
+    
+    const technicalStructureString = structureToString(technicalStructure);
+    const mainPrompt = `
       Sua tarefa é atuar como um escritor técnico especialista e criar o conteúdo completo para um documento, seguindo a estrutura pré-aprovada.
 
-      **Estrutura Aprovada (Siga FIELMENTE):**
-      ${structureString}
+      **Estrutura Técnica Aprovada (Siga FIELMENTE):**
+      ${technicalStructureString}
 
       **Instruções Chave:**
-      0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (imagens, textos, códigos). **NÃO INVENTE** detalhes técnicos.
-      1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA):** Documente o estado **ATUAL**. É estritamente **PROIBIDO** sugerir melhorias ou funcionalidades futuras.
-      2.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever.
-      3.  **Profundidade Proporcional:** O nível de detalhe deve ser **proporcional à quantidade de contexto fornecido**. Contexto rico, documento detalhado. Contexto simples, documento conciso.
+      0.  **Baseado em Evidências:** Sua análise deve se basear **estritamente** no contexto fornecido (imagens, textos, códigos). **NÃO INVENTE** detalhes técnicos ou funcionalidades que não existam explicitamente no contexto.
+      1.  **Documente o Presente, Não o Futuro (REGRA CRÍTICA):** Documente o estado **ATUAL** do projeto. É estritamente **PROIBIDO** sugerir melhorias, funcionalidades futuras, ou próximos passos. Foque apenas no que existe.
+      2.  **COMPLETUDE MÁXIMA:** Seja **exaustivo** e **extremamente detalhado**. Sua missão é extrair e explicar **TODA** a informação relevante do contexto. Não resuma ou omita detalhes por brevidade. O objetivo é uma documentação completa, não um resumo. Imagine que o leitor não tem nenhum conhecimento prévio do projeto.
+      3.  **Análise Holística:** Relacione **TODAS** as fontes de contexto para entender o projeto de forma completa ao escrever. Por exemplo, explique como um screenshot de uma UI se conecta com o código React que a implementa.
       4.  **Formatação Markdown RÍGIDA (Estilo Google Docs):**
           - **PROIBIDO:** NUNCA use blocos de código com três crases (\`\`\`).
           - **CORRETO:** Para código em linha, use crases SIMPLES (\`).
-          - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação.
+          - **CORRETO:** Para blocos de código com várias linhas, insira-os como texto simples, preservando a indentação original e a sintaxe.
           - Use títulos Markdown (#, ##) para as seções da estrutura aprovada.
-      5.  **Deploy e Uso:** Se o usuário fornecer informações de deploy, use-as. Se não, **NÃO INVENTE**. Para arquivos simples (HTML/CSS/JS), explique como abrir no navegador.
-      6.  **Tradução de JSON de Automação:** Se o contexto contiver um JSON de N8N, **TRADUZA** o JSON em uma descrição funcional do fluxo de trabalho, explicando cada nó, seus parâmetros e conexões.
+      5.  **Deploy e Uso:** Se o usuário fornecer informações de deploy, use-as. Se não, **NÃO INVENTE**. Para arquivos simples (HTML/CSS/JS), explique como abrir diretamente no navegador.
+      6.  **Tradução de JSON de Automação:** Se o contexto contiver um JSON de N8N, **TRADUZA** o JSON em uma descrição funcional e detalhada do fluxo de trabalho, explicando o propósito de cada nó, seus parâmetros mais importantes e como eles se conectam.
 
       **Instruções Específicas para Análise de Código-Fonte:**
       Se o contexto incluir código-fonte, aja como um arquiteto sênior.
@@ -255,64 +285,42 @@ export const generateFullDocumentContent = async (params, structure, progressCal
       **Sua Resposta:**
       Gere a documentação técnica completa e detalhada, preenchendo cada seção da estrutura aprovada. Comece diretamente com o primeiro título da estrutura. NÃO inclua o nome do projeto como um título principal, ele será adicionado depois.
     `;
-  
-  const supportInstruction = `
----
-## 📖 Guia do Usuário
-
-**Instrução Adicional OBRIGATÓRIA:** Com base em TODO o contexto do projeto, crie um guia de usuário final **INTELIGENTE, CRIATIVO e PRÁTICO**. A linguagem deve ser a mais simples possível.
-
-**PRINCÍPIOS-CHAVE:**
-1.  **ESTRUTURA 100% DINÂMICA:** **NÃO USE UM TEMPLATE FIXO.** Crie um título criativo e seções que emergem **naturalmente** da sua análise do aplicativo.
-2.  **TRADUÇÃO PROFUNDA DE CÓDIGO/IMAGENS PARA AÇÕES:** Para **CADA** funcionalidade identificada, crie um tutorial passo a passo. Seja visual na sua descrição.
-3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Crie uma seção de "Solução de Problemas" ou "Dicas e Truques" **altamente específica** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do código ou do design.
-`;
-  
-  let userTextPrompt;
-  let messages = [
-    { role: "system", content: persona },
-  ];
-  let fullMarkdownResponse = "";
-
-  // Generate Technical Content if needed
-  if (docType === 'technical' || docType === 'both') {
-    progressCallback({ progress: 25, message: 'Escrevendo a documentação técnica...' });
-    userTextPrompt = mainPrompt;
-    messages.push({ role: "user", content: buildUserMessageContent(userTextPrompt, teamData) });
+    messages.push({ role: "user", content: buildUserMessageContent(mainPrompt, teamData) });
     const technicalText = await callOpenAI(messages);
     fullMarkdownResponse += technicalText;
   }
   
   // Generate Support Content if needed
-  if (docType === 'support' || docType === 'both') {
-    progressCallback({ progress: 75, message: 'Criando o guia do usuário...' });
-    const supportOnlyIntro = `Com base em todo o contexto do projeto, sua única tarefa é criar um "Guia do Usuário". Ignore a criação de documentação técnica. Foque apenas na perspectiva de um usuário final não técnico.`;
+  if ((docType === 'support' || docType === 'both') && supportStructure?.length > 0) {
+    const progressStart = (docType === 'both') ? 75 : 25;
+    progressCallback({ progress: progressStart, message: 'Criando o guia do usuário...' });
     
-    let supportUserPrompt = `
-      **Informações do Projeto:**
-      - Nome do Projeto: ${projectName}
-      - Descrição/Objetivo Principal: ${description}
-      - Equipe Alvo da Documentação: ${team}
+    if (fullMarkdownResponse) {
+        messages.push({ role: "assistant", content: fullMarkdownResponse });
+    }
 
-      **Contexto Completo:**
+    const supportStructureString = structureToString(supportStructure);
+    const supportPrompt = `
+      Com base em TODO o contexto do projeto, sua tarefa agora é criar o conteúdo detalhado para o **Guia do Usuário**, seguindo a estrutura pré-aprovada. A linguagem deve ser a mais simples possível, focada em um usuário não-técnico.
+
+      **Estrutura de Suporte Aprovada (Siga FIELMENTE):**
+      ${supportStructureString}
+
+      **PRINCÍPIOS-CHAVE:**
+      1.  **TRADUÇÃO PROFUNDA DE CÓDIGO/IMAGENS PARA AÇÕES:** Para **CADA** funcionalidade identificada, crie um tutorial passo a passo. Seja visual na sua descrição.
+      2.  **SIMPLICIDADE:** Evite jargões técnicos a todo custo.
+      3.  **SOLUÇÃO DE PROBLEMAS CONTEXTUAL:** Na seção de "Solução de Problemas" (se houver), seja **altamente específico** para as dificuldades que um usuário poderia ter com **este aplicativo**, inferindo problemas do código ou do design.
+
+      **Contexto Completo para sua Análise:**
       ${teamContext}
-      
-      ${docType === 'support' ? supportOnlyIntro : ''}
-      ${supportInstruction}
 
-      **Sua Resposta (gere APENAS o Guia do Usuário completo, começando com um título principal criativo e único como '# Título Criativo para ${projectName}'):**
+      **Sua Resposta (gere APENAS o Guia do Usuário completo, preenchendo a estrutura aprovada):**
     `;
 
-    // For 'both', we add the technical doc as assistant context
-    if (docType === 'both') {
-        messages.push({ role: "assistant", content: fullMarkdownResponse });
-        supportUserPrompt = `A documentação técnica está pronta. Agora, com base nela e em todo o contexto, crie o guia do usuário. ${supportInstruction}`;
-    }
-    
-    messages.push({ role: "user", content: buildUserMessageContent(supportUserPrompt, teamData) });
+    messages.push({ role: "user", content: buildUserMessageContent(supportPrompt, teamData) });
     const supportText = await callOpenAI(messages);
     
-    if (docType === 'both') {
+    if (fullMarkdownResponse) {
         fullMarkdownResponse += "\n\n---\n\n" + supportText;
     } else {
         fullMarkdownResponse = supportText;

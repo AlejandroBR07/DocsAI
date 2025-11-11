@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon, ChevronRightIcon, TrashIcon, PlusIcon } from './Icons.js';
+import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon, ChevronRightIcon, TrashIcon, PlusIcon, DragHandleIcon } from './Icons.js';
 import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
-import { generateDocumentStructure, generateFullDocumentContent } from '../services/openAIService.js';
+import { generateDocumentStructure, generateSupportStructure, generateFullDocumentContent } from '../services/openAIService.js';
 
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
@@ -175,7 +175,7 @@ const FileTree = ({ nodes, selectedPaths, onToggleNode }) => {
             React.createElement('input', {
                 type: 'checkbox',
                 className: 'form-checkbox h-4 w-4 text-indigo-600 bg-gray-600 border-gray-500 rounded focus:ring-indigo-500 mr-2 flex-shrink-0',
-                checked: isChecked,
+                checked: selectedPaths.has(node.path),
                 onChange: () => onToggleNode(node)
             }),
             React.createElement(FileIcon, { className: "h-5 w-5 mr-2 text-gray-400 flex-shrink-0" }),
@@ -195,16 +195,16 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const [description, setDescription] = useState('');
   const [docType, setDocType] = useState('both');
   
-  // Step 2: Structure Review state
-  const [documentStructure, setDocumentStructure] = useState([]);
+  // Structure Review state
+  const [technicalStructure, setTechnicalStructure] = useState([]);
+  const [supportStructure, setSupportStructure] = useState([]);
   
   // General state
-  const [generationStep, setGenerationStep] = useState('form'); // 'form', 'structuring', 'review', 'generating'
-  const [isLoading, setIsLoading] = useState(false);
+  const [generationStep, setGenerationStep] = useState('form'); // 'form', 'structuringTechnical', 'reviewTechnical', 'structuringSupport', 'reviewSupport', 'generating'
   const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
-  const [displayedLoadingMessage, setDisplayedLoadingMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [folderError, setFolderError] = useState('');
 
   // Team specific context state
   const [jsonFiles, setJsonFiles] = useState([]);
@@ -242,21 +242,14 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const isCancelled = useRef(false);
   const [activeTemplate, setActiveTemplate] = useState(null);
 
+  const isLoading = ['structuringTechnical', 'structuringSupport', 'generating'].includes(generationStep);
+
   useEffect(() => { return () => { isCancelled.current = true; }; }, []);
   useEffect(() => {
     if (pastedJson.trim() === '') { setIsJsonValid(true); setJsonErrorMessage(''); return; }
     try { JSON.parse(pastedJson); setIsJsonValid(true); setJsonErrorMessage(''); } catch (e) { setIsJsonValid(false); setJsonErrorMessage(`Erro no JSON: ${e.message}`); }
   }, [pastedJson]);
-  useEffect(() => {
-    if (!isLoading) { setDisplayedLoadingMessage(''); return; }
-    let currentText = ''; let charIndex = 0; setDisplayedLoadingMessage('');
-    const intervalId = setInterval(() => {
-      if (charIndex < loadingMessage.length) {
-        currentText += loadingMessage.charAt(charIndex); setDisplayedLoadingMessage(currentText); charIndex++;
-      } else { clearInterval(intervalId); }
-    }, 50);
-    return () => clearInterval(intervalId);
-  }, [loadingMessage, isLoading]);
+  
   const handleJsonFileChange = async (e) => {
       const files = e.target.files; if (!files) return;
       try {
@@ -284,14 +277,14 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const canGenerate = () => !!projectName && !!description && !!docType;
 
   const handleSelectFolder = async () => {
-    setError('');
+    setFolderError('');
     const hasAistudioPicker = window.aistudio && typeof window.aistudio.showDirectoryPicker === 'function';
     const hasNativePicker = 'showDirectoryPicker' in window;
     try {
         let directoryHandle = null;
         if (hasAistudioPicker) { directoryHandle = await window.aistudio.showDirectoryPicker(); }
         else if (hasNativePicker) { directoryHandle = await window.showDirectoryPicker(); }
-        else { setError("Seu navegador não suporta a seleção de pastas. Por favor, use um navegador como Chrome ou Edge."); return; }
+        else { setFolderError("Seu navegador não suporta a seleção de pastas. Por favor, use um navegador como Chrome ou Edge."); return; }
         if (!directoryHandle) return;
         setLoadingMessage('Processando pasta...');
         const files = await processDirectory(directoryHandle);
@@ -304,8 +297,8 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
         if (err.name === 'AbortError') return;
         console.error("Erro ao selecionar a pasta:", err);
         if (err.name === 'SecurityError' || (err.message && err.message.toLowerCase().includes("cross origin"))) {
-            setError("A seleção de pastas é bloqueada neste ambiente por segurança (cross-origin). Use 'Enviar Arquivos Avulsos'.");
-        } else { setError("Não foi possível acessar a pasta. Verifique as permissões do navegador."); }
+            setFolderError("A seleção de pastas é bloqueada por segurança neste ambiente. Use a opção 'Enviar Arquivos Avulsos' como alternativa.");
+        } else { setFolderError("Não foi possível acessar a pasta. Verifique as permissões do navegador."); }
     } finally { setLoadingMessage(''); }
   };
   const handleToggleNodeSelection = (node) => {
@@ -336,34 +329,55 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       return teamData;
   }
 
-  const handleGenerateStructure = async () => {
+  const handleGenerateTechnicalStructure = async () => {
     if (!canGenerate()) { setError('Por favor, preencha o nome do projeto e a descrição.'); return; }
-    
-    setIsLoading(true); setError(''); isCancelled.current = false;
-    setGenerationStep('structuring'); setLoadingMessage('Analisando contexto...');
-
+    setError(''); setFolderError(''); isCancelled.current = false;
+    setGenerationStep('structuringTechnical'); setLoadingMessage('Analisando contexto técnico...');
     try {
         const teamData = await getTeamDataContext();
         const params = { projectName, description, team: currentTeam, teamData };
         const structure = await generateDocumentStructure(params);
-
         if (!isCancelled.current) {
-            setDocumentStructure(structure.map((item, index) => ({ ...item, id: index })));
-            setGenerationStep('review');
+            setTechnicalStructure(structure.map((item, index) => ({ ...item, id: Date.now() + index })));
+            setGenerationStep('reviewTechnical');
         }
     } catch (err) {
       if (!isCancelled.current) {
         setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
         setGenerationStep('form');
       }
-    } finally {
-        if (!isCancelled.current) setIsLoading(false);
     }
   };
 
+  const handleGenerateSupportStructure = async () => {
+    isCancelled.current = false;
+    setGenerationStep('structuringSupport'); setLoadingMessage('Criando estrutura de suporte...');
+    try {
+        const teamData = await getTeamDataContext();
+        const params = { projectName, description, team: currentTeam, teamData };
+        const structure = await generateSupportStructure(params);
+        if (!isCancelled.current) {
+            setSupportStructure(structure.map((item, index) => ({ ...item, id: Date.now() + 1000 + index })));
+            setGenerationStep('reviewSupport');
+        }
+    } catch (err) {
+        if (!isCancelled.current) {
+            setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
+            setGenerationStep('reviewTechnical'); // Go back
+        }
+    }
+  };
+  
+  const handleAdvanceFromTechnicalReview = () => {
+      if (docType === 'support' || docType === 'both') {
+          handleGenerateSupportStructure();
+      } else {
+          handleGenerateFullContent();
+      }
+  }
+
   const handleGenerateFullContent = async () => {
       setGenerationStep('generating');
-      setIsLoading(true);
       setError('');
       isCancelled.current = false;
       setProgress(0);
@@ -378,7 +392,8 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       try {
           const teamData = await getTeamDataContext();
           const params = { projectName, description, team: currentTeam, docType, teamData };
-          const result = await generateFullDocumentContent(params, documentStructure, progressCallback);
+          const structures = { technicalStructure, supportStructure };
+          const result = await generateFullDocumentContent(params, structures, progressCallback);
 
           if (!isCancelled.current) {
               setLoadingMessage('Documento pronto!'); setProgress(100);
@@ -387,8 +402,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       } catch (err) {
           if (!isCancelled.current) {
               setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
-              setGenerationStep('review'); // Go back to review step on error
-              setIsLoading(false);
+              setGenerationStep('reviewSupport'); // Go back to the last review step
               setProgress(0);
           }
       }
@@ -448,13 +462,14 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
                   React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, "Central de Contexto do Código"),
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                     React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(FolderIcon, null), "Pasta do Projeto (Recomendado)"),
-                     React.createElement('p', { className: "text-xs text-gray-400" }, "Desmarque os arquivos ou pastas que deseja excluir do contexto."),
                     fileTreeData.length > 0 ? (
                         React.createElement(React.Fragment, null,
+                            React.createElement('p', { className: "text-xs text-gray-400" }, "Desmarque os arquivos ou pastas que deseja excluir do contexto."),
                             React.createElement(FileTree, { nodes: fileTreeData, selectedPaths: selectedFilePaths, onToggleNode: handleToggleNodeSelection }),
                             React.createElement('button', { onClick: () => { setAllFolderFiles([]); setFileTreeData([]); setSelectedFilePaths(new Set()); }, className: "w-full text-center text-sm text-red-400 hover:text-red-300 py-1 mt-2" }, "Limpar Pasta")
                         )
-                    ) : ( React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta")))
+                    ) : ( React.createElement('button', { onClick: handleSelectFolder, className: "w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md cursor-pointer hover:bg-gray-600 mt-2" }, React.createElement(FolderIcon, null), React.createElement('span', null, "Selecionar Pasta"))),
+                    folderError && React.createElement('div', {className: 'text-xs text-amber-400 mt-2 flex items-start gap-1.5 text-left p-2 bg-amber-900/40 border border-amber-500/30 rounded-md'}, React.createElement(InfoIcon, {className: 'h-4 w-4 flex-shrink-0 mt-0.5'}), React.createElement('span', null, folderError))
                   ),
                   React.createElement('div', { className: "space-y-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700" },
                       React.createElement('h4', { className: "flex items-center gap-2 text-sm font-medium text-gray-300" }, React.createElement(UploadIcon, null), "Arquivos Avulsos"),
@@ -484,44 +499,155 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
 
   const teamTemplates = TEMPLATES[currentTeam] || [];
   const docTypeOptions = [ { id: 'technical', label: 'Técnica' }, { id: 'support', label: 'Suporte' }, { id: 'both', label: 'Ambas' }];
-  
-  const handleStructureChange = (index, subIndex, newTitle) => {
-    const newStructure = [...documentStructure];
-    if (subIndex === null) {
-      newStructure[index].title = newTitle;
-    } else {
-      newStructure[index].children[subIndex].title = newTitle;
-    }
-    setDocumentStructure(newStructure);
+
+  const StructureEditor = ({ structure, setStructure, title, description }) => {
+    const draggedItem = useRef(null);
+    const [dropIndicator, setDropIndicator] = useState(null);
+
+    const handleStructureChange = (newTitle, index, subIndex = null) => {
+        const newStructure = JSON.parse(JSON.stringify(structure));
+        if (subIndex === null) { newStructure[index].title = newTitle; } 
+        else { newStructure[index].children[subIndex].title = newTitle; }
+        setStructure(newStructure);
+    };
+    const addStructureItem = (parentIndex = null) => {
+        const newStructure = JSON.parse(JSON.stringify(structure));
+        const newItem = { title: 'Novo Tópico', id: Date.now() };
+        if (parentIndex === null) { newStructure.push(newItem); } 
+        else {
+            if (!newStructure[parentIndex].children) newStructure[parentIndex].children = [];
+            newStructure[parentIndex].children.push({ ...newItem, id: Date.now() + 1 });
+        }
+        setStructure(newStructure);
+    };
+    const removeStructureItem = (index, subIndex = null) => {
+        let newStructure = JSON.parse(JSON.stringify(structure));
+        if (subIndex === null) { newStructure.splice(index, 1); } 
+        else { newStructure[index].children.splice(subIndex, 1); }
+        setStructure(newStructure);
+    };
+
+    const handleDragStart = (e, index, parentIndex = null) => {
+        draggedItem.current = { index, parentIndex };
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target.parentNode); // for firefox
+        setTimeout(() => { e.target.closest('.structure-item').style.opacity = '0.5'; }, 0);
+    };
+    const handleDragEnd = (e) => {
+        e.target.closest('.structure-item').style.opacity = '1';
+        draggedItem.current = null;
+        setDropIndicator(null);
+    };
+    const handleDragOver = (e, index, parentIndex = null) => {
+        e.preventDefault();
+        if (draggedItem.current) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const isAfter = e.clientY > rect.top + rect.height / 2;
+            setDropIndicator({ index, parentIndex, isAfter });
+        }
+    };
+    const handleDrop = (e, dropIndex, dropParentIndex = null) => {
+        e.preventDefault();
+        if (!draggedItem.current) return;
+
+        const { index: dragIndex, parentIndex: dragParentIndex } = draggedItem.current;
+
+        // Prevent dropping onto itself
+        if (dragIndex === dropIndex && dragParentIndex === dropParentIndex) return;
+
+        const newStructure = JSON.parse(JSON.stringify(structure));
+        let itemToMove;
+
+        // Remove item from its original position
+        if (dragParentIndex === null) {
+            [itemToMove] = newStructure.splice(dragIndex, 1);
+        } else {
+            [itemToMove] = newStructure[dragParentIndex].children.splice(dragIndex, 1);
+        }
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const isAfter = e.clientY > rect.top + rect.height / 2;
+        let finalDropIndex = dropIndex;
+        if (isAfter) finalDropIndex++;
+
+        // Add item to its new position
+        if (dropParentIndex === null) {
+            // Adjust index if moving within the same list downwards
+            if (dragParentIndex === null && dragIndex < dropIndex) {
+                 finalDropIndex--;
+            }
+            newStructure.splice(finalDropIndex, 0, itemToMove);
+        } else {
+            // Adjust index if moving within the same sublist downwards
+            if (dragParentIndex === dropParentIndex && dragIndex < dropIndex) {
+                finalDropIndex--;
+            }
+            if (!newStructure[dropParentIndex].children) newStructure[dropParentIndex].children = [];
+            newStructure[dropParentIndex].children.splice(finalDropIndex, 0, itemToMove);
+        }
+        setStructure(newStructure);
+        setDropIndicator(null);
+    };
+
+    const StructureItem = ({ item, index, parentIndex = null, isLast }) => {
+        const showDropIndicator = dropIndicator && dropIndicator.index === index && dropIndicator.parentIndex === parentIndex;
+        const isChild = parentIndex !== null;
+
+        return React.createElement('div', { className: `structure-item relative ${isChild ? 'ml-6' : ''}`},
+          showDropIndicator && !dropIndicator.isAfter && React.createElement('div', { className: 'absolute -top-1 left-0 w-full h-1 bg-indigo-500 rounded-full' }),
+          isChild && React.createElement('div', { className: "absolute -left-3 top-4 h-full w-px bg-gray-700" }),
+          isChild && React.createElement('div', { className: `absolute -left-3 ${isLast ? 'h-4' : 'h-full'} w-3 border-b border-l border-gray-700 rounded-bl-md top-0` }),
+          React.createElement('div', {
+              draggable: true,
+              onDragStart: (e) => handleDragStart(e, index, parentIndex),
+              onDragEnd: handleDragEnd,
+              onDragOver: (e) => handleDragOver(e, index, parentIndex),
+              onDrop: (e) => handleDrop(e, index, parentIndex),
+              onDragLeave: () => setDropIndicator(null),
+              className: 'flex items-center gap-2 p-1.5 rounded-lg bg-gray-800/70 border border-gray-700/50 hover:border-gray-600 transition-all my-1.5'
+          },
+              React.createElement(DragHandleIcon, { className: 'h-5 w-5 cursor-grab text-gray-500 flex-shrink-0' }),
+              React.createElement('input', { type: 'text', value: item.title, onChange: (e) => handleStructureChange(e.target.value, parentIndex === null ? index : parentIndex, parentIndex === null ? null : index), className: 'w-full bg-transparent text-white text-sm focus:outline-none focus:ring-0 border-0 p-0' }),
+              !isChild && React.createElement('button', { onClick: () => addStructureItem(index), title: "Adicionar sub-tópico", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-600 rounded flex-shrink-0' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
+              React.createElement('button', { onClick: () => removeStructureItem(index, parentIndex), title: "Remover", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-red-500 rounded flex-shrink-0' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
+          ),
+          item.children && item.children.length > 0 && 
+          React.createElement('div', { className: "mt-1 space-y-1.5 relative" },
+              item.children.map((child, subIndex) => React.createElement(StructureItem, {
+                  key: child.id,
+                  item: child,
+                  index: subIndex,
+                  parentIndex: index,
+                  isLast: subIndex === item.children.length - 1
+              }))
+          ),
+          showDropIndicator && dropIndicator.isAfter && React.createElement('div', { className: 'absolute -bottom-1 left-0 w-full h-1 bg-indigo-500 rounded-full' })
+        );
+    };
+    
+    return React.createElement('div', { className: "p-6 space-y-4" },
+      React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, title),
+      React.createElement('p', { className: "text-sm text-gray-400" }, description),
+      React.createElement('div', { className: "max-h-96 overflow-y-auto pr-2" },
+          structure.map((item, index) => React.createElement(StructureItem, {
+              key: item.id,
+              item: item,
+              index: index,
+              isLast: index === structure.length - 1,
+          }))
+      ),
+      React.createElement('button', { onClick: () => addStructureItem(null), className: 'text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2' }, React.createElement(PlusIcon, { className: 'h-4 w-4' }), "Adicionar Tópico Principal")
+    );
   };
-  const addStructureItem = (index) => {
-      const newStructure = [...documentStructure];
-      const newItem = { title: 'Novo Tópico', id: Date.now() };
-      if (index === null) {
-          newStructure.push(newItem);
-      } else {
-          if (!newStructure[index].children) newStructure[index].children = [];
-          newStructure[index].children.push({ ...newItem, id: Date.now() + 1});
-      }
-      setDocumentStructure(newStructure);
-  };
-  const removeStructureItem = (index, subIndex) => {
-      let newStructure = [...documentStructure];
-      if (subIndex === null) {
-          newStructure = newStructure.filter((_, i) => i !== index);
-      } else {
-          newStructure[index].children = newStructure[index].children.filter((_, i) => i !== subIndex);
-      }
-      setDocumentStructure(newStructure);
-  }
   
   const renderContent = () => {
     switch(generationStep) {
-        case 'structuring':
+        case 'structuringTechnical':
+        case 'structuringSupport':
         case 'generating':
              return React.createElement('div', { className: 'p-6 flex flex-col items-center justify-center text-center h-64' },
                 React.createElement(LoadingSpinner, { className: 'h-12 w-12 text-indigo-400' }),
-                React.createElement('p', { className: 'mt-4 text-lg text-white typing-cursor' }, displayedLoadingMessage),
+                React.createElement('p', { className: 'mt-4 text-lg text-white' }, loadingMessage),
                 generationStep === 'generating' && React.createElement('div', { className: "w-full mt-4 max-w-sm" },
                      React.createElement('div', { className: "w-full bg-gray-600 rounded-full h-1.5" },
                         React.createElement('div', {
@@ -531,33 +657,20 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
                     )
                 )
             );
-        case 'review':
-             return (
-                React.createElement('div', { className: "p-6 space-y-4" },
-                    React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, "Revise a Estrutura Proposta"),
-                    React.createElement('p', { className: "text-sm text-gray-400" }, "A IA analisou seu contexto e sugere a estrutura abaixo. Você pode editar, remover ou adicionar tópicos antes de gerar o conteúdo final."),
-                    React.createElement('div', { className: "space-y-2 max-h-96 overflow-y-auto pr-2" },
-                        documentStructure.map((item, index) => (
-                            React.createElement('div', { key: item.id },
-                                React.createElement('div', { className: 'flex items-center gap-2' },
-                                    React.createElement('input', { type: 'text', value: item.title, onChange: (e) => handleStructureChange(index, null, e.target.value), className: 'w-full bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500 font-semibold' }),
-                                    React.createElement('button', { onClick: () => addStructureItem(index), className: 'p-1.5 text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 rounded' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
-                                    React.createElement('button', { onClick: () => removeStructureItem(index, null), className: 'p-1.5 text-gray-400 hover:text-white bg-gray-700 hover:bg-red-500 rounded' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
-                                ),
-                                item.children && React.createElement('div', { className: "ml-6 mt-2 space-y-2" },
-                                    item.children.map((child, subIndex) => (
-                                        React.createElement('div', { key: child.id, className: 'flex items-center gap-2' },
-                                            React.createElement('input', { type: 'text', value: child.title, onChange: (e) => handleStructureChange(index, subIndex, e.target.value), className: 'w-full bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500' }),
-                                            React.createElement('button', { onClick: () => removeStructureItem(index, subIndex), className: 'p-1.5 text-gray-400 hover:text-white bg-gray-700 hover:bg-red-500 rounded' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
-                                        )
-                                    ))
-                                )
-                            )
-                        ))
-                    ),
-                    React.createElement('button', { onClick: () => addStructureItem(null), className: 'text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1' }, React.createElement(PlusIcon, { className: 'h-4 w-4' }), "Adicionar Tópico Principal")
-                )
-             );
+        case 'reviewTechnical':
+             return React.createElement(StructureEditor, {
+                structure: technicalStructure,
+                setStructure: setTechnicalStructure,
+                title: "Revise a Estrutura Técnica",
+                description: "A IA analisou seu contexto e sugere a estrutura abaixo. Você pode editar, remover, adicionar ou reordenar os tópicos antes de continuar."
+             });
+        case 'reviewSupport':
+            return React.createElement(StructureEditor, {
+                structure: supportStructure,
+                setStructure: setSupportStructure,
+                title: "Revise a Estrutura do Guia do Usuário",
+                description: "Baseado no contexto, esta é a estrutura sugerida para o guia de suporte. Ajuste conforme necessário."
+            });
         case 'form':
         default:
             return (
@@ -596,42 +709,99 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const renderFooter = () => {
       let backButton = null;
       let primaryButton = null;
+      let isPrimaryDisabled = isLoading;
 
       switch(generationStep) {
-          case 'review':
-              backButton = { label: "Voltar", action: () => setGenerationStep('form'), disabled: isLoading };
-              primaryButton = { label: "Gerar Conteúdo Completo", action: handleGenerateFullContent, disabled: isLoading || documentStructure.length === 0 };
+          case 'reviewTechnical':
+              backButton = { label: "Voltar", action: () => setGenerationStep('form') };
+              primaryButton = { label: (docType === 'support' || docType === 'both') ? "Avançar" : "Gerar Conteúdo", action: handleAdvanceFromTechnicalReview };
+              isPrimaryDisabled = isLoading || technicalStructure.length === 0;
+              break;
+          case 'reviewSupport':
+              backButton = { label: "Voltar", action: () => setGenerationStep('reviewTechnical') };
+              primaryButton = { label: "Gerar Conteúdo Completo", action: handleGenerateFullContent };
+              isPrimaryDisabled = isLoading || supportStructure.length === 0;
               break;
           case 'form':
-              backButton = { label: "Cancelar", action: onClose, disabled: isLoading };
-              primaryButton = { label: "Gerar Estrutura com IA", action: handleGenerateStructure, disabled: !canGenerate() || !isJsonValid || isLoading };
+              backButton = { label: "Cancelar", action: onClose };
+              primaryButton = { label: "Gerar Estrutura com IA", action: handleGenerateTechnicalStructure };
+              isPrimaryDisabled = !canGenerate() || !isJsonValid || isLoading;
               break;
-          case 'structuring':
+          case 'structuringTechnical':
+          case 'structuringSupport':
           case 'generating':
-              backButton = { label: "Cancelar", action: () => { isCancelled.current = true; setIsLoading(false); setGenerationStep('form'); }, disabled: false };
-              primaryButton = { label: loadingMessage, action: () => {}, disabled: true, showSpinner: true };
+              backButton = { label: "Cancelar", action: () => { isCancelled.current = true; setGenerationStep('form'); }};
+              const buttonText = {
+                  structuringTechnical: 'Analisando...',
+                  structuringSupport: 'Estruturando...',
+                  generating: 'Gerando...'
+              }[generationStep];
+              primaryButton = { label: buttonText, action: () => {}, showSpinner: true };
+              isPrimaryDisabled = true;
               break;
       }
 
       return (
          React.createElement('div', { className: "mt-auto p-6 bg-gray-800/50 border-t border-gray-700" },
            React.createElement('div', { className: "flex flex-col sm:flex-row justify-end items-center gap-4" },
-                React.createElement('button', { onClick: backButton.action, disabled: backButton.disabled, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50" }, backButton.label),
-                React.createElement('button', { onClick: primaryButton.action, disabled: primaryButton.disabled, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-start disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-64 min-h-[40px] transition-all duration-300"},
-                    primaryButton.showSpinner ? React.createElement(React.Fragment, null, React.createElement(LoadingSpinner, null), React.createElement('span', { className: 'ml-3 text-left w-full typing-cursor' }, displayedLoadingMessage))
-                                            : React.createElement('span', {className: 'mx-auto'}, primaryButton.label)
+                React.createElement('button', { onClick: backButton.action, disabled: isLoading, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50" }, backButton.label),
+                React.createElement('button', { onClick: primaryButton.action, disabled: isPrimaryDisabled, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[40px] transition-all duration-300"},
+                    primaryButton.showSpinner ? React.createElement(LoadingSpinner, null) : null,
+                    React.createElement('span', { className: primaryButton.showSpinner ? 'ml-3' : ''}, primaryButton.label)
                 )
             )
         )
       );
   }
 
+  const getModalTitle = () => {
+      const baseTitle = `Criar Documento para ${currentTeam}`;
+      if (generationStep === 'reviewTechnical') return "Etapa 1 de 2: Estrutura Técnica";
+      if (generationStep === 'reviewSupport') return "Etapa 2 de 2: Guia do Usuário";
+      return "Nova Documentação";
+  };
+  
+  const getProgressIndicator = () => {
+    let steps = [];
+    if (docType === 'both') steps = ['form', 'reviewTechnical', 'reviewSupport', 'done'];
+    else if (docType === 'technical') steps = ['form', 'reviewTechnical', 'done'];
+    else if (docType === 'support') steps = ['form', 'reviewSupport', 'done'];
+    
+    let currentStepIndex = 0;
+    if (generationStep.startsWith('review')) currentStepIndex = steps.indexOf(generationStep);
+    else if (generationStep === 'form') currentStepIndex = 0;
+    else if (generationStep === 'generating') currentStepIndex = steps.length -1;
+    
+    const stepLabels = {'form': 'Início', 'reviewTechnical': 'Técnica', 'reviewSupport': 'Suporte'};
+
+    if (steps.length <=2 || generationStep === 'form' || isLoading) return null;
+    
+    return (
+        React.createElement('div', { className: 'flex items-center gap-2' },
+            steps.slice(1, -1).map((step, index) => {
+                const stepNumber = index + 1;
+                const isCompleted = currentStepIndex > stepNumber;
+                const isCurrent = currentStepIndex === stepNumber;
+
+                return React.createElement(React.Fragment, { key: step },
+                    index > 0 && React.createElement('div', { className: `h-px w-4 ${isCompleted || isCurrent ? 'bg-indigo-500' : 'bg-gray-600'}` }),
+                    React.createElement('div', { className: 'flex items-center gap-2' },
+                        React.createElement('div', { className: `w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-indigo-600 text-white ring-2 ring-offset-2 ring-offset-gray-800 ring-indigo-500' : isCompleted ? 'bg-indigo-500/50 text-indigo-200' : 'bg-gray-700 text-gray-400'}`}, stepNumber),
+                        React.createElement('span', { className: `text-sm font-medium ${isCurrent ? 'text-white' : 'text-gray-400'}`}, stepLabels[step])
+                    )
+                );
+            })
+        )
+    );
+  };
+
+
   return (
     React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: isLoading ? undefined : onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
       React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col animate-slide-up", onClick: (e) => e.stopPropagation() },
         React.createElement('div', { className: "p-6 border-b border-gray-700 flex justify-between items-center" },
-          React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, "Criar Documento para ", React.createElement('span', { className: "text-indigo-400" }, currentTeam)),
-          generationStep === 'review' && React.createElement('span', { className: 'text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full'}, 'Etapa 2 de 2')
+          React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, getModalTitle()),
+          getProgressIndicator()
         ),
         React.createElement('div', { className: "overflow-y-auto" },
             error && React.createElement('div', { className: 'p-4 m-6 mb-0 bg-red-900/50 border border-red-500/30 rounded-md text-red-300 text-sm' }, error),

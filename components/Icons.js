@@ -1,7 +1,7 @@
 import React from 'react';
 
-export const PlusIcon = () => (
-  React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Criar novo documento" },
+export const PlusIcon = (props) => (
+  React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Criar novo documento", ...props },
     React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 6v6m0 0v6m0-6h6m-6 0H6" })
   )
 );
@@ -129,8 +129,8 @@ export const FileIcon = () => (
     )
 );
 
-export const FolderIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", strokeWidth: 2, stroke: "currentColor", title: "Pasta do Projeto" },
+export const FolderIcon = (props) => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", strokeWidth: 2, stroke: "currentColor", title: "Pasta do Projeto", ...props },
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" })
     )
 );
@@ -141,8 +141,8 @@ export const CloseIcon = () => (
     )
 );
 
-export const TrashIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Excluir documento" },
+export const TrashIcon = (props) => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Excluir documento", ...props },
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" })
     )
 );
@@ -153,8 +153,8 @@ export const WarningIcon = () => (
     )
 );
 
-export const InfoIcon = () => (
-    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Informação" },
+export const InfoIcon = (props) => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Informação", ...props },
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" })
     )
 );
@@ -249,6 +249,28 @@ export const ChevronRightIcon = (props) => (
   },
     React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 5l7 7-7 7" })
   )
+);
+
+export const DragHandleIcon = (props) => (
+    React.createElement('svg', { 
+        xmlns: "http://www.w3.org/2000/svg", 
+        className: "h-5 w-5", 
+        viewBox: "0 0 24 24", 
+        fill: "none", 
+        stroke: "currentColor", 
+        strokeWidth: "2", 
+        strokeLinecap: "round", 
+        strokeLinejoin: "round",
+        title: "Arrastar para reordenar",
+        ...props
+    },
+        React.createElement('circle', { cx: "9", cy: "12", r: "1" }),
+        React.createElement('circle', { cx: "9", cy: "5", r: "1" }),
+        React.createElement('circle', { cx: "9", cy: "19", r: "1" }),
+        React.createElement('circle', { cx: "15", cy: "12", r: "1" }),
+        React.createElement('circle', { cx: "15", cy: "5", r: "1" }),
+        React.createElement('circle', { cx: "15", cy: "19", r: "1" })
+    )
 );
 
 const TextIcon = ({ children, title }) => (
