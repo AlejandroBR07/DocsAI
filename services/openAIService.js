@@ -28,56 +28,88 @@ export const validateApiKey = async (apiKey) => {
 };
 
 const callOpenAI = async (messages, response_format = { type: "text" }) => {
-    const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openAIApiKey}`
-        },
-        body: JSON.stringify({
-            model: "gpt-4o",
-            messages: messages,
-            max_tokens: 4096,
-            response_format: response_format,
-        })
-    });
+    const MAX_RETRIES = 3;
+    let lastError = null;
 
-    if (!apiResponse.ok) {
-        const errorData = await apiResponse.json();
-        const defaultMessage = "Ocorreu uma falha inesperada ao tentar se comunicar com a IA. Por favor, tente novamente mais tarde.";
-        let userMessage = errorData.error?.message || defaultMessage;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${openAIApiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: messages,
+                    max_tokens: 4096,
+                    response_format: response_format,
+                })
+            });
 
-        if (userMessage.includes('Incorrect API key')) {
-            userMessage = "Sua chave de API da OpenAI é inválida. Por favor, verifique-a na tela de configuração.";
-        } else if (apiResponse.status === 429) {
-            userMessage = "Você excedeu sua cota atual da API OpenAI ou o limite de requisições. Verifique seu plano e detalhes de faturamento.";
-        } else if (errorData.error?.code === 'context_length_exceeded') {
-             userMessage = "O contexto fornecido (código, imagens, texto) é muito grande. Tente reduzir a quantidade de arquivos ou o tamanho do texto e tente novamente.";
-        } else {
-            userMessage = `Erro da IA: ${userMessage}`;
+            if (!apiResponse.ok) {
+                const errorData = await apiResponse.json();
+                const defaultMessage = "Ocorreu uma falha inesperada ao tentar se comunicar com a IA.";
+                let userMessage = errorData.error?.message || defaultMessage;
+
+                if (userMessage.includes('Incorrect API key')) {
+                    userMessage = "Sua chave de API da OpenAI é inválida. Por favor, verifique-a na tela de configuração.";
+                } else if (apiResponse.status === 429) {
+                    userMessage = "Você excedeu sua cota atual da API OpenAI ou o limite de requisições. Verifique seu plano e detalhes de faturamento.";
+                } else if (errorData.error?.code === 'context_length_exceeded') {
+                    userMessage = "O contexto fornecido (código, imagens, texto) é muito grande. Tente reduzir a quantidade de arquivos ou o tamanho do texto e tente novamente.";
+                } else {
+                    userMessage = `Erro da IA: ${userMessage}`;
+                }
+
+                if (apiResponse.status >= 400 && apiResponse.status < 500) {
+                    console.error("Erro da API OpenAI (Cliente):", errorData);
+                    throw new Error(userMessage);
+                }
+
+                lastError = new Error(`Erro do servidor da IA (Status ${apiResponse.status}).`);
+                console.error("Erro da API OpenAI (Servidor):", errorData);
+
+            } else { 
+                const data = await apiResponse.json();
+                const aiContent = data.choices[0]?.message?.content?.trim();
+
+                if (aiContent) {
+                    console.log("%c[DEBUG] Resposta Bruta da IA:", "color: #ff9800; font-weight: bold;", `\n\n${aiContent}`);
+                    return aiContent;
+                } else {
+                    lastError = new Error("A IA retornou uma resposta vazia. Isso pode ser um problema temporário.");
+                }
+            }
+        } catch (error) {
+            if (error.message.includes("API") || error.message.includes("contexto")) {
+                throw error;
+            }
+            lastError = error;
+            console.error(`Tentativa ${i + 1} falhou:`, error);
         }
-        console.error("Erro da API OpenAI:", errorData);
-        throw new Error(userMessage);
+
+        if (i < MAX_RETRIES - 1) {
+            await new Promise(res => setTimeout(res, 1000 * (i + 1)));
+        }
     }
 
-    const data = await apiResponse.json();
-    const aiContent = data.choices[0]?.message?.content || "";
-    console.log("%c[DEBUG] Resposta Bruta da IA:", "color: #ff9800; font-weight: bold;", `\n\n${aiContent}`);
-    return aiContent;
+    throw new Error(`Falha na comunicação com a IA após ${MAX_RETRIES} tentativas. Erro: ${lastError?.message || 'Desconhecido'}`);
 };
+
 
 const getBaseSystemPersona = (team) => {
   switch (team) {
     case Team.Developers:
-      return 'Aja como um engenheiro de software sênior e arquiteto de soluções. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
+      return 'Aja como um engenheiro de software sênior e arquiteto de soluções. Sua tarefa é criar a documentação mais detalhada e concisa possível, exclusivamente em Português do Brasil.';
     case Team.UXUI:
-       return 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento. Analise contextos visuais como designs do Figma, landing pages e screenshots de plataformas (Learnworlds, apps). Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
+       return 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento. Analise contextos visuais como designs do Figma, landing pages e screenshots de plataformas (Learnworlds, apps). Sua tarefa é criar a documentação mais detalhada e concisa possível, exclusivamente em Português do Brasil.';
     case Team.Automations:
-      return 'Aja como um especialista em automação de processos (RPA e integrações), com conhecimento em N8N, Unnichat e Apps Script. Seu superpoder é traduzir a estrutura de dados de uma automação (JSON do N8N), fluxos de conversa (Unnichat) ou código (Apps Script) em uma explicação clara e funcional. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
+      return 'Aja como um especialista em automação de processos (RPA e integrações), com conhecimento em N8N, Unnichat e Apps Script. Seu superpoder é traduzir a estrutura de dados de uma automação (JSON do N8N), fluxos de conversa (Unnichat) ou código (Apps Script) em uma explicação clara, funcional e concisa. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
     case Team.AI:
-      return 'Aja como um engenheiro de IA especialista em arquitetura de agentes, com foco em plataformas como o Dify. Analise fluxos de trabalho, ferramentas e prompts de sistema para criar documentação técnica detalhada. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
+      return 'Aja como um engenheiro de IA especialista em arquitetura de agentes, com foco em plataformas como o Dify. Analise fluxos de trabalho, ferramentas e prompts de sistema para criar documentação técnica detalhada e concisa. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
     default:
-      return 'Você é um assistente de IA especialista em criar documentação técnica e de negócios. Sua resposta deve ser exclusivamente em Português do Brasil.';
+      return 'Você é um assistente de IA especialista em criar documentação técnica e de negócios. Sua resposta deve ser concisa e exclusivamente em Português do Brasil.';
   }
 }
 
@@ -200,7 +232,14 @@ export const generateSupportStructure = (params) => generateStructure(params, 'u
 const markdownToHtml = (markdown) => {
     if (!markdown) return '';
 
-    const blocks = markdown.split('\n\n');
+    const processInline = (text) => {
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/`([^`]+)`/g, '<code style="background-color: #4a5568; color: #e2e8f0; padding: 0.2em 0.4em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
+    };
+
+    const blocks = markdown.replace(/\r\n/g, '\n').split(/\n{2,}/);
 
     const htmlBlocks = blocks.map(block => {
         block = block.trim();
@@ -208,20 +247,21 @@ const markdownToHtml = (markdown) => {
 
         // Code Blocks (```)
         if (block.startsWith('```')) {
-            const code = block.replace(/```\w*\n?/, '').replace(/```$/, '').trim();
+            const code = block.replace(/^```(?:\w*\n)?/, '').replace(/\n```$/, '').trim();
             const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return `<pre style="background-color: #2d3748; color: #e2e8f0; padding: 1em; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.5;"><code>${escapedCode}</code></pre>`;
+            return `<pre style="background-color: #1f2937; color: #e5e7eb; padding: 1em; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.5;"><code>${escapedCode}</code></pre>`;
         }
         
-        // Headers (#, ##, ###)
-        if (block.startsWith('### ')) return `<h3>${block.substring(4)}</h3>`;
-        if (block.startsWith('## ')) return `<h2>${block.substring(3)}</h2>`;
-        if (block.startsWith('# ')) return `<h1>${block.substring(2)}</h1>`;
+        // Headers (#, ##, ###, ####)
+        if (block.startsWith('#### ')) return `<h4>${processInline(block.substring(5))}</h4>`;
+        if (block.startsWith('### ')) return `<h3>${processInline(block.substring(4))}</h3>`;
+        if (block.startsWith('## ')) return `<h2>${processInline(block.substring(3))}</h2>`;
+        if (block.startsWith('# ')) return `<h1>${processInline(block.substring(2))}</h1>`;
         
         // Blockquotes (>)
         if (block.startsWith('> ')) {
              const quoteContent = block.split('\n').map(line => line.replace(/^\> ?/, '')).join('<br>');
-             return `<blockquote style="border-left: 4px solid #6366f1; padding-left: 1em; margin-left: 0; color: #d1d5db; font-style: italic;">${quoteContent}</blockquote>`;
+             return `<blockquote style="border-left: 4px solid #6366f1; padding-left: 1em; margin-left: 0; color: #d1d5db; font-style: italic;">${processInline(quoteContent)}</blockquote>`;
         }
 
         // Lists (*, -, 1.)
@@ -240,14 +280,16 @@ const markdownToHtml = (markdown) => {
                         listHtml += '<ul>';
                         listType = 'ul';
                     }
-                    listHtml += `<li>${ulMatch[1]}</li>`;
+                    listHtml += `<li>${processInline(ulMatch[1])}</li>`;
                 } else if (olMatch) {
                      if (listType !== 'ol') {
                         if (listType) listHtml += `</${listType}>`;
                         listHtml += '<ol>';
                         listType = 'ol';
                     }
-                    listHtml += `<li>${olMatch[1]}</li>`;
+                    listHtml += `<li>${processInline(olMatch[1])}</li>`;
+                } else if (listHtml.endsWith('</li>')) {
+                    listHtml = listHtml.slice(0, -5) + ` ${processInline(line.trim())}</li>`;
                 }
             });
             if (listType) listHtml += `</${listType}>`;
@@ -255,25 +297,17 @@ const markdownToHtml = (markdown) => {
         }
 
         // Paragraphs
-        return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+        return `<p>${processInline(block.replace(/\n/g, '<br>'))}</p>`;
     });
 
-    let fullHtml = htmlBlocks.join('');
-
-    // Inline elements
-    fullHtml = fullHtml
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`([^`]+)`/g, '<code style="background-color: #4a5568; color: #e2e8f0; padding: 0.2em 0.4em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
-
-    return fullHtml;
+    return htmlBlocks.join('');
 };
 
 const summarizeCodeInChunks = async (teamContext, persona, teamData, progressCallback, totalSteps) => {
     const allFiles = teamData.folderFiles || [];
     const allContent = allFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
     
-    const CHUNK_SIZE = 80000; // Approx characters for a chunk
+    const CHUNK_SIZE = 80000;
     const chunks = [];
     for (let i = 0; i < allContent.length; i += CHUNK_SIZE) {
         chunks.push(allContent.substring(i, i + CHUNK_SIZE));
@@ -319,7 +353,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     const persona = getBaseSystemPersona(team);
     
     progressCallback({ progress: 5, message: 'Construindo contexto inicial...' });
-    let teamContext = buildTeamContext(teamData, { includeFileContent: false }); // Start with file list
+    let teamContext = buildTeamContext(teamData, { includeFileContent: false }); 
 
     let knowledgeBase = teamContext;
     const hasCodeContext = teamData.folderFiles || teamData.uploadedCodeFiles || teamData.pastedCode;
@@ -357,23 +391,25 @@ export const generateFullDocumentContent = async (params, structures, progressCa
             : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor.";
 
         const sectionPrompt = `
-            Você é um escritor técnico contribuindo para uma seção de um documento maior. O documento completo já possui uma estrutura de tópicos. Sua única tarefa é escrever o corpo do texto para a seção específica: "**${section.title}**".
+            Você é um engenheiro sênior escrevendo uma seção de um documento técnico. Sua tarefa é escrever o conteúdo para a seção "**${section.title}**", usando APENAS as informações disponíveis no contexto abaixo.
 
-            **REGRAS CRÍTICAS:**
-            1.  **FOCO ABSOLUTO:** Escreva *apenas* sobre o tópico "${section.title}". Não adicione introduções sobre o projeto, resumos gerais, ou conteúdo de outras seções. Vá direto ao ponto.
-            2.  **CONTEÚDO, NÃO ESTRUTURA:** Sua resposta deve ser o conteúdo textual da seção. **NÃO crie uma nova lista de tópicos ou subtópicos** dentro da sua resposta, a menos que seja uma lista de itens pertinente ao conteúdo (ex: uma lista de parâmetros).
-            3.  **SEM TÍTULO:** Não repita o título "**${section.title}**" no início da sua resposta. Comece diretamente com o primeiro parágrafo ou elemento de conteúdo.
-            4.  **FORMATO:** Use Markdown simples (listas com \`-\` ou \`1.\`, negrito com \`**\`, etc.).
-            5.  **AUDIÊNCIA:** ${audiencePrompt}
-            6.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+            **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
+            1.  **CONCISÃO MÁXIMA:** Seja extremamente conciso e direto. A documentação final será a junção de várias partes, então cada parte deve ser curta e focada.
+            2.  **BASEADO EM FATOS:** Escreva *apenas* o que pode ser diretamente comprovado pelo "Contexto de Conhecimento" fornecido. NÃO invente funcionalidades, não adicione explicações genéricas, tutoriais ou "recheio". Se o contexto não menciona algo, não escreva sobre isso.
+            3.  **FOCO NO TÓPICO:** Sua resposta deve ser exclusivamente sobre "**${section.title}**". Ignore todas as outras partes do projeto.
+            4.  **SEM REDUNDÂNCIA:** Não adicione introduções, conclusões ou resumos sobre o projeto em geral. Apenas o conteúdo específico da seção.
+            5.  **SEM TÍTULO:** Não repita o título "**${section.title}**". Comece sua resposta diretamente com o conteúdo.
+            6.  **FORMATO:** Use Markdown simples (listas com \`-\` ou \`1.\`, negrito com \`**\`, etc.).
+            7.  **AUDIÊNCIA:** ${audiencePrompt}
+            8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
             
-            **Contexto de Conhecimento (Use isso para informar sua escrita):**
+            **Contexto de Conhecimento (Sua única fonte de verdade):**
             - Nome do Projeto: ${projectName}
             - Descrição Geral: ${description}
             - Resumos Técnicos e Arquitetura:
             ${knowledgeBase}
 
-            Agora, escreva o conteúdo para a seção "${section.title}".
+            Agora, escreva o conteúdo conciso e factual para a seção "${section.title}".
         `;
         
         const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }];
