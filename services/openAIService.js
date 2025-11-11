@@ -200,145 +200,161 @@ export const generateSupportStructure = (params) => generateStructure(params, 'u
 const markdownToHtml = (text) => {
     let htmlContent = text;
     // Basic Sanitation & Table cleanup (simple version)
-    htmlContent = htmlContent.replace(/^\s*\|?\s*:?-{3,}:?\s*\|?\s*$/gm, '').replace(/^\s*\|(.*?)\|?\s*$/gm, '$1').trim();
-    htmlContent = htmlContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    htmlContent = htmlContent.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    htmlContent = htmlContent.replace(/\|---*\|/g, ''); // Remove table header lines
+    htmlContent = htmlContent.replace(/\|\s*([^|]+?)\s*\|/g, (match, p1) => `<td>${p1.trim()}</td>`); 
+    htmlContent = `<table>\n${htmlContent.split('\n').map(row => `  <tr>\n    ${row}\n  </tr>`).join('\n')}\n</table>`;
+
+    // Headers
+    htmlContent = htmlContent.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    htmlContent = htmlContent.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    htmlContent = htmlContent.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    // Bold
+    htmlContent = htmlContent.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
+    // Italic
+    htmlContent = htmlContent.replace(/\*(.*)\*/gim, '<em>$1</em>');
+    // Strikethrough
+    htmlContent = htmlContent.replace(/~~(.*)~~/gim, '<del>$1</del>');
+    // Inline code
+    htmlContent = htmlContent.replace(/`([^`]+)`/gim, '<code>$1</code>');
+    // Blockquotes
+    htmlContent = htmlContent.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+    // Unordered Lists
+    htmlContent = htmlContent.replace(/^\s*[-*] (.*)/gim, '<ul><li>$1</li></ul>');
+    htmlContent = htmlContent.replace(/<\/ul>\n<ul>/gim, ''); // Merge consecutive lists
+    // Ordered Lists
+    htmlContent = htmlContent.replace(/^\s*\d+\. (.*)/gim, '<ol><li>$1</li></ol>');
+    htmlContent = htmlContent.replace(/<\/ol>\n<ol>/gim, ''); // Merge consecutive lists
+    // Code blocks
+    htmlContent = htmlContent.replace(/```(\w*)\n([\s\S]*?)```/gim, (match, lang, code) => {
+      const languageClass = lang ? ` class="language-${lang}"` : '';
+      return `<pre><code${languageClass}>${code.trim()}</code></pre>`;
+    });
+    // Paragraphs
+    htmlContent = htmlContent.split('\n').map(p => p.trim() ? `<p>${p}</p>` : '').join('');
+    // Cleanup: Remove <p> tags around block elements
+    htmlContent = htmlContent.replace(/<p><(h[1-6]|ul|ol|pre|blockquote|table)/gim, '<$1');
+    htmlContent = htmlContent.replace(/<\/(h[1-6]|ul|ol|pre|blockquote|table)><\/p>/gim, '</$1>');
     
-    // Process lists first to keep them as single blocks
-    htmlContent = htmlContent.replace(/((?:^[ \t]*[-*] .*(?:\n|$))+)/gm, (match) => `<ul>${match.trim().split('\n').map(line => `<li>${line.replace(/^[ \t]*[-*]\s+/, '')}</li>`).join('')}</ul>`);
-    htmlContent = htmlContent.replace(/((?:^[ \t]*\d+\. .*(?:\n|$))+)/gm, (match) => `<ol>${match.trim().split('\n').map(line => `<li>${line.replace(/^[ \t]*\d+\.\s+/, '')}</li>`).join('')}</ol>`);
-
-    // Process other block-level elements
-    htmlContent = htmlContent.replace(/^###### (.*$)/gm, '<h6>$1</h6>').replace(/^##### (.*$)/gm, '<h5>$1</h5>').replace(/^#### (.*$)/gm, '<h4>$1</h4>').replace(/^### (.*$)/gm, '<h3>$1</h3>').replace(/^## (.*$)/gm, '<h2>$1</h2>').replace(/^# (.*$)/gm, '<h1>$1</h1>');
-    htmlContent = htmlContent.replace(/^\s*(?:\*|-|_){3,}\s*$/gm, '<hr />');
-
-    // Process inline elements
-    htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/`+([^`]+?)`+/g, '<code>$1</code>');
-
-    // Process paragraphs
-    const paragraphs = htmlContent.split(/\n\n+/);
-    htmlContent = paragraphs.map(p => {
-        if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<ol') || p.startsWith('<hr')) return p;
-        if (p.trim() === '') return '';
-        return `<p>${p.replace(/\n/g, '<br />')}</p>`;
-    }).join('');
-
-    // Final cleanup
-    htmlContent = htmlContent.replace(/<p><br \/><\/p>/g, '');
     return htmlContent;
-}
+};
 
-const estimateTokens = (text) => text ? Math.ceil(text.length / 4) : 0;
+const summarizeCodeInChunks = async (teamContext, persona, teamData, progressCallback, totalSteps) => {
+    const allFiles = teamData.folderFiles || [];
+    const allContent = allFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
+    
+    const CHUNK_SIZE = 80000; // Approx characters for a chunk
+    const chunks = [];
+    for (let i = 0; i < allContent.length; i += CHUNK_SIZE) {
+        chunks.push(allContent.substring(i, i + CHUNK_SIZE));
+    }
+
+    const summaries = [];
+    const baseProgress = 10;
+    const progressPerChunk = (80 - baseProgress) / (chunks.length || 1);
+    
+    if (chunks.length > 1) {
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            progressCallback({ progress: baseProgress + (i * progressPerChunk), message: `Resumindo parte ${i + 1} de ${chunks.length} do código...` });
+            
+            const summaryPrompt = `Aja como um engenheiro sênior. O texto a seguir é uma parte de um projeto de software maior. Resuma o propósito técnico desta parte específica do código, focando em suas funcionalidades, responsabilidades e interações. Responda em Português do Brasil.\n\n${chunk}`;
+            
+            const messages = [
+                { role: "system", content: persona },
+                { role: "user", content: buildUserMessageContent(summaryPrompt, teamData) }
+            ];
+            
+            const summary = await callOpenAI(messages);
+            summaries.push(summary);
+        }
+    } else {
+         progressCallback({ progress: baseProgress, message: `Analisando o código...` });
+         const summaryPrompt = `Aja como um engenheiro sênior. O texto a seguir representa um projeto de software. Resuma o propósito técnico deste código, focando em suas funcionalidades, responsabilidades e interações. Responda em Português do Brasil.\n\n${allContent}`;
+         const messages = [
+            { role: "system", content: persona },
+            { role: "user", content: buildUserMessageContent(summaryPrompt, teamData) }
+         ];
+         const summary = await callOpenAI(messages);
+         summaries.push(summary);
+    }
+    
+    return summaries.join('\n\n---\n\n');
+};
 
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
-  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+    if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+    
+    const { projectName, description, team, teamData, docType } = params;
+    const persona = getBaseSystemPersona(team);
+    
+    progressCallback({ progress: 5, message: 'Construindo contexto inicial...' });
+    let teamContext = buildTeamContext(teamData, { includeFileContent: false }); // Start with file list
 
-  const { projectName, description, team, docType, teamData } = params;
-  const { technicalStructure, supportStructure } = structures;
-  const persona = getBaseSystemPersona(team);
-  
-  // --- FASE 1: Resumo do Código para criar a base de conhecimento ---
-  progressCallback({ progress: 5, message: 'Analisando o código-fonte...' });
-  const allCodeFiles = [...(teamData.folderFiles || []), ...(teamData.uploadedCodeFiles || [])];
-  let summarizedContext = '';
-  const CHUNK_TOKEN_LIMIT = 100000;
+    // PHASE 1: Summarize code if it exists, to create the knowledge base
+    let knowledgeBase = teamContext;
+    const hasCodeContext = teamData.folderFiles || teamData.uploadedCodeFiles || teamData.pastedCode;
 
-  if (allCodeFiles.length > 0) {
-      const chunks = [];
-      let currentChunkFiles = [];
-      let currentChunkTokens = 0;
-      for (const file of allCodeFiles) {
-          const fileTokens = estimateTokens(file.content);
-          if (currentChunkTokens + fileTokens > CHUNK_TOKEN_LIMIT && currentChunkFiles.length > 0) {
-              chunks.push(currentChunkFiles);
-              currentChunkFiles = [];
-              currentChunkTokens = 0;
-          }
-          currentChunkFiles.push(file);
-          currentChunkTokens += fileTokens;
-      }
-      if (currentChunkFiles.length > 0) chunks.push(currentChunkFiles);
-
-      const summaryPersona = 'Você é um engenheiro de software sênior. Sua tarefa é ler o código-fonte e criar um resumo técnico conciso e informativo. Foque no propósito, principais funcionalidades, lógica de negócios e como ele se conecta com outras partes de um sistema. O resumo será usado como contexto para gerar uma documentação completa. Responda APENAS com o resumo, em Português do Brasil.';
-      
-      const summaryPromises = chunks.map(async (chunk, i) => {
-          const progress = 5 + Math.round(((i + 1) / chunks.length) * 45); // Summarization takes ~45% of progress
-          progressCallback({ progress, message: chunks.length > 1 ? `Resumindo parte ${i + 1} de ${chunks.length}...` : `Resumindo arquivos...` });
-          
-          const chunkContent = chunk.map(file => `--- Arquivo: ${file.path || file.name} ---\n${file.content}`).join('\n\n');
-          const summaryPrompt = `Analise este CONJUNTO de arquivos de código e crie um resumo técnico. Descreva a arquitetura, as responsabilidades e as interações.\n\n${chunkContent}`;
-          const summary = await callOpenAI([{ role: "system", content: summaryPersona }, { role: "user", content: summaryPrompt }]);
-          return `--- Resumo da Parte ${i + 1} de ${chunks.length} ---\n${summary}`;
-      });
-
-      const summaries = await Promise.all(summaryPromises);
-      summarizedContext = summaries.join('\n\n');
-  }
-
-  progressCallback({ progress: 50, message: 'Compilando base de conhecimento...' });
-  const otherTeamData = { ...teamData, folderFiles: [], uploadedCodeFiles: [] };
-  const otherContext = buildTeamContext(otherTeamData);
-  const finalContext = summarizedContext ? `**Resumos do Código-Fonte:**\n${summarizedContext}\n\n**Outros Contextos Fornecidos:**\n${otherContext}` : otherContext;
-
-  // --- FASE 2: Geração de conteúdo, seção por seção ---
-  let fullMarkdownResponse = "";
-  const allStructures = [];
-  if ((docType === 'technical' || docType === 'both') && technicalStructure?.length > 0) {
-      allStructures.push({ type: 'Técnica', structure: technicalStructure });
-  }
-  if ((docType === 'support' || docType === 'both') && supportStructure?.length > 0) {
-      allStructures.push({ type: 'Guia do Usuário', structure: supportStructure });
-  }
-
-  const flattenedTopics = allStructures.flatMap(s => s.structure.flatMap(item => [{...item, type: s.type}, ...(item.children || []).map(child => ({...child, type: s.type}))]));
-  
-  for (let i = 0; i < flattenedTopics.length; i++) {
-      const topic = flattenedTopics[i];
-      const progress = 50 + Math.round(((i + 1) / flattenedTopics.length) * 48); // Generation takes ~48%
-      progressCallback({ progress, message: `Escrevendo seção: "${topic.title}"` });
-
-      const languageStyle = topic.type === 'Técnica' 
-          ? "linguagem técnica, precisa e detalhada" 
-          : "linguagem simples e direta, focada em um usuário não-técnico, com tutoriais passo a passo";
-
-      const sectionPrompt = `
-        Sua tarefa é escrever o conteúdo APENAS para a seguinte seção de um documento: **"${topic.title}"**.
-
-        **TIPO DE DOCUMENTO:** ${topic.type}
-        **ESTILO DE LINGUAGEM REQUERIDO:** Use uma ${languageStyle}.
-
-        **REGRAS CRÍTICAS:**
-        1.  **FOCO TOTAL:** Escreva **SOMENTE** sobre o tópico "${topic.title}". NÃO adicione introduções, conclusões ou informações de outras seções.
-        2.  **BASEADO EM EVIDÊNCIAS:** Sua análise deve se basear **estritamente** no contexto fornecido. **NÃO INVENTE** detalhes.
-        3.  **COMPLETUDE:** Seja **exaustivo** e **detalhado** sobre o tópico, usando todo o contexto relevante.
-        4.  **FORMATO MARKDOWN:** Use formatação Markdown (títulos com ##, listas com *, negrito com **). **PROIBIDO** o uso de blocos de código com três crases (\`\`\`). Para código em linha, use crases simples (\`).
+    if (hasCodeContext) {
+        const fullCodeContext = buildTeamContext(teamData);
+        const codeSummaries = await summarizeCodeInChunks(fullCodeContext, persona, teamData, progressCallback, 100);
+        knowledgeBase += '\n\n**Resumo Técnico do Código-Fonte:**\n' + codeSummaries;
+    }
+    
+    const META_SUMMARY_THRESHOLD = 90000; // Chars
+    if (knowledgeBase.length > META_SUMMARY_THRESHOLD) {
+        progressCallback({ progress: 85, message: 'Base de conhecimento muito grande, criando meta-resumo...' });
+        const metaSummaryPrompt = `Você é um arquiteto de software sênior. Sua tarefa é sintetizar os seguintes resumos técnicos detalhados de várias partes de um projeto em um único resumo coeso de alto nível. Este meta-resumo será usado para escrever a documentação final. Capture a essência da arquitetura, as principais funcionalidades e as interações entre os componentes. Responda em Português do Brasil.\n\nResumos a serem sintetizados:\n${knowledgeBase}`;
         
-        **BASE DE CONHECIMENTO COMPLETA DO PROJETO (Use para escrever a seção):**
-        ---
-        **Nome do Projeto:** ${projectName}
-        **Descrição:** ${description}
-        **Contexto Geral:**
-        ${finalContext}
-        ---
+        const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(metaSummaryPrompt, teamData) }];
+        knowledgeBase = await callOpenAI(messages);
+    }
 
-        Agora, gere o conteúdo Markdown completo e detalhado exclusivamente para a seção: **"${topic.title}"**. Comece diretamente com o título da seção usando a formatação Markdown apropriada (ex: ## ${topic.title}).
-      `;
-      
-      const messages = [
-        { role: "system", content: getBaseSystemPersona(team) },
-        { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }
-      ];
+    // PHASE 2: Generate content for each section
+    const allSections = [];
+    if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
+    if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
+    
+    let fullHtmlContent = '';
+    const baseProgress = 90;
+    const progressPerSection = (100 - baseProgress) / (allSections.length || 1);
 
-      const sectionContent = await callOpenAI(messages);
-      fullMarkdownResponse += sectionContent + "\n\n";
-  }
+    for (let i = 0; i < allSections.length; i++) {
+        const section = allSections[i];
+        progressCallback({ progress: baseProgress + (i * progressPerSection), message: `Escrevendo seção: "${section.title}"...` });
+        
+        const isSupportTopic = structures.supportStructure.some(s => s.title === section.title || s.children?.some(c => c.title === section.title));
+        const audiencePrompt = isSupportTopic
+            ? "Escreva de forma clara e simples, como se estivesse explicando para um usuário final não-técnico."
+            : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor.";
 
+        const sectionPrompt = `
+            Usando a base de conhecimento sobre o projeto, escreva o conteúdo APENAS para a seção "**${section.title}**".
+            
+            **REGRAS PARA O CONTEÚDO:**
+            1.  **FOCO TOTAL:** Não escreva sobre outras seções. Concentre-se 100% no tópico "${section.title}".
+            2.  **FORMATO:** Use Markdown para formatar sua resposta (listas, negrito, etc.).
+            3.  **PROFUNDIDADE:** Seja o mais completo e detalhado possível com base no conhecimento disponível.
+            4.  **AUDIÊNCIA:** ${audiencePrompt}
+            5.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+            6.  **NÃO REPITA O TÍTULO:** Apenas escreva o conteúdo da seção, sem o título principal.
 
-  progressCallback({ progress: 98, message: 'Polindo os últimos detalhes...' });
-  
-  const contentMarkdown = fullMarkdownResponse.trim();
-  console.log("%c[DEBUG] Markdown Final:", "color: #2196f3; font-weight: bold;", `\n\n${contentMarkdown}`);
-  const htmlContent = markdownToHtml(contentMarkdown);
-  console.log("%c[DEBUG] HTML Final:", "color: #4caf50; font-weight: bold;", `\n\n${htmlContent}`);
-  
-  return { title: projectName, content: htmlContent };
+            **Base de Conhecimento do Projeto:**
+            - Nome: ${projectName}
+            - Descrição: ${description}
+            - Contexto Detalhado:
+            ${knowledgeBase}
+        `;
+        
+        const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }];
+        const sectionContent = await callOpenAI(messages);
+        
+        const headingLevel = section.children ? 1 : 2; // Simple logic: top-level is h1, sub-item is h2
+        fullHtmlContent += `<h${headingLevel}>${section.title}</h${headingLevel}>\n${markdownToHtml(sectionContent)}\n\n`;
+    }
+
+    return {
+        title: projectName,
+        content: fullHtmlContent
+    };
 };
