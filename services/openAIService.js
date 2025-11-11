@@ -197,46 +197,76 @@ const generateStructure = async (params, promptType) => {
 export const generateDocumentStructure = (params) => generateStructure(params, 'um documento técnico');
 export const generateSupportStructure = (params) => generateStructure(params, 'um Guia do Usuário Final');
 
-const markdownToHtml = (text) => {
-    let htmlContent = text;
-    // Basic Sanitation & Table cleanup (simple version)
-    htmlContent = htmlContent.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    htmlContent = htmlContent.replace(/\|---*\|/g, ''); // Remove table header lines
-    htmlContent = htmlContent.replace(/\|\s*([^|]+?)\s*\|/g, (match, p1) => `<td>${p1.trim()}</td>`); 
-    htmlContent = `<table>\n${htmlContent.split('\n').map(row => `  <tr>\n    ${row}\n  </tr>`).join('\n')}\n</table>`;
+const markdownToHtml = (markdown) => {
+    if (!markdown) return '';
 
-    // Headers
-    htmlContent = htmlContent.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-    htmlContent = htmlContent.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-    htmlContent = htmlContent.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-    // Bold
-    htmlContent = htmlContent.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
-    // Italic
-    htmlContent = htmlContent.replace(/\*(.*)\*/gim, '<em>$1</em>');
-    // Strikethrough
-    htmlContent = htmlContent.replace(/~~(.*)~~/gim, '<del>$1</del>');
-    // Inline code
-    htmlContent = htmlContent.replace(/`([^`]+)`/gim, '<code>$1</code>');
-    // Blockquotes
-    htmlContent = htmlContent.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
-    // Unordered Lists
-    htmlContent = htmlContent.replace(/^\s*[-*] (.*)/gim, '<ul><li>$1</li></ul>');
-    htmlContent = htmlContent.replace(/<\/ul>\n<ul>/gim, ''); // Merge consecutive lists
-    // Ordered Lists
-    htmlContent = htmlContent.replace(/^\s*\d+\. (.*)/gim, '<ol><li>$1</li></ol>');
-    htmlContent = htmlContent.replace(/<\/ol>\n<ol>/gim, ''); // Merge consecutive lists
-    // Code blocks
-    htmlContent = htmlContent.replace(/```(\w*)\n([\s\S]*?)```/gim, (match, lang, code) => {
-      const languageClass = lang ? ` class="language-${lang}"` : '';
-      return `<pre><code${languageClass}>${code.trim()}</code></pre>`;
+    const blocks = markdown.split('\n\n');
+
+    const htmlBlocks = blocks.map(block => {
+        block = block.trim();
+        if (block.length === 0) return '';
+
+        // Code Blocks (```)
+        if (block.startsWith('```')) {
+            const code = block.replace(/```\w*\n?/, '').replace(/```$/, '').trim();
+            const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<pre style="background-color: #2d3748; color: #e2e8f0; padding: 1em; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.5;"><code>${escapedCode}</code></pre>`;
+        }
+        
+        // Headers (#, ##, ###)
+        if (block.startsWith('### ')) return `<h3>${block.substring(4)}</h3>`;
+        if (block.startsWith('## ')) return `<h2>${block.substring(3)}</h2>`;
+        if (block.startsWith('# ')) return `<h1>${block.substring(2)}</h1>`;
+        
+        // Blockquotes (>)
+        if (block.startsWith('> ')) {
+             const quoteContent = block.split('\n').map(line => line.replace(/^\> ?/, '')).join('<br>');
+             return `<blockquote style="border-left: 4px solid #6366f1; padding-left: 1em; margin-left: 0; color: #d1d5db; font-style: italic;">${quoteContent}</blockquote>`;
+        }
+
+        // Lists (*, -, 1.)
+        if (block.match(/^(\s*[-*] .*|\s*\d+\. .*)/m)) {
+            const lines = block.split('\n');
+            let listHtml = '';
+            let listType = null;
+
+            lines.forEach(line => {
+                const ulMatch = line.match(/^\s*[-*] (.*)/);
+                const olMatch = line.match(/^\s*\d+\. (.*)/);
+
+                if (ulMatch) {
+                    if (listType !== 'ul') {
+                        if (listType) listHtml += `</${listType}>`;
+                        listHtml += '<ul>';
+                        listType = 'ul';
+                    }
+                    listHtml += `<li>${ulMatch[1]}</li>`;
+                } else if (olMatch) {
+                     if (listType !== 'ol') {
+                        if (listType) listHtml += `</${listType}>`;
+                        listHtml += '<ol>';
+                        listType = 'ol';
+                    }
+                    listHtml += `<li>${olMatch[1]}</li>`;
+                }
+            });
+            if (listType) listHtml += `</${listType}>`;
+            return listHtml;
+        }
+
+        // Paragraphs
+        return `<p>${block.replace(/\n/g, '<br>')}</p>`;
     });
-    // Paragraphs
-    htmlContent = htmlContent.split('\n').map(p => p.trim() ? `<p>${p}</p>` : '').join('');
-    // Cleanup: Remove <p> tags around block elements
-    htmlContent = htmlContent.replace(/<p><(h[1-6]|ul|ol|pre|blockquote|table)/gim, '<$1');
-    htmlContent = htmlContent.replace(/<\/(h[1-6]|ul|ol|pre|blockquote|table)><\/p>/gim, '</$1>');
-    
-    return htmlContent;
+
+    let fullHtml = htmlBlocks.join('');
+
+    // Inline elements
+    fullHtml = fullHtml
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code style="background-color: #4a5568; color: #e2e8f0; padding: 0.2em 0.4em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
+
+    return fullHtml;
 };
 
 const summarizeCodeInChunks = async (teamContext, persona, teamData, progressCallback, totalSteps) => {
@@ -291,7 +321,6 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     progressCallback({ progress: 5, message: 'Construindo contexto inicial...' });
     let teamContext = buildTeamContext(teamData, { includeFileContent: false }); // Start with file list
 
-    // PHASE 1: Summarize code if it exists, to create the knowledge base
     let knowledgeBase = teamContext;
     const hasCodeContext = teamData.folderFiles || teamData.uploadedCodeFiles || teamData.pastedCode;
 
@@ -301,7 +330,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
         knowledgeBase += '\n\n**Resumo Técnico do Código-Fonte:**\n' + codeSummaries;
     }
     
-    const META_SUMMARY_THRESHOLD = 90000; // Chars
+    const META_SUMMARY_THRESHOLD = 90000;
     if (knowledgeBase.length > META_SUMMARY_THRESHOLD) {
         progressCallback({ progress: 85, message: 'Base de conhecimento muito grande, criando meta-resumo...' });
         const metaSummaryPrompt = `Você é um arquiteto de software sênior. Sua tarefa é sintetizar os seguintes resumos técnicos detalhados de várias partes de um projeto em um único resumo coeso de alto nível. Este meta-resumo será usado para escrever a documentação final. Capture a essência da arquitetura, as principais funcionalidades e as interações entre os componentes. Responda em Português do Brasil.\n\nResumos a serem sintetizados:\n${knowledgeBase}`;
@@ -310,7 +339,6 @@ export const generateFullDocumentContent = async (params, structures, progressCa
         knowledgeBase = await callOpenAI(messages);
     }
 
-    // PHASE 2: Generate content for each section
     const allSections = [];
     if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
     if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
@@ -329,27 +357,31 @@ export const generateFullDocumentContent = async (params, structures, progressCa
             : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor.";
 
         const sectionPrompt = `
-            Usando a base de conhecimento sobre o projeto, escreva o conteúdo APENAS para a seção "**${section.title}**".
-            
-            **REGRAS PARA O CONTEÚDO:**
-            1.  **FOCO TOTAL:** Não escreva sobre outras seções. Concentre-se 100% no tópico "${section.title}".
-            2.  **FORMATO:** Use Markdown para formatar sua resposta (listas, negrito, etc.).
-            3.  **PROFUNDIDADE:** Seja o mais completo e detalhado possível com base no conhecimento disponível.
-            4.  **AUDIÊNCIA:** ${audiencePrompt}
-            5.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
-            6.  **NÃO REPITA O TÍTULO:** Apenas escreva o conteúdo da seção, sem o título principal.
+            Você é um escritor técnico contribuindo para uma seção de um documento maior. O documento completo já possui uma estrutura de tópicos. Sua única tarefa é escrever o corpo do texto para a seção específica: "**${section.title}**".
 
-            **Base de Conhecimento do Projeto:**
-            - Nome: ${projectName}
-            - Descrição: ${description}
-            - Contexto Detalhado:
+            **REGRAS CRÍTICAS:**
+            1.  **FOCO ABSOLUTO:** Escreva *apenas* sobre o tópico "${section.title}". Não adicione introduções sobre o projeto, resumos gerais, ou conteúdo de outras seções. Vá direto ao ponto.
+            2.  **CONTEÚDO, NÃO ESTRUTURA:** Sua resposta deve ser o conteúdo textual da seção. **NÃO crie uma nova lista de tópicos ou subtópicos** dentro da sua resposta, a menos que seja uma lista de itens pertinente ao conteúdo (ex: uma lista de parâmetros).
+            3.  **SEM TÍTULO:** Não repita o título "**${section.title}**" no início da sua resposta. Comece diretamente com o primeiro parágrafo ou elemento de conteúdo.
+            4.  **FORMATO:** Use Markdown simples (listas com \`-\` ou \`1.\`, negrito com \`**\`, etc.).
+            5.  **AUDIÊNCIA:** ${audiencePrompt}
+            6.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+            
+            **Contexto de Conhecimento (Use isso para informar sua escrita):**
+            - Nome do Projeto: ${projectName}
+            - Descrição Geral: ${description}
+            - Resumos Técnicos e Arquitetura:
             ${knowledgeBase}
+
+            Agora, escreva o conteúdo para a seção "${section.title}".
         `;
         
         const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }];
         const sectionContent = await callOpenAI(messages);
         
-        const headingLevel = section.children ? 1 : 2; // Simple logic: top-level is h1, sub-item is h2
+        const isSubItem = structures.technicalStructure.some(s => s.children?.some(c => c.id === section.id)) || structures.supportStructure.some(s => s.children?.some(c => c.id === section.id));
+        const headingLevel = isSubItem ? 2 : 1;
+        
         fullHtmlContent += `<h${headingLevel}>${section.title}</h${headingLevel}>\n${markdownToHtml(sectionContent)}\n\n`;
     }
 
