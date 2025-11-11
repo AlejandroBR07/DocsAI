@@ -188,25 +188,169 @@ const FileTree = ({ nodes, selectedPaths, onToggleNode }) => {
     );
 };
 
+const StructureEditor = ({ structure, setStructure, title, description }) => {
+    const draggedItem = useRef(null);
+    const [dropIndicator, setDropIndicator] = useState(null);
+
+    const handleStructureChange = (newTitle, index, subIndex = null) => {
+        const newStructure = JSON.parse(JSON.stringify(structure));
+        if (subIndex === null) { newStructure[index].title = newTitle; } 
+        else { newStructure[index].children[subIndex].title = newTitle; }
+        setStructure(newStructure);
+    };
+    const addStructureItem = (parentIndex = null) => {
+        const newStructure = JSON.parse(JSON.stringify(structure));
+        const newItem = { title: 'Novo Tópico', id: Date.now() };
+        if (parentIndex === null) { newStructure.push(newItem); } 
+        else {
+            if (!newStructure[parentIndex].children) newStructure[parentIndex].children = [];
+            newStructure[parentIndex].children.push({ ...newItem, id: Date.now() + 1 });
+        }
+        setStructure(newStructure);
+    };
+    const removeStructureItem = (index, subIndex = null) => {
+        let newStructure = JSON.parse(JSON.stringify(structure));
+        if (subIndex === null) { newStructure.splice(index, 1); } 
+        else { newStructure[index].children.splice(subIndex, 1); }
+        setStructure(newStructure);
+    };
+
+    const handleDragStart = (e, index, parentIndex = null) => {
+        draggedItem.current = { index, parentIndex };
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target); // for firefox
+        setTimeout(() => { e.target.style.opacity = '0.5'; }, 0);
+    };
+
+    const handleDragEnd = (e) => {
+        if (e.target && typeof e.target.style !== 'undefined') {
+          e.target.style.opacity = '1';
+        }
+        draggedItem.current = null;
+        setDropIndicator(null);
+    };
+
+    const handleDragOver = (e, index, parentIndex = null) => {
+        e.preventDefault();
+        if (draggedItem.current) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const isAfter = e.clientY > rect.top + rect.height / 2;
+            setDropIndicator({ index, parentIndex, isAfter });
+        }
+    };
+    
+    const handleDrop = (e, dropIndex, dropParentIndex = null) => {
+        e.preventDefault();
+        if (!draggedItem.current || !dropIndicator) return;
+    
+        const { index: dragIndex, parentIndex: dragParentIndex } = draggedItem.current;
+        const { index: finalDropIndex, parentIndex: finalDropParentIndex, isAfter } = dropIndicator;
+    
+        if (dragIndex === finalDropIndex && dragParentIndex === finalDropParentIndex) {
+            setDropIndicator(null);
+            return;
+        }
+    
+        let newStructure = JSON.parse(JSON.stringify(structure));
+        let itemToMove;
+    
+        // 1. Remove item from its original position
+        if (dragParentIndex === null) {
+            [itemToMove] = newStructure.splice(dragIndex, 1);
+        } else {
+            itemToMove = newStructure[dragParentIndex].children.splice(dragIndex, 1)[0];
+        }
+
+        // Prevent moving a parent into a child list
+        if (itemToMove.children && itemToMove.children.length > 0 && finalDropParentIndex !== null) {
+             setStructure(structure); // Revert optimistic UI
+             setDropIndicator(null);
+             return;
+        }
+    
+        // 2. Insert item into its new position
+        let targetIndex = finalDropIndex;
+        if (isAfter) targetIndex++;
+    
+        if (finalDropParentIndex === null) {
+            newStructure.splice(targetIndex, 0, itemToMove);
+        } else {
+            if (!newStructure[finalDropParentIndex].children) {
+                newStructure[finalDropParentIndex].children = [];
+            }
+            newStructure[finalDropParentIndex].children.splice(targetIndex, 0, itemToMove);
+        }
+    
+        setStructure(newStructure);
+        setDropIndicator(null);
+    };
+
+    const StructureItem = ({ item, index, parentIndex = null, isLast }) => {
+        const showDropIndicator = dropIndicator && dropIndicator.index === index && dropIndicator.parentIndex === parentIndex;
+        const isChild = parentIndex !== null;
+
+        return React.createElement('div', { className: `relative group ${isChild ? 'ml-6' : ''}`},
+          showDropIndicator && !dropIndicator.isAfter && React.createElement('div', { className: 'absolute -top-[5px] left-0 w-full h-1 bg-indigo-500 rounded-full z-10' }),
+          isChild && React.createElement('div', { className: "absolute -left-[13px] top-0 h-full w-px bg-gray-700" }),
+          isChild && React.createElement('div', { className: `absolute -left-[13px] top-0 ${isLast ? 'h-5' : 'h-full'} w-3 border-b border-l border-gray-700 rounded-bl-lg` }),
+          React.createElement('div', {
+              draggable: true,
+              onDragStart: (e) => handleDragStart(e, index, parentIndex),
+              onDragEnd: handleDragEnd,
+              onDragOver: (e) => handleDragOver(e, index, parentIndex),
+              onDrop: (e) => handleDrop(e, index, parentIndex),
+              onDragLeave: () => setDropIndicator(null),
+              className: 'flex items-center gap-2 p-1.5 rounded-lg bg-gray-800/70 border border-gray-700/50 hover:border-gray-600 transition-all my-1.5'
+          },
+              React.createElement(DragHandleIcon, { className: 'h-5 w-5 cursor-grab text-gray-500 flex-shrink-0' }),
+              React.createElement('input', { type: 'text', value: item.title, onChange: (e) => handleStructureChange(e.target.value, parentIndex === null ? index : parentIndex, parentIndex === null ? null : index), className: 'w-full bg-transparent text-white text-sm focus:outline-none focus:ring-0 border-0 p-0' }),
+              !isChild && React.createElement('button', { onClick: () => addStructureItem(index), title: "Adicionar sub-tópico", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-600 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
+              React.createElement('button', { onClick: () => removeStructureItem(index, parentIndex), title: "Remover", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-red-500 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
+          ),
+          item.children && item.children.length > 0 && 
+          React.createElement('div', { className: "relative" },
+              item.children.map((child, subIndex) => React.createElement(StructureItem, {
+                  key: child.id,
+                  item: child,
+                  index: subIndex,
+                  parentIndex: index,
+                  isLast: subIndex === item.children.length - 1
+              }))
+          ),
+          showDropIndicator && dropIndicator.isAfter && React.createElement('div', { className: 'absolute -bottom-[5px] left-0 w-full h-1 bg-indigo-500 rounded-full z-10' })
+        );
+    };
+    
+    return React.createElement('div', { className: "p-6 space-y-4" },
+      React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, title),
+      React.createElement('p', { className: "text-sm text-gray-400" }, description),
+      React.createElement('div', { className: "max-h-96 overflow-y-auto pr-2" },
+          structure.map((item, index) => React.createElement(StructureItem, {
+              key: item.id,
+              item: item,
+              index: index,
+              isLast: index === structure.length - 1,
+          }))
+      ),
+      React.createElement('button', { onClick: () => addStructureItem(null), className: 'text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2' }, React.createElement(PlusIcon, { className: 'h-4 w-4' }), "Adicionar Tópico Principal")
+    );
+};
+
 
 const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
-  // Step 1: Form state
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [docType, setDocType] = useState('both');
   
-  // Structure Review state
   const [technicalStructure, setTechnicalStructure] = useState([]);
   const [supportStructure, setSupportStructure] = useState([]);
   
-  // General state
   const [generationStep, setGenerationStep] = useState('form'); // 'form', 'structuringTechnical', 'reviewTechnical', 'structuringSupport', 'reviewSupport', 'generating'
   const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [folderError, setFolderError] = useState('');
 
-  // Team specific context state
   const [jsonFiles, setJsonFiles] = useState([]);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [pastedJson, setPastedJson] = useState('');
@@ -214,7 +358,6 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const [jsonErrorMessage, setJsonErrorMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   
-  // Team Devs
   const [allFolderFiles, setAllFolderFiles] = useState([]);
   const [selectedFilePaths, setSelectedFilePaths] = useState(new Set());
   const [fileTreeData, setFileTreeData] = useState([]);
@@ -224,25 +367,22 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const [dependencies, setDependencies] = useState('');
   const [deploymentInfo, setDeploymentInfo] = useState('');
 
-  // Team AI
   const [systemPrompt, setSystemPrompt] = useState('');
   const [workflow, setWorkflow] = useState('');
   const [tools, setTools] = useState('');
   const [exampleIO, setExampleIO] = useState('');
   const [guardrails, setGuardrails] = useState('');
   
-  // Team UX/UI
   const [personas, setPersonas] = useState('');
   const [userFlows, setUserFlows] = useState('');
 
-  // Team Automations
   const [triggerInfo, setTriggerInfo] = useState('');
   const [externalApis, setExternalApis] = useState('');
   
   const isCancelled = useRef(false);
   const [activeTemplate, setActiveTemplate] = useState(null);
 
-  const isLoading = ['structuringTechnical', 'structuringSupport', 'generating'].includes(generationStep);
+  const isLoading = generationStep.startsWith('structuring') || generationStep === 'generating';
 
   useEffect(() => { return () => { isCancelled.current = true; }; }, []);
   useEffect(() => {
@@ -351,7 +491,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
 
   const handleGenerateSupportStructure = async () => {
     isCancelled.current = false;
-    setGenerationStep('structuringSupport'); setLoadingMessage('Criando estrutura de suporte...');
+    setGenerationStep('structuringSupport'); setLoadingMessage('Criando estrutura para o usuário...');
     try {
         const teamData = await getTeamDataContext();
         const params = { projectName, description, team: currentTeam, teamData };
@@ -381,7 +521,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       setError('');
       isCancelled.current = false;
       setProgress(0);
-      setLoadingMessage('Iniciando geração...');
+      setLoadingMessage('Iniciando geração do documento...');
 
       const progressCallback = (update) => {
           if (isCancelled.current) return;
@@ -392,7 +532,10 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       try {
           const teamData = await getTeamDataContext();
           const params = { projectName, description, team: currentTeam, docType, teamData };
-          const structures = { technicalStructure, supportStructure };
+          const structures = { 
+            technicalStructure: docType === 'support' ? [] : technicalStructure,
+            supportStructure: docType === 'technical' ? [] : supportStructure,
+          };
           const result = await generateFullDocumentContent(params, structures, progressCallback);
 
           if (!isCancelled.current) {
@@ -402,7 +545,8 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       } catch (err) {
           if (!isCancelled.current) {
               setError(err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.');
-              setGenerationStep('reviewSupport'); // Go back to the last review step
+              const fallbackStep = docType === 'support' ? 'form' : 'reviewSupport';
+              setGenerationStep(fallbackStep); // Go back to the last relevant review step
               setProgress(0);
           }
       }
@@ -498,165 +642,10 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   }
 
   const teamTemplates = TEMPLATES[currentTeam] || [];
-  const docTypeOptions = [ { id: 'technical', label: 'Técnica' }, { id: 'support', label: 'Suporte' }, { id: 'both', label: 'Ambas' }];
-
-  const StructureEditor = ({ structure, setStructure, title, description }) => {
-    const draggedItem = useRef(null);
-    const [dropIndicator, setDropIndicator] = useState(null);
-
-    const handleStructureChange = (newTitle, index, subIndex = null) => {
-        const newStructure = JSON.parse(JSON.stringify(structure));
-        if (subIndex === null) { newStructure[index].title = newTitle; } 
-        else { newStructure[index].children[subIndex].title = newTitle; }
-        setStructure(newStructure);
-    };
-    const addStructureItem = (parentIndex = null) => {
-        const newStructure = JSON.parse(JSON.stringify(structure));
-        const newItem = { title: 'Novo Tópico', id: Date.now() };
-        if (parentIndex === null) { newStructure.push(newItem); } 
-        else {
-            if (!newStructure[parentIndex].children) newStructure[parentIndex].children = [];
-            newStructure[parentIndex].children.push({ ...newItem, id: Date.now() + 1 });
-        }
-        setStructure(newStructure);
-    };
-    const removeStructureItem = (index, subIndex = null) => {
-        let newStructure = JSON.parse(JSON.stringify(structure));
-        if (subIndex === null) { newStructure.splice(index, 1); } 
-        else { newStructure[index].children.splice(subIndex, 1); }
-        setStructure(newStructure);
-    };
-
-    const handleDragStart = (e, index, parentIndex = null) => {
-        draggedItem.current = { index, parentIndex };
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', e.target.parentNode); // for firefox
-        setTimeout(() => { e.target.closest('.structure-item').style.opacity = '0.5'; }, 0);
-    };
-    const handleDragEnd = (e) => {
-        e.target.closest('.structure-item').style.opacity = '1';
-        draggedItem.current = null;
-        setDropIndicator(null);
-    };
-    const handleDragOver = (e, index, parentIndex = null) => {
-        e.preventDefault();
-        if (draggedItem.current) {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const isAfter = e.clientY > rect.top + rect.height / 2;
-            setDropIndicator({ index, parentIndex, isAfter });
-        }
-    };
-    const handleDrop = (e, dropIndex, dropParentIndex = null) => {
-        e.preventDefault();
-        if (!draggedItem.current) return;
-
-        const { index: dragIndex, parentIndex: dragParentIndex } = draggedItem.current;
-
-        // Prevent dropping onto itself
-        if (dragIndex === dropIndex && dragParentIndex === dropParentIndex) return;
-
-        const newStructure = JSON.parse(JSON.stringify(structure));
-        let itemToMove;
-
-        // Remove item from its original position
-        if (dragParentIndex === null) {
-            [itemToMove] = newStructure.splice(dragIndex, 1);
-        } else {
-            [itemToMove] = newStructure[dragParentIndex].children.splice(dragIndex, 1);
-        }
-
-        const rect = e.currentTarget.getBoundingClientRect();
-        const isAfter = e.clientY > rect.top + rect.height / 2;
-        let finalDropIndex = dropIndex;
-        if (isAfter) finalDropIndex++;
-
-        // Add item to its new position
-        if (dropParentIndex === null) {
-            // Adjust index if moving within the same list downwards
-            if (dragParentIndex === null && dragIndex < dropIndex) {
-                 finalDropIndex--;
-            }
-            newStructure.splice(finalDropIndex, 0, itemToMove);
-        } else {
-            // Adjust index if moving within the same sublist downwards
-            if (dragParentIndex === dropParentIndex && dragIndex < dropIndex) {
-                finalDropIndex--;
-            }
-            if (!newStructure[dropParentIndex].children) newStructure[dropParentIndex].children = [];
-            newStructure[dropParentIndex].children.splice(finalDropIndex, 0, itemToMove);
-        }
-        setStructure(newStructure);
-        setDropIndicator(null);
-    };
-
-    const StructureItem = ({ item, index, parentIndex = null, isLast }) => {
-        const showDropIndicator = dropIndicator && dropIndicator.index === index && dropIndicator.parentIndex === parentIndex;
-        const isChild = parentIndex !== null;
-
-        return React.createElement('div', { className: `structure-item relative ${isChild ? 'ml-6' : ''}`},
-          showDropIndicator && !dropIndicator.isAfter && React.createElement('div', { className: 'absolute -top-1 left-0 w-full h-1 bg-indigo-500 rounded-full' }),
-          isChild && React.createElement('div', { className: "absolute -left-3 top-4 h-full w-px bg-gray-700" }),
-          isChild && React.createElement('div', { className: `absolute -left-3 ${isLast ? 'h-4' : 'h-full'} w-3 border-b border-l border-gray-700 rounded-bl-md top-0` }),
-          React.createElement('div', {
-              draggable: true,
-              onDragStart: (e) => handleDragStart(e, index, parentIndex),
-              onDragEnd: handleDragEnd,
-              onDragOver: (e) => handleDragOver(e, index, parentIndex),
-              onDrop: (e) => handleDrop(e, index, parentIndex),
-              onDragLeave: () => setDropIndicator(null),
-              className: 'flex items-center gap-2 p-1.5 rounded-lg bg-gray-800/70 border border-gray-700/50 hover:border-gray-600 transition-all my-1.5'
-          },
-              React.createElement(DragHandleIcon, { className: 'h-5 w-5 cursor-grab text-gray-500 flex-shrink-0' }),
-              React.createElement('input', { type: 'text', value: item.title, onChange: (e) => handleStructureChange(e.target.value, parentIndex === null ? index : parentIndex, parentIndex === null ? null : index), className: 'w-full bg-transparent text-white text-sm focus:outline-none focus:ring-0 border-0 p-0' }),
-              !isChild && React.createElement('button', { onClick: () => addStructureItem(index), title: "Adicionar sub-tópico", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-600 rounded flex-shrink-0' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
-              React.createElement('button', { onClick: () => removeStructureItem(index, parentIndex), title: "Remover", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-red-500 rounded flex-shrink-0' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
-          ),
-          item.children && item.children.length > 0 && 
-          React.createElement('div', { className: "mt-1 space-y-1.5 relative" },
-              item.children.map((child, subIndex) => React.createElement(StructureItem, {
-                  key: child.id,
-                  item: child,
-                  index: subIndex,
-                  parentIndex: index,
-                  isLast: subIndex === item.children.length - 1
-              }))
-          ),
-          showDropIndicator && dropIndicator.isAfter && React.createElement('div', { className: 'absolute -bottom-1 left-0 w-full h-1 bg-indigo-500 rounded-full' })
-        );
-    };
-    
-    return React.createElement('div', { className: "p-6 space-y-4" },
-      React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, title),
-      React.createElement('p', { className: "text-sm text-gray-400" }, description),
-      React.createElement('div', { className: "max-h-96 overflow-y-auto pr-2" },
-          structure.map((item, index) => React.createElement(StructureItem, {
-              key: item.id,
-              item: item,
-              index: index,
-              isLast: index === structure.length - 1,
-          }))
-      ),
-      React.createElement('button', { onClick: () => addStructureItem(null), className: 'text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2' }, React.createElement(PlusIcon, { className: 'h-4 w-4' }), "Adicionar Tópico Principal")
-    );
-  };
+  const docTypeOptions = [ { id: 'technical', label: 'Técnica' }, { id: 'support', label: 'Usuário' }, { id: 'both', label: 'Ambas' }];
   
   const renderContent = () => {
     switch(generationStep) {
-        case 'structuringTechnical':
-        case 'structuringSupport':
-        case 'generating':
-             return React.createElement('div', { className: 'p-6 flex flex-col items-center justify-center text-center h-64' },
-                React.createElement(LoadingSpinner, { className: 'h-12 w-12 text-indigo-400' }),
-                React.createElement('p', { className: 'mt-4 text-lg text-white' }, loadingMessage),
-                generationStep === 'generating' && React.createElement('div', { className: "w-full mt-4 max-w-sm" },
-                     React.createElement('div', { className: "w-full bg-gray-600 rounded-full h-1.5" },
-                        React.createElement('div', {
-                            className: "bg-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out",
-                            style: { width: `${progress}%` }
-                        })
-                    )
-                )
-            );
         case 'reviewTechnical':
              return React.createElement(StructureEditor, {
                 structure: technicalStructure,
@@ -669,7 +658,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
                 structure: supportStructure,
                 setStructure: setSupportStructure,
                 title: "Revise a Estrutura do Guia do Usuário",
-                description: "Baseado no contexto, esta é a estrutura sugerida para o guia de suporte. Ajuste conforme necessário."
+                description: "Baseado no contexto, esta é a estrutura sugerida para o guia do usuário. Ajuste conforme necessário."
             });
         case 'form':
         default:
@@ -709,45 +698,36 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
   const renderFooter = () => {
       let backButton = null;
       let primaryButton = null;
-      let isPrimaryDisabled = isLoading;
+      let isPrimaryDisabled = false;
 
       switch(generationStep) {
           case 'reviewTechnical':
               backButton = { label: "Voltar", action: () => setGenerationStep('form') };
-              primaryButton = { label: (docType === 'support' || docType === 'both') ? "Avançar" : "Gerar Conteúdo", action: handleAdvanceFromTechnicalReview };
-              isPrimaryDisabled = isLoading || technicalStructure.length === 0;
+              primaryButton = { label: (docType === 'support' || docType === 'both') ? "Avançar para Guia do Usuário" : "Gerar Conteúdo", action: handleAdvanceFromTechnicalReview };
+              isPrimaryDisabled = technicalStructure.length === 0;
               break;
           case 'reviewSupport':
-              backButton = { label: "Voltar", action: () => setGenerationStep('reviewTechnical') };
+              const backStep = docType === 'both' ? 'reviewTechnical' : 'form';
+              backButton = { label: "Voltar", action: () => setGenerationStep(backStep) };
               primaryButton = { label: "Gerar Conteúdo Completo", action: handleGenerateFullContent };
-              isPrimaryDisabled = isLoading || supportStructure.length === 0;
+              isPrimaryDisabled = supportStructure.length === 0;
               break;
           case 'form':
               backButton = { label: "Cancelar", action: onClose };
-              primaryButton = { label: "Gerar Estrutura com IA", action: handleGenerateTechnicalStructure };
-              isPrimaryDisabled = !canGenerate() || !isJsonValid || isLoading;
+              const actionText = docType === 'support' ? 'Gerar Estrutura do Usuário' : 'Gerar Estrutura Técnica';
+              primaryButton = { label: actionText, action: handleGenerateTechnicalStructure };
+              isPrimaryDisabled = !canGenerate() || !isJsonValid;
               break;
-          case 'structuringTechnical':
-          case 'structuringSupport':
-          case 'generating':
-              backButton = { label: "Cancelar", action: () => { isCancelled.current = true; setGenerationStep('form'); }};
-              const buttonText = {
-                  structuringTechnical: 'Analisando...',
-                  structuringSupport: 'Estruturando...',
-                  generating: 'Gerando...'
-              }[generationStep];
-              primaryButton = { label: buttonText, action: () => {}, showSpinner: true };
-              isPrimaryDisabled = true;
-              break;
+          default:
+              return null;
       }
 
       return (
          React.createElement('div', { className: "mt-auto p-6 bg-gray-800/50 border-t border-gray-700" },
            React.createElement('div', { className: "flex flex-col sm:flex-row justify-end items-center gap-4" },
-                React.createElement('button', { onClick: backButton.action, disabled: isLoading, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50" }, backButton.label),
+                React.createElement('button', { onClick: backButton.action, className: "w-full sm:w-auto py-2 px-4 rounded-md text-gray-300 hover:bg-gray-700 transition-colors" }, backButton.label),
                 React.createElement('button', { onClick: primaryButton.action, disabled: isPrimaryDisabled, className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[40px] transition-all duration-300"},
-                    primaryButton.showSpinner ? React.createElement(LoadingSpinner, null) : null,
-                    React.createElement('span', { className: primaryButton.showSpinner ? 'ml-3' : ''}, primaryButton.label)
+                    React.createElement('span', null, primaryButton.label)
                 )
             )
         )
@@ -756,8 +736,9 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
 
   const getModalTitle = () => {
       const baseTitle = `Criar Documento para ${currentTeam}`;
-      if (generationStep === 'reviewTechnical') return "Etapa 1 de 2: Estrutura Técnica";
-      if (generationStep === 'reviewSupport') return "Etapa 2 de 2: Guia do Usuário";
+      if (generationStep === 'reviewTechnical') return "Etapa 1: Estrutura Técnica";
+      if (generationStep === 'reviewSupport') return "Etapa 2: Guia do Usuário";
+      if (isLoading) return "Gerando Documento...";
       return "Nova Documentação";
   };
   
@@ -772,7 +753,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
     else if (generationStep === 'form') currentStepIndex = 0;
     else if (generationStep === 'generating') currentStepIndex = steps.length -1;
     
-    const stepLabels = {'form': 'Início', 'reviewTechnical': 'Técnica', 'reviewSupport': 'Suporte'};
+    const stepLabels = {'form': 'Início', 'reviewTechnical': 'Técnica', 'reviewSupport': 'Usuário'};
 
     if (steps.length <=2 || generationStep === 'form' || isLoading) return null;
     
@@ -794,10 +775,39 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
         )
     );
   };
-
+  
+  if (isLoading) {
+    return (
+        React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", "aria-modal": "true", role: "dialog" },
+            React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col animate-slide-up" },
+                React.createElement('div', { className: "p-6 border-b border-gray-700" },
+                    React.createElement('h2', { className: "text-2xl font-bold text-white" }, getModalTitle())
+                ),
+                React.createElement('div', { className: 'flex-grow flex flex-col items-center justify-center text-center p-8' },
+                    React.createElement(LoadingSpinner, { className: 'h-12 w-12 text-indigo-400' }),
+                    React.createElement('p', { className: 'mt-4 text-lg text-white typing-cursor' }, loadingMessage),
+                    generationStep === 'generating' && React.createElement('div', { className: "w-full mt-4 max-w-sm" },
+                        React.createElement('div', { className: "w-full bg-gray-600 rounded-full h-1.5" },
+                            React.createElement('div', {
+                                className: "bg-indigo-500 h-1.5 rounded-full transition-all duration-1000 ease-out",
+                                style: { width: `${progress}%` }
+                            })
+                        )
+                    )
+                ),
+                React.createElement('div', { className: "p-6 bg-gray-800/50 border-t border-gray-700 flex justify-center" },
+                    React.createElement('button', {
+                        onClick: () => { isCancelled.current = true; setGenerationStep('form'); setError(''); },
+                        className: "py-2 px-6 rounded-md text-gray-300 hover:bg-gray-700 transition-colors"
+                    }, "Cancelar Geração")
+                )
+            )
+        )
+    );
+  }
 
   return (
-    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: isLoading ? undefined : onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
+    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" },
       React.createElement('div', { className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl transform transition-all max-h-[90vh] flex flex-col animate-slide-up", onClick: (e) => e.stopPropagation() },
         React.createElement('div', { className: "p-6 border-b border-gray-700 flex justify-between items-center" },
           React.createElement('h2', { id: "modal-title", className: "text-2xl font-bold text-white" }, getModalTitle()),

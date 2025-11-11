@@ -189,7 +189,7 @@ const generateStructure = async (params, promptType) => {
 };
 
 export const generateDocumentStructure = (params) => generateStructure(params, 'um documento técnico');
-export const generateSupportStructure = (params) => generateStructure(params, 'um Guia do Usuário (documentação de suporte)');
+export const generateSupportStructure = (params) => generateStructure(params, 'um Guia do Usuário Final');
 
 const markdownToHtml = (text) => {
     let htmlContent = text;
