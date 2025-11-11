@@ -81,17 +81,27 @@ const getBaseSystemPersona = (team) => {
   }
 }
 
-const buildTeamContext = (teamData) => {
+const buildTeamContext = (teamData, options = { includeFileContent: true }) => {
     let context = '';
     
     if (teamData.folderFiles && teamData.folderFiles.length > 0) {
-      context += '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
-      context += teamData.folderFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
+      if (options.includeFileContent) {
+        context += '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
+        context += teamData.folderFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
+      } else {
+        context += '**Estrutura de Arquivos do Projeto (Pasta):**\n\n';
+        context += teamData.folderFiles.map(file => `- ${file.path}`).join('\n') + '\n\n';
+      }
     }
 
     if (teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
-      context += '**Arquivos Avulsos Anexados:**\n\n';
-      context += teamData.uploadedCodeFiles.map(file => `--- Arquivo: ${file.name} ---\n${file.content}\n\n`).join('');
+      if (options.includeFileContent) {
+        context += '**Arquivos Avulsos Anexados:**\n\n';
+        context += teamData.uploadedCodeFiles.map(file => `--- Arquivo: ${file.name} ---\n${file.content}\n\n`).join('');
+      } else {
+        context += '**Arquivos Avulsos Anexados (Nomes):**\n\n';
+        context += teamData.uploadedCodeFiles.map(file => `- ${file.name}`).join('\n') + '\n\n';
+      }
     }
     
     if (teamData.pastedCode) context += `**Código Colado Adicional:**\n${teamData.pastedCode}\n\n`;
@@ -157,7 +167,7 @@ const generateStructure = async (params, promptType) => {
   
   const { projectName, description, team, teamData } = params;
   const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData);
+  const teamContext = buildTeamContext(teamData, { includeFileContent: false });
 
   const structurePrompt = `
     ${structurePromptTemplate(promptType)}
@@ -237,7 +247,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
   const { projectName, description, team, docType, teamData } = params;
   const { technicalStructure, supportStructure } = structures;
   const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData);
+  const teamContext = buildTeamContext(teamData, { includeFileContent: true });
   
   let messages = [
     { role: "system", content: persona },
