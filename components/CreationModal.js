@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { LoadingSpinner, UploadIcon, CodeIcon, JsonIcon, BrainIcon, FileIcon, CloseIcon, CheckIcon, AlertTriangleIcon, TemplateIcon, FolderIcon, InfoIcon, ChevronRightIcon, TrashIcon, PlusIcon, DragHandleIcon } from './Icons.js';
 import { Team } from '../types.js';
 import { TEMPLATES } from '../constants.js';
@@ -188,42 +188,110 @@ const FileTree = ({ nodes, selectedPaths, onToggleNode }) => {
     );
 };
 
+// Moved StructureItem out of StructureEditor to prevent re-rendering and focus loss
+const StructureItem = memo(({ item, index, parentIndex, isLast, onDragStart, onDragEnd, onDragOver, onDrop, onDragLeave, onTitleChange, onAddSubItem, onRemoveItem, dropIndicator }) => {
+    const showDropIndicator = dropIndicator && dropIndicator.index === index && dropIndicator.parentIndex === parentIndex;
+    const isChild = parentIndex !== null;
+
+    const handleRemove = () => {
+        onRemoveItem(isChild ? parentIndex : index, isChild ? index : null);
+    };
+    
+    const handleAdd = () => {
+        onAddSubItem(index);
+    };
+
+    const handleChange = (e) => {
+        onTitleChange(e.target.value, isChild ? parentIndex : index, isChild ? index : null);
+    };
+
+    return React.createElement('div', { className: `relative group ${isChild ? 'ml-6' : ''}` },
+        showDropIndicator && !dropIndicator.isAfter && React.createElement('div', { className: 'absolute -top-[5px] left-0 w-full h-1 bg-indigo-500 rounded-full z-10' }),
+        isChild && React.createElement('div', { className: "absolute -left-[13px] top-0 h-full w-px bg-gray-700" }),
+        isChild && React.createElement('div', { className: `absolute -left-[13px] top-0 ${isLast ? 'h-5' : 'h-full'} w-3 border-b border-l border-gray-700 rounded-bl-lg` }),
+        React.createElement('div', {
+            draggable: true,
+            onDragStart: (e) => onDragStart(e, index, parentIndex),
+            onDragEnd: onDragEnd,
+            onDragOver: (e) => onDragOver(e, index, parentIndex),
+            onDrop: (e) => onDrop(e, index, parentIndex),
+            onDragLeave: onDragLeave,
+            className: 'flex items-center gap-2 p-1.5 rounded-lg bg-gray-800/70 border border-gray-700/50 hover:border-gray-600 transition-all my-1.5'
+        },
+            React.createElement(DragHandleIcon, { className: 'h-5 w-5 cursor-grab text-gray-500 flex-shrink-0' }),
+            React.createElement('input', { type: 'text', value: item.title, onChange: handleChange, className: 'w-full bg-transparent text-white text-sm focus:outline-none focus:ring-0 border-0 p-0' }),
+            !isChild && React.createElement('button', { onClick: handleAdd, title: "Adicionar sub-tópico", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-600 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
+            React.createElement('button', { onClick: handleRemove, title: "Remover", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-red-500 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
+        ),
+        item.children && item.children.length > 0 &&
+        React.createElement('div', { className: "relative" },
+            item.children.map((child, subIndex) => React.createElement(StructureItem, {
+                key: child.id || subIndex,
+                item: child,
+                index: subIndex,
+                parentIndex: index,
+                isLast: subIndex === item.children.length - 1,
+                onDragStart, onDragEnd, onDragOver, onDrop, onDragLeave,
+                onTitleChange, onAddSubItem, onRemoveItem,
+                dropIndicator
+            }))
+        ),
+        showDropIndicator && dropIndicator.isAfter && React.createElement('div', { className: 'absolute -bottom-[5px] left-0 w-full h-1 bg-indigo-500 rounded-full z-10' })
+    );
+});
+
 const StructureEditor = ({ structure, setStructure, title, description }) => {
     const draggedItem = useRef(null);
     const [dropIndicator, setDropIndicator] = useState(null);
 
     const handleStructureChange = (newTitle, index, subIndex = null) => {
         const newStructure = JSON.parse(JSON.stringify(structure));
-        if (subIndex === null) { newStructure[index].title = newTitle; } 
-        else { newStructure[index].children[subIndex].title = newTitle; }
+        if (subIndex === null) {
+            newStructure[index].title = newTitle;
+        } else {
+            newStructure[index].children[subIndex].title = newTitle;
+        }
         setStructure(newStructure);
     };
+
     const addStructureItem = (parentIndex = null) => {
         const newStructure = JSON.parse(JSON.stringify(structure));
         const newItem = { title: 'Novo Tópico', id: Date.now() };
-        if (parentIndex === null) { newStructure.push(newItem); } 
-        else {
-            if (!newStructure[parentIndex].children) newStructure[parentIndex].children = [];
+        if (parentIndex === null) {
+            newStructure.push(newItem);
+        } else {
+            if (!newStructure[parentIndex].children) {
+                newStructure[parentIndex].children = [];
+            }
             newStructure[parentIndex].children.push({ ...newItem, id: Date.now() + 1 });
         }
         setStructure(newStructure);
     };
-    const removeStructureItem = (index, subIndex = null) => {
-        let newStructure = JSON.parse(JSON.stringify(structure));
-        if (subIndex === null) { newStructure.splice(index, 1); } 
-        else { newStructure[index].children.splice(subIndex, 1); }
+    
+    const removeStructureItem = (parentItemIndex, childItemIndex = null) => {
+        const newStructure = JSON.parse(JSON.stringify(structure));
+        if (childItemIndex === null) {
+            // Removing a top-level item. parentItemIndex is the item's index.
+            newStructure.splice(parentItemIndex, 1);
+        } else {
+            // Removing a child item. parentItemIndex is the parent's index, childItemIndex is the child's index.
+            const parent = newStructure[parentItemIndex];
+            if (parent && parent.children) {
+                parent.children.splice(childItemIndex, 1);
+            }
+        }
         setStructure(newStructure);
     };
 
     const handleDragStart = (e, index, parentIndex = null) => {
         draggedItem.current = { index, parentIndex };
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', e.target); // for firefox
-        setTimeout(() => { e.target.style.opacity = '0.5'; }, 0);
+        // Minor visual feedback
+        setTimeout(() => { if(e.target) e.target.style.opacity = '0.5'; }, 0);
     };
 
     const handleDragEnd = (e) => {
-        if (e.target && typeof e.target.style !== 'undefined') {
+        if (e.target && e.target.style) {
           e.target.style.opacity = '1';
         }
         draggedItem.current = null;
@@ -239,97 +307,73 @@ const StructureEditor = ({ structure, setStructure, title, description }) => {
         }
     };
     
-    const handleDrop = (e, dropIndex, dropParentIndex = null) => {
-        e.preventDefault();
+    const handleDrop = () => {
         if (!draggedItem.current || !dropIndicator) return;
-    
+
         const { index: dragIndex, parentIndex: dragParentIndex } = draggedItem.current;
-        const { index: finalDropIndex, parentIndex: finalDropParentIndex, isAfter } = dropIndicator;
-    
-        if (dragIndex === finalDropIndex && dragParentIndex === finalDropParentIndex) {
+        const { index: dropIndex, parentIndex: dropParentIndex, isAfter } = dropIndicator;
+
+        if (dragIndex === dropIndex && dragParentIndex === dropParentIndex) {
             setDropIndicator(null);
             return;
         }
-    
-        let newStructure = JSON.parse(JSON.stringify(structure));
-        let itemToMove;
-    
-        // 1. Remove item from its original position
-        if (dragParentIndex === null) {
-            [itemToMove] = newStructure.splice(dragIndex, 1);
-        } else {
-            itemToMove = newStructure[dragParentIndex].children.splice(dragIndex, 1)[0];
-        }
 
-        // Prevent moving a parent into a child list
-        if (itemToMove.children && itemToMove.children.length > 0 && finalDropParentIndex !== null) {
-             setStructure(structure); // Revert optimistic UI
+        let newStructure = JSON.parse(JSON.stringify(structure));
+        
+        // 1. Remove item from its original position
+        const sourceList = dragParentIndex === null ? newStructure : newStructure[dragParentIndex].children;
+        const [itemToMove] = sourceList.splice(dragIndex, 1);
+
+        // Prevent moving a parent into any child list
+        if (itemToMove.children && itemToMove.children.length > 0 && dropParentIndex !== null) {
+             setStructure(structure); // Revert
              setDropIndicator(null);
              return;
         }
-    
-        // 2. Insert item into its new position
-        let targetIndex = finalDropIndex;
-        if (isAfter) targetIndex++;
-    
-        if (finalDropParentIndex === null) {
-            newStructure.splice(targetIndex, 0, itemToMove);
+
+        // 2. Find destination and calculate insertion index
+        let destinationList;
+        if (dropParentIndex === null) {
+            destinationList = newStructure;
         } else {
-            if (!newStructure[finalDropParentIndex].children) {
-                newStructure[finalDropParentIndex].children = [];
+            if (!newStructure[dropParentIndex].children) {
+                newStructure[dropParentIndex].children = [];
             }
-            newStructure[finalDropParentIndex].children.splice(targetIndex, 0, itemToMove);
+            destinationList = newStructure[dropParentIndex].children;
         }
-    
+        
+        let insertionIndex = isAfter ? dropIndex + 1 : dropIndex;
+        
+        // Adjust index if moving downwards in the same list
+        if (dragParentIndex === dropParentIndex && dragIndex < insertionIndex) {
+            insertionIndex--;
+        }
+
+        destinationList.splice(insertionIndex, 0, itemToMove);
+
         setStructure(newStructure);
         setDropIndicator(null);
-    };
-
-    const StructureItem = ({ item, index, parentIndex = null, isLast }) => {
-        const showDropIndicator = dropIndicator && dropIndicator.index === index && dropIndicator.parentIndex === parentIndex;
-        const isChild = parentIndex !== null;
-
-        return React.createElement('div', { className: `relative group ${isChild ? 'ml-6' : ''}`},
-          showDropIndicator && !dropIndicator.isAfter && React.createElement('div', { className: 'absolute -top-[5px] left-0 w-full h-1 bg-indigo-500 rounded-full z-10' }),
-          isChild && React.createElement('div', { className: "absolute -left-[13px] top-0 h-full w-px bg-gray-700" }),
-          isChild && React.createElement('div', { className: `absolute -left-[13px] top-0 ${isLast ? 'h-5' : 'h-full'} w-3 border-b border-l border-gray-700 rounded-bl-lg` }),
-          React.createElement('div', {
-              draggable: true,
-              onDragStart: (e) => handleDragStart(e, index, parentIndex),
-              onDragEnd: handleDragEnd,
-              onDragOver: (e) => handleDragOver(e, index, parentIndex),
-              onDrop: (e) => handleDrop(e, index, parentIndex),
-              onDragLeave: () => setDropIndicator(null),
-              className: 'flex items-center gap-2 p-1.5 rounded-lg bg-gray-800/70 border border-gray-700/50 hover:border-gray-600 transition-all my-1.5'
-          },
-              React.createElement(DragHandleIcon, { className: 'h-5 w-5 cursor-grab text-gray-500 flex-shrink-0' }),
-              React.createElement('input', { type: 'text', value: item.title, onChange: (e) => handleStructureChange(e.target.value, parentIndex === null ? index : parentIndex, parentIndex === null ? null : index), className: 'w-full bg-transparent text-white text-sm focus:outline-none focus:ring-0 border-0 p-0' }),
-              !isChild && React.createElement('button', { onClick: () => addStructureItem(index), title: "Adicionar sub-tópico", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-600 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity' }, React.createElement(PlusIcon, { className: 'h-4 w-4' })),
-              React.createElement('button', { onClick: () => removeStructureItem(index, parentIndex), title: "Remover", className: 'p-1 text-gray-400 hover:text-white bg-gray-700/50 hover:bg-red-500 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity' }, React.createElement(TrashIcon, { className: 'h-4 w-4' }))
-          ),
-          item.children && item.children.length > 0 && 
-          React.createElement('div', { className: "relative" },
-              item.children.map((child, subIndex) => React.createElement(StructureItem, {
-                  key: child.id,
-                  item: child,
-                  index: subIndex,
-                  parentIndex: index,
-                  isLast: subIndex === item.children.length - 1
-              }))
-          ),
-          showDropIndicator && dropIndicator.isAfter && React.createElement('div', { className: 'absolute -bottom-[5px] left-0 w-full h-1 bg-indigo-500 rounded-full z-10' })
-        );
     };
     
     return React.createElement('div', { className: "p-6 space-y-4" },
       React.createElement('h3', { className: "text-lg font-semibold text-indigo-300 border-b border-gray-700 pb-2" }, title),
       React.createElement('p', { className: "text-sm text-gray-400" }, description),
-      React.createElement('div', { className: "max-h-96 overflow-y-auto pr-2" },
+      React.createElement('div', { className: "max-h-96 overflow-y-auto pr-2", onDrop: handleDrop, onDragOver: e => e.preventDefault() },
           structure.map((item, index) => React.createElement(StructureItem, {
-              key: item.id,
+              key: item.id || index,
               item: item,
               index: index,
+              parentIndex: null,
               isLast: index === structure.length - 1,
+              onDragStart: handleDragStart,
+              onDragEnd: handleDragEnd,
+              onDragOver: handleDragOver,
+              onDrop: handleDrop,
+              onDragLeave: () => setDropIndicator(null),
+              onTitleChange: handleStructureChange,
+              onAddSubItem: addStructureItem,
+              onRemoveItem: removeStructureItem,
+              dropIndicator: dropIndicator,
           }))
       ),
       React.createElement('button', { onClick: () => addStructureItem(null), className: 'text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2' }, React.createElement(PlusIcon, { className: 'h-4 w-4' }), "Adicionar Tópico Principal")
