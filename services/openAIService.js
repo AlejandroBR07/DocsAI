@@ -99,17 +99,19 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
 
 
 const getBaseSystemPersona = (team) => {
+  const baseInstruction = "Sua tarefa é criar a documentação mais detalhada e concisa possível, exclusivamente em Português do Brasil. Estruture suas respostas em parágrafos bem escritos e explicativos. Use listas (`-` ou `1.`) apenas quando for a forma mais clara de apresentar informações (ex: múltiplos passos, lista de parâmetros). Dê preferência a texto corrido em vez de listas para descrever conceitos.";
+
   switch (team) {
     case Team.Developers:
-      return 'Aja como um engenheiro de software sênior e arquiteto de soluções. Sua tarefa é criar a documentação mais detalhada e concisa possível, exclusivamente em Português do Brasil.';
+      return `Aja como um engenheiro de software sênior e arquiteto de soluções. ${baseInstruction}`;
     case Team.UXUI:
-       return 'Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento. Analise contextos visuais como designs do Figma, landing pages e screenshots de plataformas (Learnworlds, apps). Sua tarefa é criar a documentação mais detalhada e concisa possível, exclusivamente em Português do Brasil.';
+       return `Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento. Analise contextos visuais como designs do Figma, landing pages e screenshots de plataformas (Learnworlds, apps). ${baseInstruction}`;
     case Team.Automations:
-      return 'Aja como um especialista em automação de processos (RPA e integrações), com conhecimento em N8N, Unnichat e Apps Script. Seu superpoder é traduzir a estrutura de dados de uma automação (JSON do N8N), fluxos de conversa (Unnichat) ou código (Apps Script) em uma explicação clara, funcional e concisa. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
+      return `Aja como um especialista em automação de processos (RPA e integrações), com conhecimento em N8N, Unnichat e Apps Script. Seu superpoder é traduzir a estrutura de dados de uma automação (JSON do N8N), fluxos de conversa (Unnichat) ou código (Apps Script) em uma explicação clara, funcional e concisa. ${baseInstruction}`;
     case Team.AI:
-      return 'Aja como um engenheiro de IA especialista em arquitetura de agentes, com foco em plataformas como o Dify. Analise fluxos de trabalho, ferramentas e prompts de sistema para criar documentação técnica detalhada e concisa. Sua tarefa é criar a documentação mais detalhada possível, exclusivamente em Português do Brasil.';
+      return `Aja como um engenheiro de IA especialista em arquitetura de agentes, com foco em plataformas como o Dify. Analise fluxos de trabalho, ferramentas e prompts de sistema para criar documentação técnica detalhada e concisa. ${baseInstruction}`;
     default:
-      return 'Você é um assistente de IA especialista em criar documentação técnica e de negócios. Sua resposta deve ser concisa e exclusivamente em Português do Brasil.';
+      return `Você é um assistente de IA especialista em criar documentação técnica e de negócios. ${baseInstruction}`;
   }
 }
 
@@ -303,113 +305,57 @@ const markdownToHtml = (markdown) => {
     return htmlBlocks.join('');
 };
 
-const summarizeCodeInChunks = async (teamContext, persona, teamData, progressCallback, totalSteps) => {
-    const allFiles = teamData.folderFiles || [];
-    const allContent = allFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
-    
-    const CHUNK_SIZE = 80000;
-    const chunks = [];
-    for (let i = 0; i < allContent.length; i += CHUNK_SIZE) {
-        chunks.push(allContent.substring(i, i + CHUNK_SIZE));
-    }
-
-    const summaries = [];
-    const baseProgress = 10;
-    const progressPerChunk = (80 - baseProgress) / (chunks.length || 1);
-    
-    if (chunks.length > 1) {
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            progressCallback({ progress: baseProgress + (i * progressPerChunk), message: `Resumindo parte ${i + 1} de ${chunks.length} do código...` });
-            
-            const summaryPrompt = `Aja como um engenheiro sênior. O texto a seguir é uma parte de um projeto de software maior. Resuma o propósito técnico desta parte específica do código, focando em suas funcionalidades, responsabilidades e interações. Responda em Português do Brasil.\n\n${chunk}`;
-            
-            const messages = [
-                { role: "system", content: persona },
-                { role: "user", content: buildUserMessageContent(summaryPrompt, teamData) }
-            ];
-            
-            const summary = await callOpenAI(messages);
-            summaries.push(summary);
-        }
-    } else {
-         progressCallback({ progress: baseProgress, message: `Analisando o código...` });
-         const summaryPrompt = `Aja como um engenheiro sênior. O texto a seguir representa um projeto de software. Resuma o propósito técnico deste código, focando em suas funcionalidades, responsabilidades e interações. Responda em Português do Brasil.\n\n${allContent}`;
-         const messages = [
-            { role: "system", content: persona },
-            { role: "user", content: buildUserMessageContent(summaryPrompt, teamData) }
-         ];
-         const summary = await callOpenAI(messages);
-         summaries.push(summary);
-    }
-    
-    return summaries.join('\n\n---\n\n');
-};
-
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
     if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
     
     const { projectName, description, team, teamData, docType } = params;
     const persona = getBaseSystemPersona(team);
     
-    progressCallback({ progress: 5, message: 'Construindo contexto inicial...' });
-    let teamContext = buildTeamContext(teamData, { includeFileContent: false }); 
-
-    let knowledgeBase = teamContext;
-    const hasCodeContext = teamData.folderFiles || teamData.uploadedCodeFiles || teamData.pastedCode;
-
-    if (hasCodeContext) {
-        const fullCodeContext = buildTeamContext(teamData);
-        const codeSummaries = await summarizeCodeInChunks(fullCodeContext, persona, teamData, progressCallback, 100);
-        knowledgeBase += '\n\n**Resumo Técnico do Código-Fonte:**\n' + codeSummaries;
-    }
+    progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
+    // **MODIFICATION:** Always build the context with the full file content.
+    const knowledgeBase = buildTeamContext(teamData, { includeFileContent: true }); 
     
-    const META_SUMMARY_THRESHOLD = 90000;
-    if (knowledgeBase.length > META_SUMMARY_THRESHOLD) {
-        progressCallback({ progress: 85, message: 'Base de conhecimento muito grande, criando meta-resumo...' });
-        const metaSummaryPrompt = `Você é um arquiteto de software sênior. Sua tarefa é sintetizar os seguintes resumos técnicos detalhados de várias partes de um projeto em um único resumo coeso de alto nível. Este meta-resumo será usado para escrever a documentação final. Capture a essência da arquitetura, as principais funcionalidades e as interações entre os componentes. Responda em Português do Brasil.\n\nResumos a serem sintetizados:\n${knowledgeBase}`;
-        
-        const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(metaSummaryPrompt, teamData) }];
-        knowledgeBase = await callOpenAI(messages);
-    }
+    // **REMOVED:** The entire summarization logic (`summarizeCodeInChunks`) is removed to prevent loss of detail.
+    // The AI will now receive the full context for every section.
 
     const allSections = [];
     if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
     if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
     
     let fullHtmlContent = '';
-    const baseProgress = 90;
+    const baseProgress = 20; // Start progress after context building
     const progressPerSection = (100 - baseProgress) / (allSections.length || 1);
 
     for (let i = 0; i < allSections.length; i++) {
         const section = allSections[i];
-        progressCallback({ progress: baseProgress + (i * progressPerSection), message: `Escrevendo seção: "${section.title}"...` });
+        const currentProgress = Math.round(baseProgress + (i * progressPerSection));
+        progressCallback({ progress: currentProgress, message: `Escrevendo seção: "${section.title}"...` });
         
         const isSupportTopic = structures.supportStructure.some(s => s.title === section.title || s.children?.some(c => c.title === section.title));
         const audiencePrompt = isSupportTopic
-            ? "Escreva de forma clara e simples, como se estivesse explicando para um usuário final não-técnico."
-            : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor.";
+            ? "Escreva de forma clara e simples, como se estivesse explicando para um usuário final não-técnico. Use exemplos práticos."
+            : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor. Elabore sobre a arquitetura e as decisões de implementação.";
 
+        // **MODIFICATION:** The prompt is enhanced to encourage detailed, prose-based writing.
         const sectionPrompt = `
-            Você é um engenheiro sênior escrevendo uma seção de um documento técnico. Sua tarefa é escrever o conteúdo para a seção "**${section.title}**", usando APENAS as informações disponíveis no contexto abaixo.
+            Sua tarefa é escrever uma seção detalhada e completa para um novo documento. O tópico da seção é "**${section.title}**". Use o 'Contexto do Projeto' abaixo como sua fonte principal de informação e inspiração.
 
             **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
-            1.  **CONCISÃO MÁXIMA:** Seja extremamente conciso e direto. A documentação final será a junção de várias partes, então cada parte deve ser curta e focada.
-            2.  **BASEADO EM FATOS:** Escreva *apenas* o que pode ser diretamente comprovado pelo "Contexto de Conhecimento" fornecido. NÃO invente funcionalidades, não adicione explicações genéricas, tutoriais ou "recheio". Se o contexto não menciona algo, não escreva sobre isso.
-            3.  **FOCO NO TÓPICO:** Sua resposta deve ser exclusivamente sobre "**${section.title}**". Ignore todas as outras partes do projeto.
-            4.  **SEM REDUNDÂNCIA:** Não adicione introduções, conclusões ou resumos sobre o projeto em geral. Apenas o conteúdo específico da seção.
-            5.  **SEM TÍTULO:** Não repita o título "**${section.title}**". Comece sua resposta diretamente com o conteúdo.
-            6.  **FORMATO:** Use Markdown simples (listas com \`-\` ou \`1.\`, negrito com \`**\`, etc.).
-            7.  **AUDIÊNCIA:** ${audiencePrompt}
-            8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+            1.  **ELABORAÇÃO:** Não faça apenas um resumo. Elabore sobre os conceitos, explique o 'porquê' das coisas, e forneça exemplos práticos se o contexto permitir. Crie um texto coeso e bem escrito.
+            2.  **BASEADO NO CONTEXTO:** Baseie sua resposta fortemente no 'Contexto do Projeto' fornecido. Você pode inferir conexões e explicar conceitos de forma mais elaborada, mas não invente funcionalidades que não existam.
+            3.  **FOCO NO TÓPICO:** Sua resposta deve ser exclusivamente sobre "**${section.title}**".
+            4.  **SEM REDUNDÂNCIA:** Não adicione introduções ou conclusões genéricas sobre o projeto. Comece diretamente com o conteúdo da seção.
+            5.  **FORMATO:** Use Markdown simples. Dê PREFERÊNCIA a parágrafos bem escritos em vez de simples listas de tópicos. Use listas apenas se for a melhor forma de apresentar a informação (ex: passo-a-passo).
+            6.  **AUDIÊNCIA:** ${audiencePrompt}
+            7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
             
-            **Contexto de Conhecimento (Sua única fonte de verdade):**
+            **Contexto do Projeto (Sua fonte de verdade):**
             - Nome do Projeto: ${projectName}
             - Descrição Geral: ${description}
-            - Resumos Técnicos e Arquitetura:
+            - Arquivos, código e outras informações:
             ${knowledgeBase}
 
-            Agora, escreva o conteúdo conciso e factual para a seção "${section.title}".
+            Agora, escreva o conteúdo detalhado e bem explicado para a seção "${section.title}".
         `;
         
         const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }];
@@ -426,3 +372,4 @@ export const generateFullDocumentContent = async (params, structures, progressCa
         content: fullHtmlContent
     };
 };
+
