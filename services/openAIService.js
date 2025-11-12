@@ -305,25 +305,93 @@ const markdownToHtml = (markdown) => {
     return htmlBlocks.join('');
 };
 
-export const generateFullDocumentContent = async (params, structures, progressCallback) => {
-    if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+const generateInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
+    const { projectName, description, docType } = params;
     
-    const { projectName, description, team, teamData, docType } = params;
-    const persona = getBaseSystemPersona(team);
+    progressCallback({ progress: 20, message: 'Analisando todo o contexto...' });
+
+    const allSections = [];
+    if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
+    if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
+
+    const sectionTitles = allSections.map(s => s.title);
+
+    const isSupportHeavy = docType === 'support' || (docType === 'both' && structures.supportStructure.length > structures.technicalStructure.length);
+    const audiencePrompt = isSupportHeavy
+        ? "O foco principal é o usuário final. Mantenha a linguagem simples e direta. Use exemplos práticos."
+        : "O foco principal é a equipe técnica. Seja detalhado e preciso sobre a arquitetura e implementação.";
+
+    const singleCallPrompt = `
+        Sua tarefa é gerar o conteúdo para TODAS as seções de um documento de uma só vez. Analise o 'Contexto do Projeto' abaixo e escreva o conteúdo para cada um dos tópicos listados.
+
+        **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
+        1.  **FORMATO DE SAÍDA:** Você DEVE formatar sua resposta usando separadores especiais. Para cada seção, use este formato exato:
+            <--SECTION_START: [O Título Exato da Seção]-->
+            (Aqui vai o conteúdo da seção em Markdown)
+            <--SECTION_END-->
+        2.  **CONCISÃO E OBJETIVIDADE:** Seja informativo e detalhado, mas evite verbosidade desnecessária. Vá direto ao ponto e foque nos aspectos mais importantes de cada tópico.
+        3.  **CONTEXTO É REI:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido. Não invente funcionalidades.
+        4.  **AUDIÊNCIA:** ${audiencePrompt}
+        5.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+
+        **Tópicos a serem escritos:**
+        ${sectionTitles.map(title => `- ${title}`).join('\n')}
+
+        **Contexto do Projeto (Sua fonte de verdade):**
+        - Nome do Projeto: ${projectName}
+        - Descrição Geral: ${description}
+        - Arquivos, código e outras informações:
+        ${knowledgeBase}
+
+        Agora, gere o conteúdo para todas as seções, seguindo o formato de separador obrigatório.
+    `;
+
+    progressCallback({ progress: 50, message: 'Gerando rascunho de todo o documento...' });
+
+    const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(singleCallPrompt, params.teamData) }];
+    const combinedResponse = await callOpenAI(messages);
+
+    progressCallback({ progress: 85, message: 'Formatando documento final...' });
+
+    let fullHtmlContent = '';
+    const sectionMap = new Map();
+
+    const sectionsRegex = /<--SECTION_START: (.*?)-->(.*?)<--SECTION_END-->/gs;
+    let match;
+    while ((match = sectionsRegex.exec(combinedResponse)) !== null) {
+        const title = match[1].trim();
+        const content = match[2].trim();
+        sectionMap.set(title, content);
+    }
+
+    // Reconstruct in the correct order
+    for (const section of allSections) {
+        const markdownContent = sectionMap.get(section.title);
+        if (markdownContent) {
+            const isSubItem = structures.technicalStructure.some(s => s.children?.some(c => c.id === section.id)) || structures.supportStructure.some(s => s.children?.some(c => c.id === section.id));
+            const headingLevel = isSubItem ? 2 : 1;
+            fullHtmlContent += `<h${headingLevel}>${section.title}</h${headingLevel}>\n${markdownToHtml(markdownContent)}\n\n`;
+        } else {
+             console.warn(`A IA não gerou conteúdo para a seção: "${section.title}"`);
+        }
+    }
     
-    progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
-    // **MODIFICATION:** Always build the context with the full file content.
-    const knowledgeBase = buildTeamContext(teamData, { includeFileContent: true }); 
-    
-    // **REMOVED:** The entire summarization logic (`summarizeCodeInChunks`) is removed to prevent loss of detail.
-    // The AI will now receive the full context for every section.
+    if (fullHtmlContent.trim() === '') {
+        throw new Error("A IA não retornou o conteúdo no formato esperado. A resposta pode estar incompleta ou mal formatada. Tente novamente.");
+    }
+
+    return fullHtmlContent;
+};
+
+const generateInChunks = async (params, structures, persona, knowledgeBase, progressCallback) => {
+    const { projectName, description, docType, teamData } = params;
 
     const allSections = [];
     if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
     if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
     
     let fullHtmlContent = '';
-    const baseProgress = 20; // Start progress after context building
+    const baseProgress = 20;
     const progressPerSection = (100 - baseProgress) / (allSections.length || 1);
 
     for (let i = 0; i < allSections.length; i++) {
@@ -336,16 +404,15 @@ export const generateFullDocumentContent = async (params, structures, progressCa
             ? "Escreva de forma clara e simples, como se estivesse explicando para um usuário final não-técnico. Use exemplos práticos."
             : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor. Elabore sobre a arquitetura e as decisões de implementação.";
 
-        // **MODIFICATION:** The prompt is enhanced to encourage detailed, prose-based writing.
         const sectionPrompt = `
-            Sua tarefa é escrever uma seção detalhada e completa para um novo documento. O tópico da seção é "**${section.title}**". Use o 'Contexto do Projeto' abaixo como sua fonte principal de informação e inspiração.
+            Sua tarefa é escrever uma seção detalhada, **mas concisa e objetiva**, para um documento. O tópico da seção é "**${section.title}**". Use o 'Contexto do Projeto' abaixo como sua fonte principal.
 
             **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
-            1.  **ELABORAÇÃO:** Não faça apenas um resumo. Elabore sobre os conceitos, explique o 'porquê' das coisas, e forneça exemplos práticos se o contexto permitir. Crie um texto coeso e bem escrito.
-            2.  **BASEADO NO CONTEXTO:** Baseie sua resposta fortemente no 'Contexto do Projeto' fornecido. Você pode inferir conexões e explicar conceitos de forma mais elaborada, mas não invente funcionalidades que não existam.
+            1.  **FOCO E OBJETIVIDADE:** Elabore sobre o tópico, mas evite verbosidade desnecessária. Vá direto ao ponto, focando nas informações essenciais.
+            2.  **BASEADO NO CONTEXTO:** Baseie sua resposta fortemente no 'Contexto do Projeto' fornecido.
             3.  **FOCO NO TÓPICO:** Sua resposta deve ser exclusivamente sobre "**${section.title}**".
-            4.  **SEM REDUNDÂNCIA:** Não adicione introduções ou conclusões genéricas sobre o projeto. Comece diretamente com o conteúdo da seção.
-            5.  **FORMATO:** Use Markdown simples. Dê PREFERÊNCIA a parágrafos bem escritos em vez de simples listas de tópicos. Use listas apenas se for a melhor forma de apresentar a informação (ex: passo-a-passo).
+            4.  **SEM REDUNDÂNCIA:** Não adicione introduções ou conclusões. Comece diretamente com o conteúdo da seção.
+            5.  **FORMATO:** Use Markdown simples. Dê PREFERÊNCIA a parágrafos bem escritos.
             6.  **AUDIÊNCIA:** ${audiencePrompt}
             7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
             
@@ -355,7 +422,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
             - Arquivos, código e outras informações:
             ${knowledgeBase}
 
-            Agora, escreva o conteúdo detalhado e bem explicado para a seção "${section.title}".
+            Agora, escreva o conteúdo conciso e objetivo para a seção "${section.title}".
         `;
         
         const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }];
@@ -367,9 +434,36 @@ export const generateFullDocumentContent = async (params, structures, progressCa
         fullHtmlContent += `<h${headingLevel}>${section.title}</h${headingLevel}>\n${markdownToHtml(sectionContent)}\n\n`;
     }
 
+    return fullHtmlContent;
+};
+
+export const generateFullDocumentContent = async (params, structures, progressCallback) => {
+    if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+    
+    const { projectName } = params;
+    const persona = getBaseSystemPersona(params.team);
+    
+    progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
+    const knowledgeBase = buildTeamContext(params.teamData, { includeFileContent: true });
+    
+    // Heuristic: 1 token ~ 4 chars. Threshold set to 80k to be safe with a 128k context window.
+    const TOKEN_THRESHOLD = 80000; 
+    const estimatedTokens = Math.round(knowledgeBase.length / 4);
+
+    let fullHtmlContent = '';
+
+    if (estimatedTokens < TOKEN_THRESHOLD) {
+        // --- Single Call Strategy (Fast Path) ---
+        console.log(`[INFO] Contexto pequeno (${estimatedTokens} tokens). Usando estratégia de chamada única.`);
+        fullHtmlContent = await generateInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
+    } else {
+        // --- Multi-Call/Chunk Strategy (Safe Path for large contexts) ---
+        console.log(`[INFO] Contexto grande (${estimatedTokens} tokens). Usando estratégia de chamada por seção.`);
+        fullHtmlContent = await generateInChunks(params, structures, persona, knowledgeBase, progressCallback);
+    }
+
     return {
         title: projectName,
         content: fullHtmlContent
     };
 };
-
