@@ -229,7 +229,6 @@ const markdownToHtml = (markdown) => {
     if (!markdown) return '';
 
     const processInline = (text) => {
-        // A ordem é importante: negrito antes de itálico para evitar conflitos de aninhamento
         return text
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/__(.*?)__/g, '<strong>$1</strong>')
@@ -238,12 +237,10 @@ const markdownToHtml = (markdown) => {
             .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #facc15; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
     };
 
-    // Divide o markdown em blocos principais (separados por linhas em branco)
     const blocks = markdown.trim().split(/\n{2,}/);
     let html = '';
 
     for (const block of blocks) {
-        // Títulos (Hx)
         if (block.startsWith('#')) {
             const level = block.match(/^#+/)[0].length;
             if (level <= 6) {
@@ -253,7 +250,6 @@ const markdownToHtml = (markdown) => {
             }
         }
 
-        // Blocos de Código (```)
         if (block.startsWith('```') && block.endsWith('```')) {
             const code = block.substring(3, block.length - 3).trim();
             const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -261,19 +257,16 @@ const markdownToHtml = (markdown) => {
             continue;
         }
 
-        // Citações (>)
         if (block.startsWith('>')) {
             const quoteContent = block.split('\n').map(line => line.replace(/^> ?/, '')).join('<br>');
             html += `<blockquote>${processInline(quoteContent)}</blockquote>`;
             continue;
         }
 
-        // Listas (não ordenadas e ordenadas)
         const lines = block.split('\n');
         if (lines.every(line => /^\s*([-*]|\d+\.) /.test(line.trim()))) {
             let listHtml = '';
             let listType = null;
-            
             for (const line of lines) {
                 const ulMatch = line.match(/^\s*[-*] (.*)/);
                 const olMatch = line.match(/^\s*\d+\. (.*)/);
@@ -299,7 +292,6 @@ const markdownToHtml = (markdown) => {
             continue;
         }
 
-        // Parágrafos (com quebras de linha simples convertidas para <br>)
         html += `<p>${processInline(block.replace(/\n/g, '<br>'))}</p>`;
     }
 
@@ -311,40 +303,38 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
     
     progressCallback({ progress: 20, message: 'Analisando todo o contexto...' });
 
-    const allSections = [];
-    if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
-    if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
+    let documentOutline = '';
+    const addStructureToOutline = (structure, level) => {
+        structure.forEach(item => {
+            documentOutline += `${'#'.repeat(level)} ${item.title}\n`;
+            if (item.children) {
+                // For children, we use one level deeper
+                addStructureToOutline(item.children, level + 1);
+            }
+        });
+    };
 
-    const sectionTitles = allSections.map(s => s.title);
-
-    const isSupportHeavy = docType === 'support' || (docType === 'both' && structures.supportStructure.length > structures.technicalStructure.length);
-    const audiencePrompt = isSupportHeavy
-        ? "O foco principal é o usuário final. Mantenha a linguagem simples e direta. Use exemplos práticos."
-        : "O foco principal é a equipe técnica. Seja detalhado e preciso sobre a arquitetura e implementação.";
+    if (docType !== 'support' && structures.technicalStructure.length > 0) {
+        addStructureToOutline(structures.technicalStructure, 1); // Top-level is H1
+    }
+    if (docType !== 'technical' && structures.supportStructure.length > 0) {
+        if (documentOutline) documentOutline += '\n\n';
+        addStructureToOutline(structures.supportStructure, 1); // Top-level is H1
+    }
 
     const singleCallPrompt = `
-        Sua tarefa é gerar o conteúdo para TODAS as seções de um documento de uma só vez. Analise o 'Contexto do Projeto' abaixo e escreva o conteúdo para cada um dos tópicos listados.
+        Sua tarefa é gerar o conteúdo completo para um documento, seguindo a estrutura de tópicos fornecida. Analise o 'Contexto do Projeto' e escreva o conteúdo para cada tópico, usando a sintaxe Markdown.
 
         **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
-        1.  **FORMATO DE SAÍDA:** Você DEVE formatar sua resposta usando separadores especiais. Para cada seção, use este formato exato:
-            <--SECTION_START: [O Título Exato da Seção]-->
-            (Aqui vai o conteúdo da seção em Markdown puro)
-            <--SECTION_END-->
-        2.  **CLAREZA E CONCISÃO:** A clareza é a prioridade máxima. Escreva parágrafos curtos e diretos (idealmente 2-4 frases). Explique conceitos complexos de forma simples.
-        3.  **MARKDOWN PURO E OBRIGATÓRIO:** É **essencial** formatar o texto usando sintaxe padrão de Markdown.
-            - **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), conceitos importantes e termos técnicos. Isso é crucial para a escaneabilidade do documento.
-            - Use subtítulos (\`##\`, \`###\`) para organizar o conteúdo dentro de cada seção, se necessário.
-            - Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
-            - Use listas (\`-\` ou \`1.\`) para sequências de passos ou itens.
-            - Use quebras de linha duplas (\`\n\n\`) para separar parágrafos.
-        4.  **CONTEXTO É REI:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
-        5.  **REFERÊNCIAS AO CÓDIGO:** Quando o contexto incluir código, você **DEVE ativamente referenciá-lo** em suas explicações. Mencione nomes de funções específicas (ex: \`handleApiKeySet\`), variáveis (ex: \`apiKeyStatus\`), ou nomes de arquivos (ex: \`CreationModal.js\`) para tornar a documentação concreta e conectada ao código-fonte.
-        6.  **AUDIÊNCIA:** ${audiencePrompt}
-        7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
-        8.  **NÃO REPITA O TÍTULO:** O título da seção já é definido pelo separador \`<--SECTION_START: ...>\`. **NÃO** inclua um título principal (ex: \`# Título da Seção\`) dentro do conteúdo. Comece a escrever o texto diretamente.
+        1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título.
+        2.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
+        3.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), e conceitos importantes. Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
+        4.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto'. Você **DEVE ativamente referenciar o código-fonte** em suas explicações, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta.
+        5.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
+        6.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
         
-        **Tópicos a serem escritos:**
-        ${sectionTitles.map(title => `- ${title}`).join('\n')}
+        **Estrutura do Documento que você deve seguir e preencher:**
+        ${documentOutline}
 
         **Contexto do Projeto (Sua fonte de verdade):**
         - Nome do Projeto: ${projectName}
@@ -352,60 +342,17 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         - Arquivos, código e outras informações:
         ${knowledgeBase}
 
-        Agora, gere o conteúdo para todas as seções, seguindo o formato de separador obrigatório e todas as regras de formatação.
+        Agora, gere o documento Markdown completo, começando pelo primeiro título.
     `;
 
     progressCallback({ progress: 50, message: 'Gerando rascunho de todo o documento...' });
 
     const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(singleCallPrompt, params.teamData) }];
-    const combinedResponse = await callOpenAI(messages);
+    const markdownResponse = await callOpenAI(messages);
 
     progressCallback({ progress: 85, message: 'Formatando documento final...' });
 
-    let fullHtmlContent = '';
-    const sectionMap = new Map();
-
-    const sectionsRegex = /<--SECTION_START: (.*?)-->(.*?)<--SECTION_END-->/gs;
-    let match;
-    while ((match = sectionsRegex.exec(combinedResponse)) !== null) {
-        const title = match[1].trim();
-        const content = match[2].trim();
-        sectionMap.set(title, content);
-    }
-
-    // Reconstruct in the correct order
-    const reconstructContent = (structure) => {
-      let html = '';
-      structure.forEach(item => {
-        const markdownContent = sectionMap.get(item.title);
-        if (markdownContent) {
-          html += `<h1>${item.title}</h1>\n${markdownToHtml(markdownContent)}\n\n`;
-        }
-        if (item.children) {
-          item.children.forEach(child => {
-            const childMarkdown = sectionMap.get(child.title);
-            if (childMarkdown) {
-              html += `<h2>${child.title}</h2>\n${markdownToHtml(childMarkdown)}\n\n`;
-            }
-          });
-        }
-      });
-      return html;
-    };
-    
-    if (docType !== 'support') {
-        fullHtmlContent += reconstructContent(structures.technicalStructure);
-    }
-     if (docType !== 'technical') {
-        fullHtmlContent += reconstructContent(structures.supportStructure);
-    }
-    
-    if (fullHtmlContent.trim() === '') {
-        console.error("Conteúdo combinado da IA:", combinedResponse);
-        throw new Error("A IA não retornou o conteúdo no formato esperado. A resposta pode estar incompleta ou mal formatada. Tente novamente.");
-    }
-
-    return fullHtmlContent;
+    return markdownToHtml(markdownResponse);
 };
 
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
