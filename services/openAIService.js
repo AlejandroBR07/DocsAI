@@ -327,6 +327,7 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         3.  **CONTEXTO É REI:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido. Não invente funcionalidades.
         4.  **AUDIÊNCIA:** ${audiencePrompt}
         5.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+        6.  **USE MARKDOWN:** Formate o texto usando Markdown para melhorar a legibilidade. Use **negrito** (\`**texto**\`) para destacar termos importantes, \`código\` (\`\`código\`\`) para referências a arquivos, funções ou variáveis, e listas para sequências de passos.
 
         **Tópicos a serem escritos:**
         ${sectionTitles.map(title => `- ${title}`).join('\n')}

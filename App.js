@@ -9,7 +9,7 @@ import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner
 import { Team } from './types.js';
 import { initializeAiService, validateApiKey } from './services/openAIService.js';
 
-// Modal para alterar a chave de API, definido localmente.
+// Modal para alterar la clave de API, definido localmente.
 const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
   const [apiKey, setApiKey] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -113,8 +113,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.2.0";
-    const LATEST_CHANGE = "Simplificação do Contexto com GPT-4.1: Remoção total do limite de tokens e da lógica de divisão.";
+    const APP_VERSION = "v1.2.1";
+    const LATEST_CHANGE = "Aprimoramento do prompt para garantir a geração de conteúdo em Markdown.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
