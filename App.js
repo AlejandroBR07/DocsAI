@@ -113,6 +113,16 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
+    const APP_VERSION = "v1.0.1";
+    const LATEST_CHANGE = "Added versioning log and increased AI context token threshold.";
+
+    console.log(
+        `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
+        'background: #3b82f6; color: white; padding: 2px 4px; border-radius: 3px 0 0 3px; font-weight: bold;',
+        'background: #1f2937; color: white; padding: 2px 4px; border-radius: 0 3px 3px 0;',
+        'color: #9ca3af; padding: 2px;'
+    );
+      
     const loadData = async () => {
       try {
         const savedApiKey = localStorage.getItem('synapsedocs-apikey');

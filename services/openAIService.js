@@ -446,8 +446,8 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
     const knowledgeBase = buildTeamContext(params.teamData, { includeFileContent: true });
     
-    // Heuristic: 1 token ~ 4 chars. Threshold set to 80k to be safe with a 128k context window.
-    const TOKEN_THRESHOLD = 80000; 
+    // Heuristic: 1 token ~ 4 chars. Threshold set to 115k to be safe with a 128k context window (GPT-4o).
+    const TOKEN_THRESHOLD = 115000; 
     const estimatedTokens = Math.round(knowledgeBase.length / 4);
 
     let fullHtmlContent = '';
