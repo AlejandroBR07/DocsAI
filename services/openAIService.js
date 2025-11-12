@@ -232,7 +232,7 @@ const markdownToHtml = (markdown) => {
         return text
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`([^`]+)`/g, '<code style="background-color: #4a5568; color: #e2e8f0; padding: 0.2em 0.4em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
+            .replace(/`([^`]+)`/g, '<code style="background-color: #e5e7eb; color: #1f2937; padding: 0.2em 0.4em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em; border: 1px solid #d1d5db;">$1</code>');
     };
 
     const blocks = markdown.replace(/\r\n/g, '\n').split(/\n{2,}/);
@@ -323,11 +323,14 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
             <--SECTION_START: [O Título Exato da Seção]-->
             (Aqui vai o conteúdo da seção em Markdown)
             <--SECTION_END-->
-        2.  **CONCISÃO E OBJETIVIDADE:** Seja informativo e detalhado, mas evite verbosidade desnecessária. Vá direto ao ponto e foque nos aspectos mais importantes de cada tópico.
+        2.  **CLAREZA E CONCISÃO:** A clareza é a prioridade máxima. Escreva parágrafos curtos e diretos (idealmente 2-4 frases). Explique conceitos complexos de forma simples. Evite jargões desnecessários e textos longos.
         3.  **CONTEXTO É REI:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido. Não invente funcionalidades.
         4.  **AUDIÊNCIA:** ${audiencePrompt}
         5.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
-        6.  **USE MARKDOWN:** Formate o texto usando Markdown para melhorar a legibilidade. Use **negrito** (\`**texto**\`) para destacar termos importantes, \`código\` (\`\`código\`\`) para referências a arquivos, funções ou variáveis, e listas para sequências de passos.
+        6.  **MARKDOWN OBRIGATÓRIO:** É **essencial** formatar o texto usando Markdown para garantir a legibilidade.
+            - **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), conceitos importantes e termos técnicos. Isso é crucial para a escaneabilidade do documento.
+            - Use código (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
+            - Use listas apenas para sequências de passos ou itens que se beneficiem desse formato.
 
         **Tópicos a serem escritos:**
         ${sectionTitles.map(title => `- ${title}`).join('\n')}
