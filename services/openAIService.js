@@ -227,23 +227,25 @@ export const generateSupportStructure = (params) => generateStructure(params, 'u
 
 const markdownToHtml = (markdown) => {
     if (!markdown) return '';
-    
-    // Processa o markdown por blocos (parágrafos, listas, etc.)
-    const blocks = markdown.trim().split(/\n\n+/);
-    let html = '';
 
     const processInline = (text) => {
-      return text
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/__ (.*?)__/g, '<u>$1</u>')
-          .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #a3e635; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
+        // A ordem é importante: negrito antes de itálico para evitar conflitos de aninhamento
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/__(.*?)__/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/_(.*?)_/g, '<em>$1</em>')
+            .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #facc15; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
     };
 
+    // Divide o markdown em blocos principais (separados por linhas em branco)
+    const blocks = markdown.trim().split(/\n{2,}/);
+    let html = '';
+
     for (const block of blocks) {
-        // Headers
+        // Títulos (Hx)
         if (block.startsWith('#')) {
-            const level = (block.match(/#/g) || []).length;
+            const level = block.match(/^#+/)[0].length;
             if (level <= 6) {
                 const content = block.substring(level).trim();
                 html += `<h${level}>${processInline(content)}</h${level}>`;
@@ -251,54 +253,54 @@ const markdownToHtml = (markdown) => {
             }
         }
 
-        // Code Blocks
-        if (block.startsWith('```')) {
-            const code = block.replace(/^```(?:\w*\n)?/, '').replace(/\n```$/, '').trim();
+        // Blocos de Código (```)
+        if (block.startsWith('```') && block.endsWith('```')) {
+            const code = block.substring(3, block.length - 3).trim();
             const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
             html += `<pre><code>${escapedCode}</code></pre>`;
             continue;
         }
-        
-        // Blockquotes
+
+        // Citações (>)
         if (block.startsWith('>')) {
             const quoteContent = block.split('\n').map(line => line.replace(/^> ?/, '')).join('<br>');
             html += `<blockquote>${processInline(quoteContent)}</blockquote>`;
             continue;
         }
 
-        // Lists
-        if (block.match(/^(\s*[-*] .*|\s*\d+\. .*)/m)) {
+        // Listas (não ordenadas e ordenadas)
+        const lines = block.split('\n');
+        if (lines.every(line => /^\s*([-*]|\d+\.) /.test(line.trim()))) {
             let listHtml = '';
-            let currentList = null;
-            const lines = block.split('\n');
+            let listType = null;
             
-            lines.forEach(line => {
+            for (const line of lines) {
                 const ulMatch = line.match(/^\s*[-*] (.*)/);
-                const olMatch = line.match(/^\s*(\d+)\. (.*)/);
+                const olMatch = line.match(/^\s*\d+\. (.*)/);
 
                 if (ulMatch) {
-                    if (currentList !== 'ul') {
-                        if (currentList) listHtml += `</${currentList}>`;
+                    if (listType !== 'ul') {
+                        if (listType) listHtml += `</${listType}>`;
                         listHtml += '<ul>';
-                        currentList = 'ul';
+                        listType = 'ul';
                     }
                     listHtml += `<li>${processInline(ulMatch[1])}</li>`;
                 } else if (olMatch) {
-                     if (currentList !== 'ol') {
-                        if (currentList) listHtml += `</${currentList}>`;
+                     if (listType !== 'ol') {
+                        if (listType) listHtml += `</${listType}>`;
                         listHtml += '<ol>';
-                        currentList = 'ol';
+                        listType = 'ol';
                     }
-                    listHtml += `<li>${processInline(olMatch[2])}</li>`;
+                    listHtml += `<li>${processInline(olMatch[1])}</li>`;
                 }
-            });
-            if (currentList) listHtml += `</${currentList}>`;
+            }
+            if (listType) listHtml += `</${listType}>`;
             html += listHtml;
             continue;
         }
 
-        // Paragraphs
-        html += `<p>${processInline(block)}</p>`;
+        // Parágrafos (com quebras de linha simples convertidas para <br>)
+        html += `<p>${processInline(block.replace(/\n/g, '<br>'))}</p>`;
     }
 
     return html;
@@ -331,7 +333,7 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         2.  **CLAREZA E CONCISÃO:** A clareza é a prioridade máxima. Escreva parágrafos curtos e diretos (idealmente 2-4 frases). Explique conceitos complexos de forma simples.
         3.  **MARKDOWN PURO E OBRIGATÓRIO:** É **essencial** formatar o texto usando sintaxe padrão de Markdown.
             - **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), conceitos importantes e termos técnicos. Isso é crucial para a escaneabilidade do documento.
-            - Use títulos e subtítulos (\`#\`, \`##\`, \`###\`) para organizar o conteúdo dentro de cada seção.
+            - Use subtítulos (\`##\`, \`###\`) para organizar o conteúdo dentro de cada seção, se necessário.
             - Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
             - Use listas (\`-\` ou \`1.\`) para sequências de passos ou itens.
             - Use quebras de linha duplas (\`\n\n\`) para separar parágrafos.
@@ -339,6 +341,7 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         5.  **REFERÊNCIAS AO CÓDIGO:** Quando o contexto incluir código, você **DEVE ativamente referenciá-lo** em suas explicações. Mencione nomes de funções específicas (ex: \`handleApiKeySet\`), variáveis (ex: \`apiKeyStatus\`), ou nomes de arquivos (ex: \`CreationModal.js\`) para tornar a documentação concreta e conectada ao código-fonte.
         6.  **AUDIÊNCIA:** ${audiencePrompt}
         7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+        8.  **NÃO REPITA O TÍTULO:** O título da seção já é definido pelo separador \`<--SECTION_START: ...>\`. **NÃO** inclua um título principal (ex: \`# Título da Seção\`) dentro do conteúdo. Comece a escrever o texto diretamente.
         
         **Tópicos a serem escritos:**
         ${sectionTitles.map(title => `- ${title}`).join('\n')}
