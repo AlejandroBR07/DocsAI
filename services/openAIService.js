@@ -40,9 +40,9 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
                     "Authorization": `Bearer ${openAIApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-4o",
+                    model: "gpt-4.1",
                     messages: messages,
-                    max_tokens: 4096,
+                    max_tokens: 8000,
                     response_format: response_format,
                 })
             });
@@ -115,23 +115,17 @@ const getBaseSystemPersona = (team) => {
   }
 }
 
-const buildTeamContext = (teamData, options = { includeFileContent: true }) => {
+const buildTeamContext = (teamData) => {
     let context = '';
     
-    if (options.includeFileContent && teamData.folderFiles && teamData.folderFiles.length > 0) {
+    if (teamData.folderFiles && teamData.folderFiles.length > 0) {
       context += '**Estrutura e Conteúdo do Projeto (Pasta):**\n\n';
       context += teamData.folderFiles.map(file => `--- Arquivo: ${file.path} ---\n${file.content}\n\n`).join('');
-    } else if (teamData.folderFiles && teamData.folderFiles.length > 0) {
-      context += '**Estrutura de Arquivos do Projeto (Pasta):**\n\n';
-      context += teamData.folderFiles.map(file => `- ${file.path}`).join('\n') + '\n\n';
     }
 
-    if (options.includeFileContent && teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
+    if (teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
       context += '**Arquivos Avulsos Anexados:**\n\n';
       context += teamData.uploadedCodeFiles.map(file => `--- Arquivo: ${file.name} ---\n${file.content}\n\n`).join('');
-    } else if(teamData.uploadedCodeFiles && teamData.uploadedCodeFiles.length > 0) {
-      context += '**Arquivos Avulsos Anexados (Nomes):**\n\n';
-      context += teamData.uploadedCodeFiles.map(file => `- ${file.name}`).join('\n') + '\n\n';
     }
     
     if (teamData.pastedCode) context += `**Código Colado Adicional:**\n${teamData.pastedCode}\n\n`;
@@ -197,7 +191,7 @@ const generateStructure = async (params, promptType) => {
   
   const { projectName, description, team, teamData } = params;
   const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData, { includeFileContent: false });
+  const teamContext = buildTeamContext(teamData);
 
   const structurePrompt = `
     ${structurePromptTemplate(promptType)}
@@ -305,7 +299,7 @@ const markdownToHtml = (markdown) => {
     return htmlBlocks.join('');
 };
 
-const generateInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
+const generateContentInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
     const { projectName, description, docType } = params;
     
     progressCallback({ progress: 20, message: 'Analisando todo o contexto...' });
@@ -365,73 +359,35 @@ const generateInSingleCall = async (params, structures, persona, knowledgeBase, 
     }
 
     // Reconstruct in the correct order
-    for (const section of allSections) {
-        const markdownContent = sectionMap.get(section.title);
+    const reconstructContent = (structure) => {
+      let html = '';
+      structure.forEach(item => {
+        const markdownContent = sectionMap.get(item.title);
         if (markdownContent) {
-            const isSubItem = structures.technicalStructure.some(s => s.children?.some(c => c.id === section.id)) || structures.supportStructure.some(s => s.children?.some(c => c.id === section.id));
-            const headingLevel = isSubItem ? 2 : 1;
-            fullHtmlContent += `<h${headingLevel}>${section.title}</h${headingLevel}>\n${markdownToHtml(markdownContent)}\n\n`;
-        } else {
-             console.warn(`A IA não gerou conteúdo para a seção: "${section.title}"`);
+          html += `<h1>${item.title}</h1>\n${markdownToHtml(markdownContent)}\n\n`;
         }
+        if (item.children) {
+          item.children.forEach(child => {
+            const childMarkdown = sectionMap.get(child.title);
+            if (childMarkdown) {
+              html += `<h2>${child.title}</h2>\n${markdownToHtml(childMarkdown)}\n\n`;
+            }
+          });
+        }
+      });
+      return html;
+    };
+    
+    if (docType !== 'support') {
+        fullHtmlContent += reconstructContent(structures.technicalStructure);
+    }
+     if (docType !== 'technical') {
+        fullHtmlContent += reconstructContent(structures.supportStructure);
     }
     
     if (fullHtmlContent.trim() === '') {
+        console.error("Conteúdo combinado da IA:", combinedResponse);
         throw new Error("A IA não retornou o conteúdo no formato esperado. A resposta pode estar incompleta ou mal formatada. Tente novamente.");
-    }
-
-    return fullHtmlContent;
-};
-
-const generateInChunks = async (params, structures, persona, knowledgeBase, progressCallback) => {
-    const { projectName, description, docType, teamData } = params;
-
-    const allSections = [];
-    if (docType !== 'support') allSections.push(...structures.technicalStructure.flatMap(item => [item, ...(item.children || [])]));
-    if (docType !== 'technical') allSections.push(...structures.supportStructure.flatMap(item => [item, ...(item.children || [])]));
-    
-    let fullHtmlContent = '';
-    const baseProgress = 20;
-    const progressPerSection = (100 - baseProgress) / (allSections.length || 1);
-
-    for (let i = 0; i < allSections.length; i++) {
-        const section = allSections[i];
-        const currentProgress = Math.round(baseProgress + (i * progressPerSection));
-        progressCallback({ progress: currentProgress, message: `Escrevendo seção: "${section.title}"...` });
-        
-        const isSupportTopic = structures.supportStructure.some(s => s.title === section.title || s.children?.some(c => c.title === section.title));
-        const audiencePrompt = isSupportTopic
-            ? "Escreva de forma clara e simples, como se estivesse explicando para um usuário final não-técnico. Use exemplos práticos."
-            : "Escreva de forma detalhada e técnica, como se estivesse explicando para outro desenvolvedor. Elabore sobre a arquitetura e as decisões de implementação.";
-
-        const sectionPrompt = `
-            Sua tarefa é escrever uma seção detalhada, **mas concisa e objetiva**, para um documento. O tópico da seção é "**${section.title}**". Use o 'Contexto do Projeto' abaixo como sua fonte principal.
-
-            **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
-            1.  **FOCO E OBJETIVIDADE:** Elabore sobre o tópico, mas evite verbosidade desnecessária. Vá direto ao ponto, focando nas informações essenciais.
-            2.  **BASEADO NO CONTEXTO:** Baseie sua resposta fortemente no 'Contexto do Projeto' fornecido.
-            3.  **FOCO NO TÓPICO:** Sua resposta deve ser exclusivamente sobre "**${section.title}**".
-            4.  **SEM REDUNDÂNCIA:** Não adicione introduções ou conclusões. Comece diretamente com o conteúdo da seção.
-            5.  **FORMATO:** Use Markdown simples. Dê PREFERÊNCIA a parágrafos bem escritos.
-            6.  **AUDIÊNCIA:** ${audiencePrompt}
-            7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
-            
-            **Contexto do Projeto (Sua fonte de verdade):**
-            - Nome do Projeto: ${projectName}
-            - Descrição Geral: ${description}
-            - Arquivos, código e outras informações:
-            ${knowledgeBase}
-
-            Agora, escreva o conteúdo conciso e objetivo para a seção "${section.title}".
-        `;
-        
-        const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(sectionPrompt, teamData) }];
-        const sectionContent = await callOpenAI(messages);
-        
-        const isSubItem = structures.technicalStructure.some(s => s.children?.some(c => c.id === section.id)) || structures.supportStructure.some(s => s.children?.some(c => c.id === section.id));
-        const headingLevel = isSubItem ? 2 : 1;
-        
-        fullHtmlContent += `<h${headingLevel}>${section.title}</h${headingLevel}>\n${markdownToHtml(sectionContent)}\n\n`;
     }
 
     return fullHtmlContent;
@@ -444,23 +400,10 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     const persona = getBaseSystemPersona(params.team);
     
     progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
-    const knowledgeBase = buildTeamContext(params.teamData, { includeFileContent: true });
+    const knowledgeBase = buildTeamContext(params.teamData);
     
-    // Heuristic: 1 token ~ 4 chars. Threshold set to 115k to be safe with a 128k context window (GPT-4o).
-    const TOKEN_THRESHOLD = 115000; 
-    const estimatedTokens = Math.round(knowledgeBase.length / 4);
-
-    let fullHtmlContent = '';
-
-    if (estimatedTokens < TOKEN_THRESHOLD) {
-        // --- Single Call Strategy (Fast Path) ---
-        console.log(`[INFO] Contexto pequeno (${estimatedTokens} tokens). Usando estratégia de chamada única.`);
-        fullHtmlContent = await generateInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
-    } else {
-        // --- Multi-Call/Chunk Strategy (Safe Path for large contexts) ---
-        console.log(`[INFO] Contexto grande (${estimatedTokens} tokens). Usando estratégia de chamada por seção.`);
-        fullHtmlContent = await generateInChunks(params, structures, persona, knowledgeBase, progressCallback);
-    }
+    console.log(`[INFO] Usando estratégia de chamada única com GPT-4.1.`);
+    const fullHtmlContent = await generateContentInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
 
     return {
         title: projectName,

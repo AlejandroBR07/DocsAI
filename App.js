@@ -113,8 +113,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.0.1";
-    const LATEST_CHANGE = "Added versioning log and increased AI context token threshold.";
+    const APP_VERSION = "v1.2.0";
+    const LATEST_CHANGE = "Simplificação do Contexto com GPT-4.1: Remoção total do limite de tokens e da lógica de divisão.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
