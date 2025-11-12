@@ -237,25 +237,39 @@ const DocumentPreview = ({ doc, onBack, onUpdateContent, isExiting }) => {
 
   const handleCopy = () => {
     if (contentRef.current) {
-      const titleToCopy = isEditing ? currentTitle : doc.title;
-      const contentHtml = `<h1>${titleToCopy}</h1>${contentRef.current.innerHTML}`;
-      const plainText = `${titleToCopy}\n\n${contentRef.current.innerText}`;
-      
-      navigator.clipboard.write([
-        new ClipboardItem({
-          "text/html": new Blob([contentHtml], { type: "text/html" }),
-          "text/plain": new Blob([plainText], { type: "text/plain" }),
-        })
-      ]).then(() => {
-        setCopyStatus('Copiado!');
-        setTimeout(() => setCopyStatus('Copiar Conteúdo'), 2000);
-      }).catch(err => {
-        console.error('Falha ao copiar conteúdo: ', err);
-        setCopyStatus('Erro ao copiar');
-        setTimeout(() => setCopyStatus('Copiar Conteúdo'), 2000);
-      });
+        const titleToCopy = isEditing ? currentTitle : doc.title;
+        const plainText = `${titleToCopy}\n\n${contentRef.current.innerText}`;
+
+        // Create a clone of the content to modify styles for copying
+        const contentClone = contentRef.current.cloneNode(true);
+        const codeElements = contentClone.querySelectorAll('code');
+        
+        // Apply Google Docs-friendly styles to the cloned elements
+        codeElements.forEach(codeEl => {
+            codeEl.style.fontFamily = 'Roboto, monospace';
+            codeEl.style.color = '#188038';
+            codeEl.style.backgroundColor = 'transparent'; // Ensure transparent background
+            codeEl.style.padding = '0'; // Remove padding that might interfere
+            codeEl.style.fontSize = 'inherit'; // Inherit font size
+        });
+
+        const contentHtml = `<h1>${titleToCopy}</h1>${contentClone.innerHTML}`;
+
+        navigator.clipboard.write([
+            new ClipboardItem({
+                "text/html": new Blob([contentHtml], { type: "text/html" }),
+                "text/plain": new Blob([plainText], { type: "text/plain" }),
+            })
+        ]).then(() => {
+            setCopyStatus('Copiado!');
+            setTimeout(() => setCopyStatus('Copiar Conteúdo'), 2000);
+        }).catch(err => {
+            console.error('Falha ao copiar conteúdo: ', err);
+            setCopyStatus('Erro ao copiar');
+            setTimeout(() => setCopyStatus('Copiar Conteúdo'), 2000);
+        });
     }
-  };
+};
 
   const animationClass = isExiting ? 'animate-fade-out' : 'animate-fade-in';
   
