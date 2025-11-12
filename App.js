@@ -113,8 +113,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.2.2";
-    const LATEST_CHANGE = "Melhoria na qualidade do conteúdo (concisão e negrito) e na formatação de `código`.";
+    const APP_VERSION = "v1.2.3";
+    const LATEST_CHANGE = "Melhora radical na renderização de Markdown e na qualidade do conteúdo gerado pela IA.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,

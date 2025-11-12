@@ -227,76 +227,81 @@ export const generateSupportStructure = (params) => generateStructure(params, 'u
 
 const markdownToHtml = (markdown) => {
     if (!markdown) return '';
+    
+    // Processa o markdown por blocos (parágrafos, listas, etc.)
+    const blocks = markdown.trim().split(/\n\n+/);
+    let html = '';
 
     const processInline = (text) => {
-        return text
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`([^`]+)`/g, '<code style="background-color: #e5e7eb; color: #1f2937; padding: 0.2em 0.4em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em; border: 1px solid #d1d5db;">$1</code>');
+      return text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/__ (.*?)__/g, '<u>$1</u>')
+          .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #a3e635; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
     };
 
-    const blocks = markdown.replace(/\r\n/g, '\n').split(/\n{2,}/);
+    for (const block of blocks) {
+        // Headers
+        if (block.startsWith('#')) {
+            const level = (block.match(/#/g) || []).length;
+            if (level <= 6) {
+                const content = block.substring(level).trim();
+                html += `<h${level}>${processInline(content)}</h${level}>`;
+                continue;
+            }
+        }
 
-    const htmlBlocks = blocks.map(block => {
-        block = block.trim();
-        if (block.length === 0) return '';
-
-        // Code Blocks (```)
+        // Code Blocks
         if (block.startsWith('```')) {
             const code = block.replace(/^```(?:\w*\n)?/, '').replace(/\n```$/, '').trim();
             const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return `<pre style="background-color: #1f2937; color: #e5e7eb; padding: 1em; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.5;"><code>${escapedCode}</code></pre>`;
+            html += `<pre><code>${escapedCode}</code></pre>`;
+            continue;
         }
         
-        // Headers (#, ##, ###, ####)
-        if (block.startsWith('#### ')) return `<h4>${processInline(block.substring(5))}</h4>`;
-        if (block.startsWith('### ')) return `<h3>${processInline(block.substring(4))}</h3>`;
-        if (block.startsWith('## ')) return `<h2>${processInline(block.substring(3))}</h2>`;
-        if (block.startsWith('# ')) return `<h1>${processInline(block.substring(2))}</h1>`;
-        
-        // Blockquotes (>)
-        if (block.startsWith('> ')) {
-             const quoteContent = block.split('\n').map(line => line.replace(/^\> ?/, '')).join('<br>');
-             return `<blockquote style="border-left: 4px solid #6366f1; padding-left: 1em; margin-left: 0; color: #d1d5db; font-style: italic;">${processInline(quoteContent)}</blockquote>`;
+        // Blockquotes
+        if (block.startsWith('>')) {
+            const quoteContent = block.split('\n').map(line => line.replace(/^> ?/, '')).join('<br>');
+            html += `<blockquote>${processInline(quoteContent)}</blockquote>`;
+            continue;
         }
 
-        // Lists (*, -, 1.)
+        // Lists
         if (block.match(/^(\s*[-*] .*|\s*\d+\. .*)/m)) {
-            const lines = block.split('\n');
             let listHtml = '';
-            let listType = null;
-
+            let currentList = null;
+            const lines = block.split('\n');
+            
             lines.forEach(line => {
                 const ulMatch = line.match(/^\s*[-*] (.*)/);
-                const olMatch = line.match(/^\s*\d+\. (.*)/);
+                const olMatch = line.match(/^\s*(\d+)\. (.*)/);
 
                 if (ulMatch) {
-                    if (listType !== 'ul') {
-                        if (listType) listHtml += `</${listType}>`;
+                    if (currentList !== 'ul') {
+                        if (currentList) listHtml += `</${currentList}>`;
                         listHtml += '<ul>';
-                        listType = 'ul';
+                        currentList = 'ul';
                     }
                     listHtml += `<li>${processInline(ulMatch[1])}</li>`;
                 } else if (olMatch) {
-                     if (listType !== 'ol') {
-                        if (listType) listHtml += `</${listType}>`;
+                     if (currentList !== 'ol') {
+                        if (currentList) listHtml += `</${currentList}>`;
                         listHtml += '<ol>';
-                        listType = 'ol';
+                        currentList = 'ol';
                     }
-                    listHtml += `<li>${processInline(olMatch[1])}</li>`;
-                } else if (listHtml.endsWith('</li>')) {
-                    listHtml = listHtml.slice(0, -5) + ` ${processInline(line.trim())}</li>`;
+                    listHtml += `<li>${processInline(olMatch[2])}</li>`;
                 }
             });
-            if (listType) listHtml += `</${listType}>`;
-            return listHtml;
+            if (currentList) listHtml += `</${currentList}>`;
+            html += listHtml;
+            continue;
         }
 
         // Paragraphs
-        return `<p>${processInline(block.replace(/\n/g, '<br>'))}</p>`;
-    });
+        html += `<p>${processInline(block)}</p>`;
+    }
 
-    return htmlBlocks.join('');
+    return html;
 };
 
 const generateContentInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
@@ -321,17 +326,20 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
         1.  **FORMATO DE SAÍDA:** Você DEVE formatar sua resposta usando separadores especiais. Para cada seção, use este formato exato:
             <--SECTION_START: [O Título Exato da Seção]-->
-            (Aqui vai o conteúdo da seção em Markdown)
+            (Aqui vai o conteúdo da seção em Markdown puro)
             <--SECTION_END-->
-        2.  **CLAREZA E CONCISÃO:** A clareza é a prioridade máxima. Escreva parágrafos curtos e diretos (idealmente 2-4 frases). Explique conceitos complexos de forma simples. Evite jargões desnecessários e textos longos.
-        3.  **CONTEXTO É REI:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido. Não invente funcionalidades.
-        4.  **AUDIÊNCIA:** ${audiencePrompt}
-        5.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
-        6.  **MARKDOWN OBRIGATÓRIO:** É **essencial** formatar o texto usando Markdown para garantir a legibilidade.
+        2.  **CLAREZA E CONCISÃO:** A clareza é a prioridade máxima. Escreva parágrafos curtos e diretos (idealmente 2-4 frases). Explique conceitos complexos de forma simples.
+        3.  **MARKDOWN PURO E OBRIGATÓRIO:** É **essencial** formatar o texto usando sintaxe padrão de Markdown.
             - **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), conceitos importantes e termos técnicos. Isso é crucial para a escaneabilidade do documento.
-            - Use código (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
-            - Use listas apenas para sequências de passos ou itens que se beneficiem desse formato.
-
+            - Use títulos e subtítulos (\`#\`, \`##\`, \`###\`) para organizar o conteúdo dentro de cada seção.
+            - Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
+            - Use listas (\`-\` ou \`1.\`) para sequências de passos ou itens.
+            - Use quebras de linha duplas (\`\n\n\`) para separar parágrafos.
+        4.  **CONTEXTO É REI:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
+        5.  **REFERÊNCIAS AO CÓDIGO:** Quando o contexto incluir código, você **DEVE ativamente referenciá-lo** em suas explicações. Mencione nomes de funções específicas (ex: \`handleApiKeySet\`), variáveis (ex: \`apiKeyStatus\`), ou nomes de arquivos (ex: \`CreationModal.js\`) para tornar a documentação concreta e conectada ao código-fonte.
+        6.  **AUDIÊNCIA:** ${audiencePrompt}
+        7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+        
         **Tópicos a serem escritos:**
         ${sectionTitles.map(title => `- ${title}`).join('\n')}
 
@@ -341,7 +349,7 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         - Arquivos, código e outras informações:
         ${knowledgeBase}
 
-        Agora, gere o conteúdo para todas as seções, seguindo o formato de separador obrigatório.
+        Agora, gere o conteúdo para todas as seções, seguindo o formato de separador obrigatório e todas as regras de formatação.
     `;
 
     progressCallback({ progress: 50, message: 'Gerando rascunho de todo o documento...' });
