@@ -234,7 +234,7 @@ const markdownToHtml = (markdown) => {
             .replace(/__(.*?)__/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/_(.*?)_/g, '<em>$1</em>')
-            .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #facc15; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
+            .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #eab308; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
     };
 
     const blocks = markdown.trim().split(/\n{2,}/);
@@ -328,10 +328,11 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
         1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título.
         2.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
-        3.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), e conceitos importantes. Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
-        4.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto'. Você **DEVE ativamente referenciar o código-fonte** em suas explicações, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta.
-        5.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
-        6.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+        3.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. O título já está definido na estrutura que você deve seguir. Comece a escrever o parágrafo diretamente.
+        4.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), e conceitos importantes. Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
+        5.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto'. Você **DEVE ativamente referenciar o código-fonte** em suas explicações, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta.
+        6.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
+        7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
         
         **Estrutura do Documento que você deve seguir e preencher:**
         ${documentOutline}
@@ -342,7 +343,7 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         - Arquivos, código e outras informações:
         ${knowledgeBase}
 
-        Agora, gere o documento Markdown completo, começando pelo primeiro título.
+        Agora, gere o documento Markdown completo, começando pelo conteúdo do primeiro título.
     `;
 
     progressCallback({ progress: 50, message: 'Gerando rascunho de todo o documento...' });
