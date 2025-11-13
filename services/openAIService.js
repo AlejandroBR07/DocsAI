@@ -40,7 +40,7 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
                     "Authorization": `Bearer ${openAIApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-4o",
+                    model: "gpt-4.1",
                     messages: messages,
                     response_format: response_format,
                 })
@@ -250,7 +250,10 @@ const markdownToHtml = (markdown) => {
     const flushBlock = () => {
         if (currentBlock.type === null) return;
         switch (currentBlock.type) {
-            case 'p': html += `<p>${currentBlock.content.map(processInline).join('<br>')}</p>\n`; break;
+            case 'p':
+                 const processedContent = currentBlock.content.map(processInline).join('<br>');
+                 html += `<p>${processedContent}</p>\n`;
+                 break;
             case 'ul':
             case 'ol':
                 html += `<${currentBlock.type}>\n`;
@@ -312,95 +315,138 @@ const markdownToHtml = (markdown) => {
     return html;
 };
 
-const generateContentInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
+const buildGenerationPrompt = (params, structures, knowledgeBase) => {
     const { projectName, description, docType, responsiblePerson, creationDate, platformLink } = params;
-    
-    progressCallback({ progress: 20, message: 'Analisando todo o contexto...' });
 
-    let documentOutline = '';
+    const header = `
+**CABEÇALHO OBRIGATÓRIO:**
+Sua primeira ação DEVE ser gerar um cabeçalho formatado com as seguintes informações, seguido por uma linha horizontal em Markdown (\`---\`). Se um campo não for fornecido (como o Link), omita a linha inteira.
+**Nome do Projeto:** ${projectName}
+**Responsável:** ${responsiblePerson}
+**Data de Atualização:** ${creationDate}
+${platformLink ? `**Link da Plataforma:** ${platformLink}` : ''}
+---
+    `.trim();
+
+    const generalRules = `
+**REGRAS GERAIS E INEGOCIÁVEIS (APLICAM-SE A AMBAS AS SEÇÕES):**
+1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título.
+2.  **PARÁGRAFOS CURTOS:** SEMPRE quebre ideias complexas em múltiplos parágrafos pequenos. Um parágrafo NUNCA deve ter mais de 4 ou 5 frases. Priorize a legibilidade e o espaço em branco.
+3.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.**
+4.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
+5.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
+6.  **PLACEHOLDERS DE IMAGEM:** Onde for apropriado, especialmente no Guia do Usuário, insira placeholders para imagens para que o usuário possa adicionar screenshots. Use o formato \`[Coloque aqui uma imagem mostrando o botão 'Salvar']\`. Seja específico sobre o que a imagem deve mostrar.
+7.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
+8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+    `.trim();
+
+    const contextBlock = `
+**Contexto do Projeto (Sua fonte de verdade):**
+- Nome do Projeto: ${projectName}
+- Descrição Geral: ${description}
+- Arquivos, código e outras informações:
+${knowledgeBase}
+    `.trim();
+
+    const technicalRules = `
+**REGRAS PARA DOCUMENTAÇÃO TÉCNICA:**
+- **Foco no Desenvolvedor:** A linguagem deve ser técnica e precisa.
+- **Seja Fiel ao Código:** Você DEVE ativamente referenciar o código-fonte, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta e útil para desenvolvedores.
+    `.trim();
+
+    const supportRules = `
+**REGRAS PARA GUIA DO USUÁRIO:**
+- **Foco no Usuário Final:** Sua perspectiva DEVE ser a de um usuário leigo que nunca viu o sistema. A linguagem deve ser simples, amigável e direta.
+- **NÃO FALE SOBRE CÓDIGO:** Não mencione nomes de arquivos, funções, variáveis, APIs, ou qualquer detalhe técnico de implementação.
+- **Fale Sobre a Interface:** Em vez de código, descreva a interface. Diga "Clique no botão 'Salvar'", "Preencha o campo 'Seu Nome'", "Navegue até a seção 'Configurações'". Use o contexto das imagens (screenshots) para guiar suas explicações. O objetivo é ensinar o usuário a USAR a ferramenta, não a entender como ela foi construída.
+    `.trim();
+
     const addStructureToOutline = (structure, level) => {
+        let outline = '';
         structure.forEach(item => {
-            documentOutline += `${'#'.repeat(level)} ${item.title}\n`;
+            outline += `${'#'.repeat(level)} ${item.title}\n`;
             if (item.children) {
-                addStructureToOutline(item.children, level + 1);
+                outline += addStructureToOutline(item.children, level + 1);
             }
         });
+        return outline;
     };
-
-    if (docType !== 'support' && structures.technicalStructure.length > 0) {
-        documentOutline += '--- INÍCIO DA DOCUMENTAÇÃO TÉCNICA ---\n';
-        addStructureToOutline(structures.technicalStructure, 1);
-        documentOutline += '--- FIM DA DOCUMENTAÇÃO TÉCNICA ---\n';
+    
+    if (docType === 'technical') {
+        const technicalOutline = addStructureToOutline(structures.technicalStructure, 1);
+        return `
+Sua tarefa é gerar o conteúdo completo para um documento técnico, seguindo a estrutura de tópicos fornecida.
+${header}
+${technicalRules}
+${generalRules}
+**Estrutura do Documento Técnico que você deve seguir e preencher:**
+${technicalOutline}
+${contextBlock}
+Agora, gere o documento Markdown completo, começando pelo conteúdo do primeiro título.
+        `.trim();
     }
-    if (docType !== 'technical' && structures.supportStructure.length > 0) {
-        if (documentOutline) documentOutline += '\n\n';
-        documentOutline += '--- INÍCIO DO GUIA DO USUÁRIO ---\n';
-        addStructureToOutline(structures.supportStructure, 1);
-        documentOutline += '--- FIM DO GUIA DO USUÁRIO ---\n';
+
+    if (docType === 'support') {
+        const supportOutline = addStructureToOutline(structures.supportStructure, 1);
+        return `
+Sua tarefa é gerar o conteúdo completo para um Guia do Usuário, seguindo a estrutura de tópicos fornecida.
+${header}
+${supportRules}
+${generalRules}
+**Estrutura do Guia do Usuário que você deve seguir e preencher:**
+${supportOutline}
+${contextBlock}
+Agora, gere o documento Markdown completo, começando pelo conteúdo do primeiro título.
+        `.trim();
     }
 
-    const getPromptLogic = () => {
-        const technicalRules = `
-        **Para as seções dentro da 'DOCUMENTAÇÃO TÉCNICA':**
-        - **Foco no Desenvolvedor:** A linguagem deve ser técnica e precisa.
-        - **Seja Fiel ao Código:** Você DEVE ativamente referenciar o código-fonte, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta e útil para desenvolvedores.`;
+    if (docType === 'both') {
+        const technicalOutline = addStructureToOutline(structures.technicalStructure, 1);
+        const supportOutline = addStructureToOutline(structures.supportStructure, 1);
+        return `
+Sua tarefa é gerar um documento completo com duas seções distintas: uma Documentação Técnica e um Guia do Usuário, seguindo as estruturas fornecidas.
 
-        const supportRules = `
-        **Para as seções dentro do 'GUIA DO USUÁRIO':**
-        - **Foco no Usuário Final:** Sua perspectiva DEVE ser a de um usuário leigo que nunca viu o sistema. A linguagem deve ser simples, amigável e direta.
-        - **NÃO FALE SOBRE CÓDIGO:** Não mencione nomes de arquivos, funções, variáveis, APIs, ou qualquer detalhe técnico de implementação.
-        - **Fale Sobre a Interface:** Em vez de código, descreva a interface. Diga "Clique no botão 'Salvar'", "Preencha o campo 'Seu Nome'", "Navegue até a seção 'Configurações'". Use o contexto das imagens (screenshots) para guiar suas explicações. O objetivo é ensinar o usuário a USAR a ferramenta, não a entender como ela foi construída.`;
-        
-        if (docType === 'technical') return technicalRules;
-        if (docType === 'support') return supportRules;
-        if (docType === 'both') return `${technicalRules}\n\n${supportRules}`;
-        return '';
-    };
+**PROCESSO OBRIGATÓRIO:**
+1.  **Gere a Documentação Técnica:** Escreva o conteúdo completo para a seção técnica, seguindo as regras e a estrutura dela.
+2.  **Insira um Separador:** Após terminar TODA a parte técnica, insira uma linha horizontal (\`---\`) e, em uma nova linha, um novo título principal \`# Guia do Usuário\`.
+3.  **Gere o Guia do Usuário:** Abaixo do novo título, escreva o conteúdo completo para o guia do usuário, seguindo as regras e a estrutura dele.
 
-    const singleCallPrompt = `
-        Sua tarefa é gerar o conteúdo completo para um documento, seguindo a estrutura de tópicos fornecida. Analise o 'Contexto do Projeto' e escreva o conteúdo para cada tópico, usando a sintaxe Markdown.
-        
-        **CABEÇALHO OBRIGATÓRIO:**
-        Sua primeira ação DEVE ser gerar um cabeçalho formatado com as seguintes informações, seguido por uma linha horizontal em Markdown (\`---\`). Se um campo não for fornecido (como o Link), omita a linha inteira.
-        **Nome do Projeto:** ${projectName}
-        **Responsável:** ${responsiblePerson}
-        **Data de Atualização:** ${creationDate}
-        ${platformLink ? `**Link da Plataforma:** ${platformLink}` : ''}
-        ---
+${header}
 
-        **REGRAS DE ESCRITA ESPECÍFICAS (LEIA COM ATENÇÃO):**
-        ${getPromptLogic()}
+**SEÇÃO 1: DOCUMENTAÇÃO TÉCNICA**
+${technicalRules}
+**Estrutura da Documentação Técnica (Preencha o conteúdo para cada tópico):**
+${technicalOutline}
 
-        **REGRAS GERAIS E INEGOCIÁVEIS:**
-        1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos e marcadores de seção. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título. **NÃO inclua os marcadores de seção (como '--- INÍCIO...') na sua resposta final.**
-        2.  **PARÁGRAFOS CURTOS:** SEMPRE quebre ideias complexas em múltiplos parágrafos pequenos. Um parágrafo NUNCA deve ter mais de 4 ou 5 frases. Priorize a legibilidade e o espaço em branco.
-        3.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
-        4.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
-        5.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
-        6.  **PLACEHOLDERS DE IMAGEM:** Onde for apropriado, especialmente no Guia do Usuário, insira placeholders para imagens para que o usuário possa adicionar screenshots. Use o formato \`[Coloque aqui uma imagem mostrando o botão 'Salvar']\`. Seja específico sobre o que a imagem deve mostrar.
-        7.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
-        8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
-        
-        **Estrutura do Documento que você deve seguir e preencher (ignore os marcadores --- na saída final):**
-        ${documentOutline}
+**SEÇÃO 2: GUIA DO USUÁRIO**
+${supportRules}
+**Estrutura do Guia do Usuário (Preencha o conteúdo para cada tópico após o separador e o novo título 'Guia do Usuário'):**
+${supportOutline}
 
-        **Contexto do Projeto (Sua fonte de verdade):**
-        - Nome do Projeto: ${projectName}
-        - Descrição Geral: ${description}
-        - Arquivos, código e outras informações:
-        ${knowledgeBase}
+${generalRules}
+${contextBlock}
 
-        Agora, gere o documento Markdown completo, começando pelo conteúdo do primeiro título.
-    `;
+Agora, gere o documento Markdown completo, começando pelo cabeçalho, depois a documentação técnica, o separador, e finalmente o guia do usuário.
+        `.trim();
+    }
+    
+    return ''; // Should not happen
+};
+
+
+const generateContentInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
+    progressCallback({ progress: 20, message: 'Analisando todo o contexto...' });
+    
+    const finalPrompt = buildGenerationPrompt(params, structures, knowledgeBase);
 
     progressCallback({ progress: 50, message: 'Gerando rascunho de todo o documento...' });
 
-    const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(singleCallPrompt, params.teamData) }];
+    const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(finalPrompt, params.teamData) }];
     const markdownResponse = await callOpenAI(messages);
     
     // Clean up potential markdown code block wrappers from the response.
     let cleanedMarkdown = markdownResponse;
-    const codeBlockRegex = /^\s*```(?:markdown)?\s*\n([\s\S]*?)\n\s*```\s*$/;
+    const codeBlockRegex = /^\s*```(?:markdown)?\s*([\s\S]*?)\n\s*```\s*$/;
     const match = cleanedMarkdown.match(codeBlockRegex);
     if (match && match[1]) {
         console.log("[INFO] Removed markdown code block wrapper from AI response.");
@@ -422,7 +468,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
     const knowledgeBase = buildTeamContext(params.teamData);
     
-    console.log(`[INFO] Usando estratégia de chamada única com GPT-4o.`);
+    console.log(`[INFO] Usando estratégia de chamada única com GPT-4.1.`);
     const fullHtmlContent = await generateContentInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
 
     return {
