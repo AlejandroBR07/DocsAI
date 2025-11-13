@@ -154,8 +154,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.3.3";
-    const LATEST_CHANGE = "Corrigido de forma definitiva o bug de formatação que envolvia a resposta da IA em um bloco de código.";
+    const APP_VERSION = "v1.3.4";
+    const LATEST_CHANGE = "Corrigido o bug que exibia a tag <br> como texto puro no cabeçalho do documento.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
