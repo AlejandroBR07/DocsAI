@@ -228,73 +228,126 @@ export const generateSupportStructure = (params) => generateStructure(params, 'u
 const markdownToHtml = (markdown) => {
     if (!markdown) return '';
 
+    // This function handles inline markdown like **bold**, *italic*, and `code`.
     const processInline = (text) => {
         return text
+            // Escape basic HTML to prevent injection from markdown content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            // Bold
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/__(.*?)__/g, '<strong>$1</strong>')
+            // Italic
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/_(.*?)_/g, '<em>$1</em>')
-            .replace(/`([^`]+)`/g, '<code style="background-color: transparent; color: #eab308; padding: 0.1em 0.3em; border-radius: 4px; font-family: \'Courier New\', Courier, monospace; font-size: 0.9em;">$1</code>');
+            // Inline Code. The `prose` classes in the frontend will style this.
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
     };
 
-    const blocks = markdown.trim().split(/\n{2,}/);
+    const lines = markdown.split('\n');
     let html = '';
+    // This object tracks the current multi-line block we are in.
+    let currentBlock = { type: null, content: [] };
 
-    for (const block of blocks) {
-        if (block.startsWith('#')) {
-            const level = block.match(/^#+/)[0].length;
-            if (level <= 6) {
-                const content = block.substring(level).trim();
-                html += `<h${level}>${processInline(content)}</h${level}>`;
-                continue;
-            }
-        }
+    const flushBlock = () => {
+        if (currentBlock.type === null) return;
 
-        if (block.startsWith('```') && block.endsWith('```')) {
-            const code = block.substring(3, block.length - 3).trim();
-            const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            html += `<pre><code>${escapedCode}</code></pre>`;
-            continue;
-        }
-
-        if (block.startsWith('>')) {
-            const quoteContent = block.split('\n').map(line => line.replace(/^> ?/, '')).join('<br>');
-            html += `<blockquote>${processInline(quoteContent)}</blockquote>`;
-            continue;
-        }
-
-        const lines = block.split('\n');
-        if (lines.every(line => /^\s*([-*]|\d+\.) /.test(line.trim()))) {
-            let listHtml = '';
-            let listType = null;
-            for (const line of lines) {
-                const ulMatch = line.match(/^\s*[-*] (.*)/);
-                const olMatch = line.match(/^\s*\d+\. (.*)/);
-
-                if (ulMatch) {
-                    if (listType !== 'ul') {
-                        if (listType) listHtml += `</${listType}>`;
-                        listHtml += '<ul>';
-                        listType = 'ul';
-                    }
-                    listHtml += `<li>${processInline(ulMatch[1])}</li>`;
-                } else if (olMatch) {
-                     if (listType !== 'ol') {
-                        if (listType) listHtml += `</${listType}>`;
-                        listHtml += '<ol>';
-                        listType = 'ol';
-                    }
-                    listHtml += `<li>${processInline(olMatch[1])}</li>`;
+        switch (currentBlock.type) {
+            case 'p':
+                // Join lines with <br> for paragraphs with hard line breaks.
+                html += `<p>${processInline(currentBlock.content.join('<br>'))}</p>\n`;
+                break;
+            case 'ul':
+            case 'ol':
+                html += `<${currentBlock.type}>\n`;
+                for (const item of currentBlock.content) {
+                    html += `  <li>${processInline(item)}</li>\n`;
                 }
+                html += `</${currentBlock.type}>\n`;
+                break;
+            case 'pre':
+                const code = currentBlock.content.join('\n');
+                // Escape HTML within code blocks
+                const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += `<pre><code>${escapedCode}</code></pre>\n`;
+                break;
+            case 'blockquote':
+                 html += `<blockquote>${processInline(currentBlock.content.join('<br>'))}</blockquote>\n`;
+                 break;
+        }
+
+        // Reset for the next block
+        currentBlock = { type: null, content: [] };
+    };
+
+    for (const line of lines) {
+        // Code block fences (```) toggle the code block state.
+        if (line.trim().startsWith('```')) {
+            if (currentBlock.type === 'pre') {
+                flushBlock(); // Closing fence
+            } else {
+                flushBlock(); // Starting fence for a new block
+                currentBlock.type = 'pre';
             }
-            if (listType) listHtml += `</${listType}>`;
-            html += listHtml;
+            continue;
+        }
+        if (currentBlock.type === 'pre') {
+            currentBlock.content.push(line);
             continue;
         }
 
-        html += `<p>${processInline(block.replace(/\n/g, '<br>'))}</p>`;
+        // An empty line signals the end of the current block.
+        if (line.trim() === '') {
+            flushBlock();
+            continue;
+        }
+
+        // Headings (#, ##, etc.) are their own block type.
+        const headingMatch = line.match(/^(#+)\s+(.*)/);
+        if (headingMatch) {
+            flushBlock();
+            const level = headingMatch[1].length;
+            const content = processInline(headingMatch[2].trim());
+            html += `<h${level}>${content}</h${level}>\n`;
+            continue;
+        }
+
+        // Blockquotes (>)
+        const bqMatch = line.match(/^>\s?(.*)/);
+        if (bqMatch) {
+            if (currentBlock.type !== 'blockquote') {
+                flushBlock();
+                currentBlock.type = 'blockquote';
+            }
+            currentBlock.content.push(bqMatch[1]);
+            continue;
+        }
+        
+        // List items (*, -, 1., etc.)
+        const ulMatch = line.match(/^\s*[-*+]\s+(.*)/);
+        const olMatch = line.match(/^\s*\d+\.\s+(.*)/);
+        if (ulMatch || olMatch) {
+            const listType = ulMatch ? 'ul' : 'ol';
+            const itemContent = ulMatch ? ulMatch[1] : olMatch[1];
+            // If we're not in the same type of list, flush the old block and start a new one.
+            if (currentBlock.type !== listType) {
+                flushBlock();
+                currentBlock.type = listType;
+            }
+            currentBlock.content.push(itemContent.trim());
+            continue;
+        }
+
+        // If it's none of the above, it's a paragraph line.
+        if (currentBlock.type !== 'p') {
+            flushBlock();
+            currentBlock.type = 'p';
+        }
+        currentBlock.content.push(line);
     }
 
+    flushBlock(); // Flush any remaining block at the end of the file.
     return html;
 };
 
