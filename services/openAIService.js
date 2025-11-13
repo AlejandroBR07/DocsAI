@@ -397,10 +397,20 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
 
     const messages = [{ role: "system", content: persona }, { role: "user", content: buildUserMessageContent(singleCallPrompt, params.teamData) }];
     const markdownResponse = await callOpenAI(messages);
+    
+    // Clean up potential markdown code block wrappers from the response.
+    let cleanedMarkdown = markdownResponse;
+    const codeBlockRegex = /^\s*```(?:markdown)?\s*\n([\s\S]*?)\n\s*```\s*$/;
+    const match = cleanedMarkdown.match(codeBlockRegex);
+    if (match && match[1]) {
+        console.log("[INFO] Removed markdown code block wrapper from AI response.");
+        cleanedMarkdown = match[1];
+    }
+
 
     progressCallback({ progress: 85, message: 'Formatando documento final...' });
 
-    return markdownToHtml(markdownResponse);
+    return markdownToHtml(cleanedMarkdown);
 };
 
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
