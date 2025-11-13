@@ -247,6 +247,9 @@ const markdownToHtml = (markdown) => {
             .replace(/__(.*?)__/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/_(.*?)_/g, '<em>$1</em>')
+            // First, handle the incorrect double backticks by converting them to code
+            .replace(/``(.*?)``/g, '<code>$1</code>')
+            // Then, handle the correct single backticks
             .replace(/`([^`]+)`/g, '<code>$1</code>')
             .replace(/\[(Coloque aqui.*?)\]/g, '<span style="background-color: #4f46e5; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 500;">$1</span>'); // Style placeholders
     };
@@ -342,7 +345,7 @@ ${platformLink ? `**Link da Plataforma:** ${platformLink}` : ''}
 2.  **PARÁGRAFOS CURTOS:** SEMPRE quebre ideias complexas em múltiplos parágrafos pequenos. Um parágrafo NUNCA deve ter mais de 4 ou 5 frases. Priorize a legibilidade e o espaço em branco.
 3.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.**
 4.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
-5.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
+5.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha com **UM ÚNICO ACENTO GRAVE** (\`código\`) para nomes de arquivos, variáveis, e trechos de código. **NUNCA** use acentos graves duplos (\`\`código\`\`) para código em linha.
 6.  **PLACEHOLDERS DE IMAGEM:** Onde for apropriado, especialmente no Guia do Usuário, insira placeholders para imagens para que o usuário possa adicionar screenshots. Use o formato \`[Coloque aqui uma imagem mostrando o botão 'Salvar']\`. Seja específico sobre o que a imagem deve mostrar.
 7.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
 8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.

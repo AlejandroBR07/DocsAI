@@ -154,8 +154,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.3.6";
-    const LATEST_CHANGE = "A documentação técnica para Desenvolvedores agora separa claramente Frontend e Backend.";
+    const APP_VERSION = "v1.3.7";
+    const LATEST_CHANGE = "Corrigido bug de formatação com acentos graves duplos para código em linha.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
