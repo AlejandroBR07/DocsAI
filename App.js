@@ -154,8 +154,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.3.5";
-    const LATEST_CHANGE = "Corrigido o bug que exibia a tag <br> como texto puro no cabeçalho do documento.";
+    const APP_VERSION = "v1.3.6";
+    const LATEST_CHANGE = "A documentação técnica para Desenvolvedores agora separa claramente Frontend e Backend.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,

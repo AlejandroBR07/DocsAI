@@ -102,7 +102,7 @@ const getBaseSystemPersona = (team) => {
 
   switch (team) {
     case Team.Developers:
-      return `Aja como um engenheiro de software sênior e arquiteto de soluções. ${baseInstruction}`;
+      return `Aja como um engenheiro de software sênior e arquiteto de soluções, especialista em full-stack. Sua principal habilidade é analisar um projeto completo (arquivos de frontend e backend) e documentá-los de forma clara e separada. ${baseInstruction}`;
     case Team.UXUI:
        return `Aja como um especialista em UX/UI e Product Designer, com foco em clareza para a equipe de desenvolvimento. Analise contextos visuais como designs do Figma, landing pages e screenshots de plataformas (Learnworlds, apps). ${baseInstruction}`;
     case Team.Automations:
@@ -159,11 +159,26 @@ const buildUserMessageContent = (prompt, teamData) => {
     return content;
 };
 
-const structurePromptTemplate = (promptType) => `
+const generateStructure = async (params, promptType) => {
+  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
+  
+  const { projectName, description, team, teamData, responsiblePerson, creationDate, platformLink } = params;
+  const persona = getBaseSystemPersona(team);
+  const teamContext = buildTeamContext(teamData);
+
+  let promptTypeInstruction = promptType === 'um documento técnico' 
+    ? 'Crie seções que sejam genuinamente úteis com base no que você pode inferir do código, imagens e textos.'
+    : 'Pense como um usuário final que não conhece o sistema. Crie seções como "Primeiros Passos", "Como Fazer X", "Solução de Problemas Comuns". NÃO use um template genérico.';
+  
+  if (team === Team.Developers && promptType === 'um documento técnico') {
+      promptTypeInstruction += ' Se o projeto tiver componentes de frontend e backend, crie seções separadas para cada um (ex: "Arquitetura Frontend", "Arquitetura Backend").';
+  }
+
+  const structurePromptText = `
     Sua primeira tarefa é atuar como um arquiteto de documentação. Analise de forma holística TODO o contexto fornecido abaixo e proponha a melhor estrutura possível para ${promptType}.
 
     **REGRAS CRÍTICAS PARA A ESTRUTURA:**
-    1.  **UNICIDADE E RELEVÂNCIA:** A estrutura deve ser **100% única e adaptada** ao contexto. ${promptType === 'um documento técnico' ? 'Crie seções que sejam genuinamente úteis com base no que você pode inferir do código, imagens e textos.' : 'Pense como um usuário final que não conhece o sistema. Crie seções como "Primeiros Passos", "Como Fazer X", "Solução de Problemas Comuns". NÃO use um template genérico.'}
+    1.  **UNICIDADE E RELEVÂNCIA:** A estrutura deve ser **100% única e adaptada** ao contexto. ${promptTypeInstruction}
     2.  **LÓGICA:** Os tópicos devem seguir uma ordem lógica que facilite o entendimento.
     3.  **FORMATO JSON:** Sua resposta DEVE ser um objeto JSON válido, contendo uma única chave "structure" que é um array de objetos. Cada objeto deve ter uma chave "title" (string) e opcionalmente uma chave "children" (um array de objetos com o mesmo formato, para sub-tópicos).
     4.  **PROFUNDIDADE:** Crie no máximo 2 níveis de profundidade (tópicos e sub-tópicos).
@@ -183,17 +198,10 @@ const structurePromptTemplate = (promptType) => `
         { "title": "Fluxo de Autenticação" }
       ]
     }
-`;
-
-const generateStructure = async (params, promptType) => {
-  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
-  
-  const { projectName, description, team, teamData, responsiblePerson, creationDate, platformLink } = params;
-  const persona = getBaseSystemPersona(team);
-  const teamContext = buildTeamContext(teamData);
+  `;
 
   const structurePrompt = `
-    ${structurePromptTemplate(promptType)}
+    ${structurePromptText}
     
     **Informações do Projeto para Análise:**
     - Nome do Projeto: ${projectName}
@@ -316,7 +324,7 @@ const markdownToHtml = (markdown) => {
 };
 
 const buildGenerationPrompt = (params, structures, knowledgeBase) => {
-    const { projectName, description, docType, responsiblePerson, creationDate, platformLink } = params;
+    const { projectName, description, docType, team, responsiblePerson, creationDate, platformLink } = params;
 
     const header = `
 **CABEÇALHO OBRIGATÓRIO:**
@@ -348,11 +356,16 @@ ${platformLink ? `**Link da Plataforma:** ${platformLink}` : ''}
 ${knowledgeBase}
     `.trim();
 
-    const technicalRules = `
+    let technicalRules = `
 **REGRAS PARA DOCUMENTAÇÃO TÉCNICA:**
 - **Foco no Desenvolvedor:** A linguagem deve ser técnica e precisa.
 - **Seja Fiel ao Código:** Você DEVE ativamente referenciar o código-fonte, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta e útil para desenvolvedores.
     `.trim();
+
+    if (team === Team.Developers) {
+        technicalRules += `
+- **SEPARAÇÃO FRONTEND/BACKEND:** Ao analisar o contexto, identifique quais arquivos e lógicas pertencem ao Frontend (ex: React, HTML, CSS, componentes de UI) e quais pertencem ao Backend (ex: API, banco de dados, lógica de servidor). Estruture sua resposta de forma que a documentação do Frontend seja apresentada primeiro, seguida pela documentação do Backend em seções claramente distintas, se ambas existirem.`;
+    }
 
     const supportRules = `
 **REGRAS PARA GUIA DO USUÁRIO:**
