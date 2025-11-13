@@ -154,7 +154,7 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.3.4";
+    const APP_VERSION = "v1.3.5";
     const LATEST_CHANGE = "Corrigido o bug que exibia a tag <br> como texto puro no cabeçalho do documento.";
 
     console.log(
