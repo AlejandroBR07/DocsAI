@@ -373,12 +373,12 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
 
         **REGRAS GERAIS E INEGOCIÁVEIS:**
         1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos e marcadores de seção. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título. **NÃO inclua os marcadores de seção (como '--- INÍCIO...') na sua resposta final.**
-        2.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
-        3.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
-        4.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
-        5.  **PLACEHOLDERS DE IMAGEM:** Onde for apropriado, especialmente no Guia do Usuário, insira placeholders para imagens para que o usuário possa adicionar screenshots. Use o formato \`[Coloque aqui uma imagem mostrando o botão 'Salvar']\`. Seja específico sobre o que a imagem deve mostrar.
-        6.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
-        7.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
+        2.  **PARÁGRAFOS CURTOS:** SEMPRE quebre ideias complexas em múltiplos parágrafos pequenos. Um parágrafo NUNCA deve ter mais de 4 ou 5 frases. Priorize a legibilidade e o espaço em branco.
+        3.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
+        4.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
+        5.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
+        6.  **PLACEHOLDERS DE IMAGEM:** Onde for apropriado, especialmente no Guia do Usuário, insira placeholders para imagens para que o usuário possa adicionar screenshots. Use o formato \`[Coloque aqui uma imagem mostrando o botão 'Salvar']\`. Seja específico sobre o que a imagem deve mostrar.
+        7.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
         8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
         
         **Estrutura do Documento que você deve seguir e preencher (ignore os marcadores --- na saída final):**

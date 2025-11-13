@@ -5,33 +5,84 @@ import DocumentPreview from './components/DocumentPreview.js';
 import Onboarding from './components/Onboarding.js';
 import ApiKeySetup from './components/ApiKeySetup.js';
 import ConfirmationModal from './components/ConfirmationModal.js';
-import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner, SettingsIcon } from './components/Icons.js';
+import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner, SettingsIcon, UserIcon } from './components/Icons.js';
 import { Team } from './types.js';
 import { initializeAiService, validateApiKey } from './services/openAIService.js';
 
-const SettingsModal = ({ isOpen, onClose, onApiKeySet, currentResponsible, onResponsibleSave }) => {
-  const [apiKey, setApiKey] = useState('');
+const ResponsibleModal = ({ isOpen, onClose, currentResponsible, onResponsibleSave }) => {
   const [responsibleName, setResponsibleName] = useState(currentResponsible || '');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [apiError, setApiError] = useState('');
+  
+  useEffect(() => {
+    if (isOpen) {
+      setResponsibleName(currentResponsible || '');
+    }
+  }, [isOpen, currentResponsible]);
 
   if (!isOpen) return null;
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    onResponsibleSave(responsibleName.trim());
-
-    if (!apiKey.trim()) {
-      onClose();
-      return;
+    if (responsibleName.trim()) {
+      onResponsibleSave(responsibleName.trim());
     }
+    onClose();
+  };
 
-    if (isVerifying) return;
+  return (
+    React.createElement('div', {
+      className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in",
+      onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "responsible-title"
+    },
+      React.createElement('div', {
+        className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-md transform transition-all animate-slide-up border border-gray-700",
+        onClick: (e) => e.stopPropagation()
+      },
+        React.createElement('div', { className: "p-6 flex items-center gap-3" },
+          React.createElement(UserIcon, { className: "h-6 w-6 text-indigo-400" }),
+          React.createElement('h3', { id: "responsible-title", className: "text-lg leading-6 font-bold text-white" }, "Alterar Responsável")
+        ),
+        React.createElement('form', { onSubmit: handleSave },
+          React.createElement('div', { className: "p-6" },
+            React.createElement('label', { htmlFor: "responsible-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Seu Nome (Responsável)"),
+            React.createElement('input', {
+              id: "responsible-name", type: "text", value: responsibleName,
+              onChange: (e) => setResponsibleName(e.target.value),
+              className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
+              placeholder: "Digite seu nome completo", autoFocus: true
+            })
+          ),
+          React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },
+            React.createElement('button', { type: "button", className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 sm:w-auto sm:text-sm", onClick: onClose }, "Cancelar"),
+            React.createElement('button', { type: "submit", className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 sm:w-auto sm:text-sm" }, 'Salvar')
+          )
+        )
+      )
+    )
+  );
+};
+
+
+const ApiSettingsModal = ({ isOpen, onClose, onApiKeySet }) => {
+  const [apiKey, setApiKey] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setApiKey('');
+      setApiError('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleVerifyAndSave = async (e) => {
+    e.preventDefault();
+    if (!apiKey.trim() || isVerifying) return;
     setIsVerifying(true);
     setApiError('');
     const isValid = await validateApiKey(apiKey.trim());
     setIsVerifying(false);
-
     if (isValid) {
       onApiKeySet(apiKey.trim());
       onClose();
@@ -43,10 +94,7 @@ const SettingsModal = ({ isOpen, onClose, onApiKeySet, currentResponsible, onRes
   return (
     React.createElement('div', {
       className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in",
-      onClick: onClose,
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-labelledby": "settings-title"
+      onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "api-settings-title"
     },
       React.createElement('div', {
         className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all animate-slide-up border border-gray-700",
@@ -54,55 +102,27 @@ const SettingsModal = ({ isOpen, onClose, onApiKeySet, currentResponsible, onRes
       },
         React.createElement('div', { className: "p-6 flex items-center gap-3" },
           React.createElement(SettingsIcon, { className: "h-6 w-6 text-indigo-400" }),
-          React.createElement('h3', { id: "settings-title", className: "text-lg leading-6 font-bold text-white" }, "Configurações")
+          React.createElement('h3', { id: "api-settings-title", className: "text-lg leading-6 font-bold text-white" }, "Configurar Chave de API")
         ),
-        React.createElement('form', { onSubmit: handleSave },
+        React.createElement('form', { onSubmit: handleVerifyAndSave },
           React.createElement('div', { className: "p-6 space-y-4" },
-            React.createElement('div', null,
-              React.createElement('label', { htmlFor: "responsible-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Seu Nome (Responsável)"),
-              React.createElement('input', {
-                id: "responsible-name",
-                type: "text",
-                value: responsibleName,
-                onChange: (e) => setResponsibleName(e.target.value),
-                className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
-                placeholder: "Digite seu nome completo",
-                autoFocus: true
-              })
-            ),
-            React.createElement('hr', { className: "border-gray-600" }),
-            React.createElement('div', null,
-              React.createElement('label', { htmlFor: "api-key-change", className: "block text-sm font-medium text-gray-300 mb-2" }, "Alterar Chave de API (Opcional)"),
-              React.createElement('input', {
-                id: "api-key-change",
-                type: "password",
-                value: apiKey,
-                onChange: (e) => setApiKey(e.target.value),
-                className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
-                placeholder: "Cole uma nova chave para substituí-la"
-              })
-            ),
+            React.createElement('label', { htmlFor: "api-key-change", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nova Chave de API da OpenAI"),
+            React.createElement('input', {
+              id: "api-key-change", type: "password", value: apiKey,
+              onChange: (e) => setApiKey(e.target.value),
+              className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
+              placeholder: "Cole sua nova chave para configurá-la ou alterá-la", autoFocus: true
+            }),
             apiError && React.createElement('p', { className: 'text-sm text-red-400' }, apiError),
             React.createElement('div', { className: "text-center text-sm text-gray-500" },
-              React.createElement('a', {
-                href: "https://platform.openai.com/account/api-keys",
-                target: "_blank",
-                rel: "noopener noreferrer",
-                className: "text-indigo-400 hover:text-indigo-300 underline"
-              }, "Obtenha uma chave de API no painel da OpenAI")
+              React.createElement('a', { href: "https://platform.openai.com/account/api-keys", target: "_blank", rel: "noopener noreferrer", className: "text-indigo-400 hover:text-indigo-300 underline" }, "Obtenha uma chave de API no painel da OpenAI")
             )
           ),
           React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },
-            React.createElement('button', {
-              type: "button",
-              className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors",
-              onClick: onClose
-            }, "Cancelar"),
-            React.createElement('button', {
-              type: "submit",
-              disabled: isVerifying,
-              className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 flex items-center gap-2",
-            }, isVerifying ? React.createElement(LoadingSpinner, null) : null, isVerifying ? 'Verificando...' : 'Salvar')
+            React.createElement('button', { type: "button", className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 sm:w-auto sm:text-sm", onClick: onClose }, "Cancelar"),
+            React.createElement('button', { type: "submit", disabled: isVerifying || !apiKey.trim(), className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 sm:w-auto sm:text-sm disabled:opacity-50 flex items-center gap-2" },
+              isVerifying ? React.createElement(LoadingSpinner, null) : null, isVerifying ? 'Verificando...' : 'Salvar Chave'
+            )
           )
         )
       )
@@ -123,7 +143,8 @@ const App = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
 
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isApiSettingsModalOpen, setIsApiSettingsModalOpen] = useState(false);
+  const [isResponsibleModalOpen, setIsResponsibleModalOpen] = useState(false);
   const [lastViewedDocId, setLastViewedDocId] = useState(null);
   const [isExitingPreview, setIsExitingPreview] = useState(false);
   
@@ -133,8 +154,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.3.0";
-    const LATEST_CHANGE = "Interface principal aprimorada, validação de link em tempo real e placeholders de imagem na IA.";
+    const APP_VERSION = "v1.3.1";
+    const LATEST_CHANGE = "Layout do cabeçalho corrigido, modais de configuração separados, validação de link aprimorada e legibilidade da IA melhorada.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
@@ -353,7 +374,8 @@ const App = () => {
               setCurrentTeam(team);
               setSearchQuery(''); // Clear search when changing teams
             }, 
-            onOpenSettings: () => setIsSettingsModalOpen(true),
+            onOpenApiSettings: () => setIsApiSettingsModalOpen(true),
+            onOpenResponsibleSettings: () => setIsResponsibleModalOpen(true),
             apiKeyStatus: apiKeyStatus,
             responsiblePerson: responsiblePerson
           }),
@@ -485,12 +507,17 @@ const App = () => {
         })
       ),
       
-      React.createElement(SettingsModal, {
-        isOpen: isSettingsModalOpen,
-        onClose: () => setIsSettingsModalOpen(false),
-        onApiKeySet: handleApiKeySet,
+      React.createElement(ResponsibleModal, {
+        isOpen: isResponsibleModalOpen,
+        onClose: () => setIsResponsibleModalOpen(false),
         currentResponsible: responsiblePerson,
         onResponsibleSave: setResponsiblePerson
+      }),
+
+      React.createElement(ApiSettingsModal, {
+        isOpen: isApiSettingsModalOpen,
+        onClose: () => setIsApiSettingsModalOpen(false),
+        onApiKeySet: handleApiKeySet
       })
     )
   );

@@ -442,8 +442,8 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePers
     if (url.trim() === '') {
       setIsLinkValid(true);
     } else {
-      // Basic URL validation regex
-      const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+      // More flexible URL validation regex that allows query strings and fragments
+      const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.\-?=#&]*)*\/?$/i;
       setIsLinkValid(urlRegex.test(url));
     }
   };
