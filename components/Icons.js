@@ -299,3 +299,9 @@ const TextIcon = ({ children, title }) => (
 export const ParagraphIcon = () => React.createElement(TextIcon, { title: "Parágrafo" }, 'P');
 export const Heading1Icon = () => React.createElement(TextIcon, { title: "Título 1" }, 'H1');
 export const Heading2Icon = () => React.createElement(TextIcon, { title: "Título 2" }, 'H2');
+
+export const UserIcon = () => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", className: "h-5 w-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, title: "Responsável" },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" })
+    )
+);

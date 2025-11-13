@@ -42,7 +42,6 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
                 body: JSON.stringify({
                     model: "gpt-4o",
                     messages: messages,
-                    max_tokens: 8000,
                     response_format: response_format,
                 })
             });
@@ -240,7 +239,8 @@ const markdownToHtml = (markdown) => {
             .replace(/__(.*?)__/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/_(.*?)_/g, '<em>$1</em>')
-            .replace(/`([^`]+)`/g, '<code>$1</code>');
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\[(Coloque aqui.*?)\]/g, '<span style="background-color: #4f46e5; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 500;">$1</span>'); // Style placeholders
     };
 
     const lines = markdown.split('\n');
@@ -376,9 +376,10 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         2.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
         3.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
         4.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
-        5.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
-        6.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
-        7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
+        5.  **PLACEHOLDERS DE IMAGEM:** Onde for apropriado, especialmente no Guia do Usuário, insira placeholders para imagens para que o usuário possa adicionar screenshots. Use o formato \`[Coloque aqui uma imagem mostrando o botão 'Salvar']\`. Seja específico sobre o que a imagem deve mostrar.
+        6.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
+        7.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
+        8.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
         
         **Estrutura do Documento que você deve seguir e preencher (ignore os marcadores --- na saída final):**
         ${documentOutline}

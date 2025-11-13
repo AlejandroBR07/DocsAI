@@ -386,6 +386,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePers
   const [description, setDescription] = useState('');
   const [docType, setDocType] = useState('both');
   const [platformLink, setPlatformLink] = useState('');
+  const [isLinkValid, setIsLinkValid] = useState(true);
   
   const [technicalStructure, setTechnicalStructure] = useState([]);
   const [supportStructure, setSupportStructure] = useState([]);
@@ -435,6 +436,17 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePers
     try { JSON.parse(pastedJson); setIsJsonValid(true); setJsonErrorMessage(''); } catch (e) { setIsJsonValid(false); setJsonErrorMessage(`Erro no JSON: ${e.message}`); }
   }, [pastedJson]);
   
+  const handleLinkChange = (e) => {
+    const url = e.target.value;
+    setPlatformLink(url);
+    if (url.trim() === '') {
+      setIsLinkValid(true);
+    } else {
+      // Basic URL validation regex
+      const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+      setIsLinkValid(urlRegex.test(url));
+    }
+  };
 
   const handleJsonFileChange = async (e) => {
       const files = e.target.files; if (!files) return;
@@ -523,7 +535,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePers
         team: currentTeam,
         teamData,
         responsiblePerson,
-        platformLink,
+        platformLink: isLinkValid ? platformLink : '',
         creationDate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     };
   }
@@ -727,7 +739,14 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePers
                     ),
                     React.createElement('div', null,
                         React.createElement('label', { htmlFor: "platform-link", className: "block text-sm font-medium text-gray-300 mb-2" }, "Link da Plataforma (Opcional)"),
-                        React.createElement('input', { type: "url", id: "platform-link", value: platformLink, onChange: (e) => setPlatformLink(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "https://exemplo.com/feature" })
+                        React.createElement('div', { className: "relative" },
+                            React.createElement('input', { type: "url", id: "platform-link", value: platformLink, onChange: handleLinkChange, className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 pr-10", placeholder: "https://exemplo.com/feature" }),
+                            platformLink.trim() !== '' && (
+                                React.createElement('div', { className: "absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none" },
+                                    isLinkValid ? React.createElement(CheckIcon, { className: "h-5 w-5 text-green-400" }) : React.createElement(AlertTriangleIcon, { className: "h-5 w-5 text-red-400" })
+                                )
+                            )
+                        )
                     ),
                      React.createElement('div', null,
                       React.createElement('label', { htmlFor: "description", className: "block text-sm font-medium text-gray-300 mb-2" }, "Descrição Breve ou Objetivo"),
@@ -777,7 +796,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePers
               backButton = { label: "Cancelar", action: onClose };
               const actionText = docType === 'support' ? 'Gerar Estrutura do Usuário' : 'Gerar Estrutura Técnica';
               primaryButton = { label: actionText, action: handleGenerateTechnicalStructure };
-              isPrimaryDisabled = !canGenerate() || !isJsonValid;
+              isPrimaryDisabled = !canGenerate() || !isJsonValid || !isLinkValid;
               break;
           default:
               return null;

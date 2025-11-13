@@ -133,8 +133,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.2.9";
-    const LATEST_CHANGE = "Implementado cabeçalho dinâmico (Responsável, Data, Link) em todos os documentos gerados.";
+    const APP_VERSION = "v1.3.0";
+    const LATEST_CHANGE = "Interface principal aprimorada, validação de link em tempo real e placeholders de imagem na IA.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
@@ -354,7 +354,8 @@ const App = () => {
               setSearchQuery(''); // Clear search when changing teams
             }, 
             onOpenSettings: () => setIsSettingsModalOpen(true),
-            apiKeyStatus: apiKeyStatus
+            apiKeyStatus: apiKeyStatus,
+            responsiblePerson: responsiblePerson
           }),
           React.createElement('div', { className: "bg-amber-900/50 text-amber-200 text-sm text-center p-2 border-b border-amber-800 flex items-center justify-center gap-2" },
             React.createElement(InfoIcon, null),
