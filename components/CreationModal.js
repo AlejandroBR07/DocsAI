@@ -381,10 +381,11 @@ const StructureEditor = ({ structure, setStructure, title, description }) => {
 };
 
 
-const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
+const CreationModal = ({ onClose, onDocumentCreate, currentTeam, responsiblePerson }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [docType, setDocType] = useState('both');
+  const [platformLink, setPlatformLink] = useState('');
   
   const [technicalStructure, setTechnicalStructure] = useState([]);
   const [supportStructure, setSupportStructure] = useState([]);
@@ -513,14 +514,26 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       }
       return teamData;
   }
+  
+  const getBaseParams = async () => {
+    const teamData = await getTeamDataContext();
+    return {
+        projectName,
+        description,
+        team: currentTeam,
+        teamData,
+        responsiblePerson,
+        platformLink,
+        creationDate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    };
+  }
 
   const handleGenerateTechnicalStructure = async () => {
     if (!canGenerate()) { setError('Por favor, preencha o nome do projeto e a descrição.'); return; }
     setError(''); setFolderError(''); isCancelled.current = false;
     setGenerationStep('structuringTechnical'); setLoadingMessage('Analisando contexto técnico...');
     try {
-        const teamData = await getTeamDataContext();
-        const params = { projectName, description, team: currentTeam, teamData };
+        const params = await getBaseParams();
         const structure = await generateDocumentStructure(params);
         if (!isCancelled.current) {
             setTechnicalStructure(structure.map((item, index) => ({ ...item, id: Date.now() + index })));
@@ -538,8 +551,7 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
     isCancelled.current = false;
     setGenerationStep('structuringSupport'); setLoadingMessage('Criando estrutura para o usuário...');
     try {
-        const teamData = await getTeamDataContext();
-        const params = { projectName, description, team: currentTeam, teamData };
+        const params = await getBaseParams();
         const structure = await generateSupportStructure(params);
         if (!isCancelled.current) {
             setSupportStructure(structure.map((item, index) => ({ ...item, id: Date.now() + 1000 + index })));
@@ -575,8 +587,8 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
       };
 
       try {
-          const teamData = await getTeamDataContext();
-          const params = { projectName, description, team: currentTeam, docType, teamData };
+          const baseParams = await getBaseParams();
+          const params = { ...baseParams, docType };
           const structures = { 
             technicalStructure: docType === 'support' ? [] : technicalStructure,
             supportStructure: docType === 'technical' ? [] : supportStructure,
@@ -712,6 +724,10 @@ const CreationModal = ({ onClose, onDocumentCreate, currentTeam }) => {
                     React.createElement('div', null,
                       React.createElement('label', { htmlFor: "project-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nome do Projeto"),
                       React.createElement('input', { type: "text", id: "project-name", value: projectName, onChange: (e) => setProjectName(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "Ex: Novo Sistema de Autenticação" })
+                    ),
+                    React.createElement('div', null,
+                        React.createElement('label', { htmlFor: "platform-link", className: "block text-sm font-medium text-gray-300 mb-2" }, "Link da Plataforma (Opcional)"),
+                        React.createElement('input', { type: "url", id: "platform-link", value: platformLink, onChange: (e) => setPlatformLink(e.target.value), className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder: "https://exemplo.com/feature" })
                     ),
                      React.createElement('div', null,
                       React.createElement('label', { htmlFor: "description", className: "block text-sm font-medium text-gray-300 mb-2" }, "Descrição Breve ou Objetivo"),

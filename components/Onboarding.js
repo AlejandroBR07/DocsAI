@@ -11,6 +11,9 @@ const teamOptions = [
 
 const Onboarding = ({ onComplete }) => {
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [responsibleName, setResponsibleName] = useState('');
+
+  const canComplete = selectedTeam && responsibleName.trim();
 
   return (
     React.createElement('div', { className: "flex-grow flex items-center justify-center p-4 animate-fade-in" },
@@ -19,7 +22,7 @@ const Onboarding = ({ onComplete }) => {
           "Bem-vindo ao ", "Trade", React.createElement('span', { className: "text-indigo-400" }, "Synapse")
         ),
         React.createElement('p', { className: "text-lg text-gray-300 mb-8" },
-          "Sua central de documentos inteligente. Comece gerando documentação rica e completa com IA. Para começar, selecione sua equipe principal."
+          "Sua central de documentos inteligente. Para começar, selecione sua equipe e insira seu nome."
         ),
         
         React.createElement('div', { className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" },
@@ -36,10 +39,22 @@ const Onboarding = ({ onComplete }) => {
             )
           ))
         ),
+        
+        React.createElement('div', { className: "max-w-md mx-auto mb-8" },
+          React.createElement('label', { htmlFor: "responsible-name", className: "sr-only" }, "Seu Nome (Responsável)"),
+          React.createElement('input', {
+            type: "text",
+            id: "responsible-name",
+            value: responsibleName,
+            onChange: (e) => setResponsibleName(e.target.value),
+            className: "w-full text-center bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
+            placeholder: "Digite seu nome como responsável"
+          })
+        ),
 
         React.createElement('button', {
-          onClick: () => selectedTeam && onComplete(selectedTeam),
-          disabled: !selectedTeam,
+          onClick: () => canComplete && onComplete(selectedTeam, responsibleName.trim()),
+          disabled: !canComplete,
           className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         },
           "Começar a Criar"

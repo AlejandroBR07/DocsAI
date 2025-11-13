@@ -40,7 +40,7 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
                     "Authorization": `Bearer ${openAIApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-4.1",
+                    model: "gpt-4o",
                     messages: messages,
                     max_tokens: 8000,
                     response_format: response_format,
@@ -189,7 +189,7 @@ const structurePromptTemplate = (promptType) => `
 const generateStructure = async (params, promptType) => {
   if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
   
-  const { projectName, description, team, teamData } = params;
+  const { projectName, description, team, teamData, responsiblePerson, creationDate, platformLink } = params;
   const persona = getBaseSystemPersona(team);
   const teamContext = buildTeamContext(teamData);
 
@@ -199,6 +199,9 @@ const generateStructure = async (params, promptType) => {
     **Informações do Projeto para Análise:**
     - Nome do Projeto: ${projectName}
     - Descrição/Objetivo Principal: ${description}
+    - Responsável: ${responsiblePerson}
+    - Data: ${creationDate}
+    ${platformLink ? `- Link da Plataforma: ${platformLink}` : ''}
     - Equipe Alvo da Documentação: ${team}
     
     **Contexto Completo Fornecido:**
@@ -228,82 +231,56 @@ export const generateSupportStructure = (params) => generateStructure(params, 'u
 const markdownToHtml = (markdown) => {
     if (!markdown) return '';
 
-    // This function handles inline markdown like **bold**, *italic*, and `code`.
     const processInline = (text) => {
         return text
-            // Escape basic HTML to prevent injection from markdown content
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            // Bold
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/__(.*?)__/g, '<strong>$1</strong>')
-            // Italic
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/_(.*?)_/g, '<em>$1</em>')
-            // Inline Code. The `prose` classes in the frontend will style this.
             .replace(/`([^`]+)`/g, '<code>$1</code>');
     };
 
     const lines = markdown.split('\n');
     let html = '';
-    // This object tracks the current multi-line block we are in.
     let currentBlock = { type: null, content: [] };
 
     const flushBlock = () => {
         if (currentBlock.type === null) return;
-
         switch (currentBlock.type) {
-            case 'p':
-                // Join lines with <br> for paragraphs with hard line breaks.
-                html += `<p>${processInline(currentBlock.content.join('<br>'))}</p>\n`;
-                break;
+            case 'p': html += `<p>${processInline(currentBlock.content.join('<br>'))}</p>\n`; break;
             case 'ul':
             case 'ol':
                 html += `<${currentBlock.type}>\n`;
-                for (const item of currentBlock.content) {
-                    html += `  <li>${processInline(item)}</li>\n`;
-                }
+                for (const item of currentBlock.content) { html += `  <li>${processInline(item)}</li>\n`; }
                 html += `</${currentBlock.type}>\n`;
                 break;
             case 'pre':
                 const code = currentBlock.content.join('\n');
-                // Escape HTML within code blocks
                 const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += `<pre><code>${escapedCode}</code></pre>\n`;
                 break;
-            case 'blockquote':
-                 html += `<blockquote>${processInline(currentBlock.content.join('<br>'))}</blockquote>\n`;
-                 break;
+            case 'blockquote': html += `<blockquote>${processInline(currentBlock.content.join('<br>'))}</blockquote>\n`; break;
         }
-
-        // Reset for the next block
         currentBlock = { type: null, content: [] };
     };
 
     for (const line of lines) {
-        // Code block fences (```) toggle the code block state.
         if (line.trim().startsWith('```')) {
-            if (currentBlock.type === 'pre') {
-                flushBlock(); // Closing fence
-            } else {
-                flushBlock(); // Starting fence for a new block
-                currentBlock.type = 'pre';
-            }
+            if (currentBlock.type === 'pre') { flushBlock(); } else { flushBlock(); currentBlock.type = 'pre'; }
             continue;
         }
-        if (currentBlock.type === 'pre') {
-            currentBlock.content.push(line);
-            continue;
-        }
+        if (currentBlock.type === 'pre') { currentBlock.content.push(line); continue; }
+        if (line.trim() === '') { flushBlock(); continue; }
 
-        // An empty line signals the end of the current block.
-        if (line.trim() === '') {
+        if (line.trim().match(/^(---|___|\*\*\*)\s*$/)) {
             flushBlock();
+            html += '<hr />\n';
             continue;
         }
-
-        // Headings (#, ##, etc.) are their own block type.
+        
         const headingMatch = line.match(/^(#+)\s+(.*)/);
         if (headingMatch) {
             flushBlock();
@@ -312,47 +289,31 @@ const markdownToHtml = (markdown) => {
             html += `<h${level}>${content}</h${level}>\n`;
             continue;
         }
-
-        // Blockquotes (>)
         const bqMatch = line.match(/^>\s?(.*)/);
         if (bqMatch) {
-            if (currentBlock.type !== 'blockquote') {
-                flushBlock();
-                currentBlock.type = 'blockquote';
-            }
+            if (currentBlock.type !== 'blockquote') { flushBlock(); currentBlock.type = 'blockquote'; }
             currentBlock.content.push(bqMatch[1]);
             continue;
         }
-        
-        // List items (*, -, 1., etc.)
         const ulMatch = line.match(/^\s*[-*+]\s+(.*)/);
         const olMatch = line.match(/^\s*\d+\.\s+(.*)/);
         if (ulMatch || olMatch) {
             const listType = ulMatch ? 'ul' : 'ol';
             const itemContent = ulMatch ? ulMatch[1] : olMatch[1];
-            // If we're not in the same type of list, flush the old block and start a new one.
-            if (currentBlock.type !== listType) {
-                flushBlock();
-                currentBlock.type = listType;
-            }
+            if (currentBlock.type !== listType) { flushBlock(); currentBlock.type = listType; }
             currentBlock.content.push(itemContent.trim());
             continue;
         }
-
-        // If it's none of the above, it's a paragraph line.
-        if (currentBlock.type !== 'p') {
-            flushBlock();
-            currentBlock.type = 'p';
-        }
+        if (currentBlock.type !== 'p') { flushBlock(); currentBlock.type = 'p'; }
         currentBlock.content.push(line);
     }
 
-    flushBlock(); // Flush any remaining block at the end of the file.
+    flushBlock();
     return html;
 };
 
 const generateContentInSingleCall = async (params, structures, persona, knowledgeBase, progressCallback) => {
-    const { projectName, description, docType } = params;
+    const { projectName, description, docType, responsiblePerson, creationDate, platformLink } = params;
     
     progressCallback({ progress: 20, message: 'Analisando todo o contexto...' });
 
@@ -398,6 +359,14 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
 
     const singleCallPrompt = `
         Sua tarefa é gerar o conteúdo completo para um documento, seguindo a estrutura de tópicos fornecida. Analise o 'Contexto do Projeto' e escreva o conteúdo para cada tópico, usando a sintaxe Markdown.
+        
+        **CABEÇALHO OBRIGATÓRIO:**
+        Sua primeira ação DEVE ser gerar um cabeçalho formatado com as seguintes informações, seguido por uma linha horizontal em Markdown (\`---\`). Se um campo não for fornecido (como o Link), omita a linha inteira.
+        **Nome do Projeto:** ${projectName}
+        **Responsável:** ${responsiblePerson}
+        **Data de Atualização:** ${creationDate}
+        ${platformLink ? `**Link da Plataforma:** ${platformLink}` : ''}
+        ---
 
         **REGRAS DE ESCRITA ESPECÍFICAS (LEIA COM ATENÇÃO):**
         ${getPromptLogic()}
@@ -442,7 +411,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
     const knowledgeBase = buildTeamContext(params.teamData);
     
-    console.log(`[INFO] Usando estratégia de chamada única com GPT-4.1.`);
+    console.log(`[INFO] Usando estratégia de chamada única com GPT-4o.`);
     const fullHtmlContent = await generateContentInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
 
     return {

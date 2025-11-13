@@ -5,24 +5,30 @@ import DocumentPreview from './components/DocumentPreview.js';
 import Onboarding from './components/Onboarding.js';
 import ApiKeySetup from './components/ApiKeySetup.js';
 import ConfirmationModal from './components/ConfirmationModal.js';
-import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner } from './components/Icons.js';
+import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner, SettingsIcon } from './components/Icons.js';
 import { Team } from './types.js';
 import { initializeAiService, validateApiKey } from './services/openAIService.js';
 
-// Modal para alterar la clave de API, definido localmente.
-const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
+const SettingsModal = ({ isOpen, onClose, onApiKeySet, currentResponsible, onResponsibleSave }) => {
   const [apiKey, setApiKey] = useState('');
+  const [responsibleName, setResponsibleName] = useState(currentResponsible || '');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [error, setError] = useState('');
+  const [apiError, setApiError] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!apiKey.trim() || isVerifying) return;
+    onResponsibleSave(responsibleName.trim());
 
+    if (!apiKey.trim()) {
+      onClose();
+      return;
+    }
+
+    if (isVerifying) return;
     setIsVerifying(true);
-    setError('');
+    setApiError('');
     const isValid = await validateApiKey(apiKey.trim());
     setIsVerifying(false);
 
@@ -30,7 +36,7 @@ const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
       onApiKeySet(apiKey.trim());
       onClose();
     } else {
-      setError('A chave de API fornecida é inválida. Verifique e tente novamente.');
+      setApiError('A chave de API fornecida é inválida. Verifique e tente novamente.');
     }
   };
 
@@ -40,57 +46,70 @@ const ApiKeyChangeModal = ({ isOpen, onClose, onApiKeySet }) => {
       onClick: onClose,
       role: "dialog",
       "aria-modal": "true",
-      "aria-labelledby": "apikey-change-title"
+      "aria-labelledby": "settings-title"
     },
       React.createElement('div', {
         className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all animate-slide-up border border-gray-700",
         onClick: (e) => e.stopPropagation()
       },
-        React.createElement('div', { className: "p-6" },
-          React.createElement('h3', { id: "apikey-change-title", className: "text-lg leading-6 font-bold text-white" }, "Alterar Chave de API"),
-          React.createElement('p', { className: "text-gray-400 mt-2 text-sm" }, "Insira sua nova chave de API da OpenAI. A chave anterior será substituída.")
+        React.createElement('div', { className: "p-6 flex items-center gap-3" },
+          React.createElement(SettingsIcon, { className: "h-6 w-6 text-indigo-400" }),
+          React.createElement('h3', { id: "settings-title", className: "text-lg leading-6 font-bold text-white" }, "Configurações")
         ),
-        React.createElement('form', { onSubmit: handleSubmit },
-            React.createElement('div', {className: "p-6 space-y-4"},
-                React.createElement('div', null,
-                    React.createElement('label', { htmlFor: "api-key-change", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nova Chave de API"),
-                    React.createElement('input', {
-                        id: "api-key-change",
-                        type: "password",
-                        value: apiKey,
-                        onChange: (e) => setApiKey(e.target.value),
-                        className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
-                        placeholder: "Cole sua nova chave aqui",
-                        autoFocus: true
-                    })
-                ),
-                error && React.createElement('p', { className: 'text-sm text-red-400' }, error),
-                 React.createElement('div', { className: "text-center text-sm text-gray-500" },
-                    React.createElement('a', {
-                        href: "https://platform.openai.com/account/api-keys",
-                        target: "_blank",
-                        rel: "noopener noreferrer",
-                        className: "text-indigo-400 hover:text-indigo-300 underline"
-                    }, "Obtenha uma chave de API no painel da OpenAI")
-                )
+        React.createElement('form', { onSubmit: handleSave },
+          React.createElement('div', { className: "p-6 space-y-4" },
+            React.createElement('div', null,
+              React.createElement('label', { htmlFor: "responsible-name", className: "block text-sm font-medium text-gray-300 mb-2" }, "Seu Nome (Responsável)"),
+              React.createElement('input', {
+                id: "responsible-name",
+                type: "text",
+                value: responsibleName,
+                onChange: (e) => setResponsibleName(e.target.value),
+                className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
+                placeholder: "Digite seu nome completo",
+                autoFocus: true
+              })
             ),
-            React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },
-                React.createElement('button', {
-                    type: "button",
-                    className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors",
-                    onClick: onClose
-                }, "Cancelar"),
-                React.createElement('button', {
-                    type: "submit",
-                    disabled: !apiKey.trim() || isVerifying,
-                    className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 flex items-center gap-2",
-                }, isVerifying ? React.createElement(LoadingSpinner, null) : null, isVerifying ? 'Verificando...' : 'Salvar Nova Chave')
+            React.createElement('hr', { className: "border-gray-600" }),
+            React.createElement('div', null,
+              React.createElement('label', { htmlFor: "api-key-change", className: "block text-sm font-medium text-gray-300 mb-2" }, "Alterar Chave de API (Opcional)"),
+              React.createElement('input', {
+                id: "api-key-change",
+                type: "password",
+                value: apiKey,
+                onChange: (e) => setApiKey(e.target.value),
+                className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
+                placeholder: "Cole uma nova chave para substituí-la"
+              })
+            ),
+            apiError && React.createElement('p', { className: 'text-sm text-red-400' }, apiError),
+            React.createElement('div', { className: "text-center text-sm text-gray-500" },
+              React.createElement('a', {
+                href: "https://platform.openai.com/account/api-keys",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "text-indigo-400 hover:text-indigo-300 underline"
+              }, "Obtenha uma chave de API no painel da OpenAI")
             )
+          ),
+          React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },
+            React.createElement('button', {
+              type: "button",
+              className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors",
+              onClick: onClose
+            }, "Cancelar"),
+            React.createElement('button', {
+              type: "submit",
+              disabled: isVerifying,
+              className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 flex items-center gap-2",
+            }, isVerifying ? React.createElement(LoadingSpinner, null) : null, isVerifying ? 'Verificando...' : 'Salvar')
+          )
         )
       )
     )
   );
 };
+
 
 const App = () => {
   const [currentTeam, setCurrentTeam] = useState(Team.Developers);
@@ -104,17 +123,18 @@ const App = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
 
-  const [isApiKeyChangeModalOpen, setIsApiKeyChangeModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [lastViewedDocId, setLastViewedDocId] = useState(null);
   const [isExitingPreview, setIsExitingPreview] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const [responsiblePerson, setResponsiblePerson] = useState('');
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.2.8";
-    const LATEST_CHANGE = "Melhorada a geração do 'Guia do Usuário' para ser mais intuitiva e focada no usuário final.";
+    const APP_VERSION = "v1.2.9";
+    const LATEST_CHANGE = "Implementado cabeçalho dinâmico (Responsável, Data, Link) em todos os documentos gerados.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
@@ -139,6 +159,7 @@ const App = () => {
         const savedDocs = localStorage.getItem('synapsedocs-documents');
         const savedTeam = localStorage.getItem('synapsedocs-team');
         const hasOnboarded = localStorage.getItem('synapsedocs-onboarded');
+        const savedResponsible = localStorage.getItem('synapsedocs-responsible');
 
         if (savedDocs) {
           setDocuments(JSON.parse(savedDocs));
@@ -146,7 +167,10 @@ const App = () => {
         if (savedTeam && Object.values(Team).includes(savedTeam)) {
           setCurrentTeam(savedTeam);
         }
-        if (hasOnboarded) {
+        if (savedResponsible) {
+          setResponsiblePerson(savedResponsible);
+        }
+        if (hasOnboarded && savedResponsible) { // Require both to skip onboarding
           setShowOnboarding(false);
         }
       } catch (error) {
@@ -161,13 +185,14 @@ const App = () => {
     try {
         localStorage.setItem('synapsedocs-documents', JSON.stringify(documents));
         localStorage.setItem('synapsedocs-team', currentTeam);
+        localStorage.setItem('synapsedocs-responsible', responsiblePerson);
         if (!showOnboarding) {
           localStorage.setItem('synapsedocs-onboarded', 'true');
         }
     } catch (error) {
         console.error("Failed to save to local storage", error);
     }
-  }, [documents, currentTeam, showOnboarding]);
+  }, [documents, currentTeam, showOnboarding, responsiblePerson]);
 
   // Effect to clear the highlight on the document list after a delay
   useEffect(() => {
@@ -291,8 +316,9 @@ const App = () => {
   };
 
 
-  const handleCompleteOnboarding = (selectedTeam) => {
+  const handleCompleteOnboarding = (selectedTeam, name) => {
     setCurrentTeam(selectedTeam);
+    setResponsiblePerson(name);
     setShowOnboarding(false);
   }
 
@@ -327,7 +353,7 @@ const App = () => {
               setCurrentTeam(team);
               setSearchQuery(''); // Clear search when changing teams
             }, 
-            onOpenSettings: () => setIsApiKeyChangeModalOpen(true),
+            onOpenSettings: () => setIsSettingsModalOpen(true),
             apiKeyStatus: apiKeyStatus
           }),
           React.createElement('div', { className: "bg-amber-900/50 text-amber-200 text-sm text-center p-2 border-b border-amber-800 flex items-center justify-center gap-2" },
@@ -443,7 +469,8 @@ const App = () => {
         React.createElement(CreationModal, {
           onClose: () => setIsModalOpen(false),
           onDocumentCreate: handleDocumentCreate,
-          currentTeam: currentTeam
+          currentTeam: currentTeam,
+          responsiblePerson: responsiblePerson
         })
       ),
       
@@ -457,10 +484,12 @@ const App = () => {
         })
       ),
       
-      React.createElement(ApiKeyChangeModal, {
-        isOpen: isApiKeyChangeModalOpen,
-        onClose: () => setIsApiKeyChangeModalOpen(false),
-        onApiKeySet: handleApiKeySet
+      React.createElement(SettingsModal, {
+        isOpen: isSettingsModalOpen,
+        onClose: () => setIsSettingsModalOpen(false),
+        onApiKeySet: handleApiKeySet,
+        currentResponsible: responsiblePerson,
+        onResponsibleSave: setResponsiblePerson
       })
     )
   );
