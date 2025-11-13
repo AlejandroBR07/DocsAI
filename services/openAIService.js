@@ -361,33 +361,57 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
         structure.forEach(item => {
             documentOutline += `${'#'.repeat(level)} ${item.title}\n`;
             if (item.children) {
-                // For children, we use one level deeper
                 addStructureToOutline(item.children, level + 1);
             }
         });
     };
 
     if (docType !== 'support' && structures.technicalStructure.length > 0) {
-        addStructureToOutline(structures.technicalStructure, 1); // Top-level is H1
+        documentOutline += '--- INÍCIO DA DOCUMENTAÇÃO TÉCNICA ---\n';
+        addStructureToOutline(structures.technicalStructure, 1);
+        documentOutline += '--- FIM DA DOCUMENTAÇÃO TÉCNICA ---\n';
     }
     if (docType !== 'technical' && structures.supportStructure.length > 0) {
         if (documentOutline) documentOutline += '\n\n';
-        addStructureToOutline(structures.supportStructure, 1); // Top-level is H1
+        documentOutline += '--- INÍCIO DO GUIA DO USUÁRIO ---\n';
+        addStructureToOutline(structures.supportStructure, 1);
+        documentOutline += '--- FIM DO GUIA DO USUÁRIO ---\n';
     }
+
+    const getPromptLogic = () => {
+        const technicalRules = `
+        **Para as seções dentro da 'DOCUMENTAÇÃO TÉCNICA':**
+        - **Foco no Desenvolvedor:** A linguagem deve ser técnica e precisa.
+        - **Seja Fiel ao Código:** Você DEVE ativamente referenciar o código-fonte, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta e útil para desenvolvedores.`;
+
+        const supportRules = `
+        **Para as seções dentro do 'GUIA DO USUÁRIO':**
+        - **Foco no Usuário Final:** Sua perspectiva DEVE ser a de um usuário leigo que nunca viu o sistema. A linguagem deve ser simples, amigável e direta.
+        - **NÃO FALE SOBRE CÓDIGO:** Não mencione nomes de arquivos, funções, variáveis, APIs, ou qualquer detalhe técnico de implementação.
+        - **Fale Sobre a Interface:** Em vez de código, descreva a interface. Diga "Clique no botão 'Salvar'", "Preencha o campo 'Seu Nome'", "Navegue até a seção 'Configurações'". Use o contexto das imagens (screenshots) para guiar suas explicações. O objetivo é ensinar o usuário a USAR a ferramenta, não a entender como ela foi construída.`;
+        
+        if (docType === 'technical') return technicalRules;
+        if (docType === 'support') return supportRules;
+        if (docType === 'both') return `${technicalRules}\n\n${supportRules}`;
+        return '';
+    };
 
     const singleCallPrompt = `
         Sua tarefa é gerar o conteúdo completo para um documento, seguindo a estrutura de tópicos fornecida. Analise o 'Contexto do Projeto' e escreva o conteúdo para cada tópico, usando a sintaxe Markdown.
 
-        **REGRAS CRÍTICAS E INEGOCIÁVEIS:**
-        1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título.
+        **REGRAS DE ESCRITA ESPECÍFICAS (LEIA COM ATENÇÃO):**
+        ${getPromptLogic()}
+
+        **REGRAS GERAIS E INEGOCIÁVEIS:**
+        1.  **MARKDOWN PURO E COMPLETO:** Sua resposta DEVE ser um único documento em Markdown. Você vai receber uma lista de títulos e marcadores de seção. Use a sintaxe correta do Markdown para recriar essa estrutura (\`# Título Principal\`, \`## Sub-título\`, etc.) e, em seguida, preencha o conteúdo abaixo de cada título. **NÃO inclua os marcadores de seção (como '--- INÍCIO...') na sua resposta final.**
         2.  **QUEBRA DE LINHA:** **Use quebras de linha duplas (uma linha em branco) para separar parágrafos.** Isso é essencial para a legibilidade.
-        3.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. O título já está definido na estrutura que você deve seguir. Comece a escrever o parágrafo diretamente.
-        4.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), componentes (ex: **\`ChatApp\`**), e conceitos importantes. Use código em linha (\`\`código\`\`) para nomes de arquivos (ex: \`index.html\`), variáveis (ex: \`currentAiName\`) e trechos de código.
-        5.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto'. Você **DEVE ativamente referenciar o código-fonte** em suas explicações, mencionando nomes de funções (\`handleApiKeySet\`), variáveis (\`apiKeyStatus\`), ou arquivos (\`CreationModal.js\`) para tornar a documentação concreta.
+        3.  **NÃO REPITA TÍTULOS:** **NÃO** inclua o título da seção no corpo do texto que você escreve. Comece a escrever o parágrafo diretamente.
+        4.  **DESTAQUES VISUAIS:** **Use negrito (\`**texto**\`) EXTENSIVAMENTE** para destacar **TODAS** as palavras-chave, nomes de funcionalidades (ex: **Guia do Aluno**), e conceitos importantes. Use código em linha (\`\`código\`\`) apenas para nomes de arquivos, variáveis, e trechos de código, quando estiver escrevendo seções da documentação técnica.
+        5.  **CONTEÚDO FIEL AO CONTEXTO:** Baseie TODA a sua escrita no 'Contexto do Projeto' fornecido.
         6.  **CLAREZA E CONCISÃO:** Escreva parágrafos curtos e diretos (2-4 frases).
         7.  **IDIOMA:** Responda exclusivamente em Português do Brasil.
         
-        **Estrutura do Documento que você deve seguir e preencher:**
+        **Estrutura do Documento que você deve seguir e preencher (ignore os marcadores --- na saída final):**
         ${documentOutline}
 
         **Contexto do Projeto (Sua fonte de verdade):**
