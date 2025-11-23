@@ -1,12 +1,8 @@
 import { Team } from "../types.js";
 
-let openAIApiKey = null;
+let openAIApiKey = "";
 
 export const initializeAiService = (apiKey) => {
-  if (!apiKey) {
-    console.error("A chave de API é necessária para inicializar o serviço OpenAI.");
-    return false;
-  }
   openAIApiKey = apiKey;
   return true;
 };
@@ -14,6 +10,7 @@ export const initializeAiService = (apiKey) => {
 export const validateApiKey = async (apiKey) => {
   if (!apiKey) return false;
   try {
+    // Fazemos uma chamada leve para listar modelos para validar a chave
     const response = await fetch("https://api.openai.com/v1/models", {
       method: "GET",
       headers: {
@@ -22,17 +19,20 @@ export const validateApiKey = async (apiKey) => {
     });
     return response.ok;
   } catch (error) {
-    console.error("Falha ao validar a chave de API:", error);
+    console.error("Erro ao validar API Key:", error);
     return false;
   }
 };
 
-const callOpenAI = async (messages, response_format = { type: "text" }) => {
-    const MAX_RETRIES = 3;
+// Função auxiliar para realizar a chamada com um modelo específico
+const attemptCallOpenAI = async (model, messages, response_format) => {
+    const MAX_RETRIES = 2; // Reduzido pois temos fallback de modelo
     let lastError = null;
 
     for (let i = 0; i < MAX_RETRIES; i++) {
         try {
+            console.log(`[AI Service] Tentando conexão com modelo: ${model} (Tentativa ${i+1})`);
+            
             const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -40,7 +40,7 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
                     "Authorization": `Bearer ${openAIApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-4.1",
+                    model: model,
                     messages: messages,
                     response_format: response_format,
                 })
@@ -48,52 +48,57 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
 
             if (!apiResponse.ok) {
                 const errorData = await apiResponse.json();
-                const defaultMessage = "Ocorreu uma falha inesperada ao tentar se comunicar com a IA.";
+                const defaultMessage = `Erro na comunicação com modelo ${model}.`;
                 let userMessage = errorData.error?.message || defaultMessage;
 
-                if (userMessage.includes('Incorrect API key')) {
-                    userMessage = "Sua chave de API da OpenAI é inválida. Por favor, verifique-a na tela de configuração.";
-                } else if (apiResponse.status === 429) {
-                    userMessage = "Você excedeu sua cota atual da API OpenAI ou o limite de requisições. Verifique seu plano e detalhes de faturamento.";
-                } else if (errorData.error?.code === 'context_length_exceeded') {
-                    userMessage = "O contexto fornecido (código, imagens, texto) é muito grande. Tente reduzir a quantidade de arquivos ou o tamanho do texto e tente novamente.";
-                } else {
-                    userMessage = `Erro da IA: ${userMessage}`;
-                }
+                console.error(`Erro da API OpenAI (${model}):`, errorData);
 
-                if (apiResponse.status >= 400 && apiResponse.status < 500) {
-                    console.error("Erro da API OpenAI (Cliente):", errorData);
-                    throw new Error(userMessage);
-                }
-
-                lastError = new Error(`Erro do servidor da IA (Status ${apiResponse.status}).`);
-                console.error("Erro da API OpenAI (Servidor):", errorData);
+                // Se for erro de rate limit, auth ou server error, lançamos erro para tentar o próximo modelo ou retry
+                throw new Error(userMessage);
 
             } else { 
                 const data = await apiResponse.json();
                 const aiContent = data.choices[0]?.message?.content?.trim();
 
                 if (aiContent) {
-                    console.log("%c[DEBUG] Resposta Bruta da IA:", "color: #ff9800; font-weight: bold;", `\n\n${aiContent}`);
                     return aiContent;
                 } else {
-                    lastError = new Error("A IA retornou uma resposta vazia. Isso pode ser um problema temporário.");
+                    throw new Error("A IA retornou uma resposta vazia.");
                 }
             }
         } catch (error) {
-            if (error.message.includes("API") || error.message.includes("contexto")) {
-                throw error;
-            }
             lastError = error;
-            console.error(`Tentativa ${i + 1} falhou:`, error);
-        }
-
-        if (i < MAX_RETRIES - 1) {
-            await new Promise(res => setTimeout(res, 1000 * (i + 1)));
+            console.warn(`Tentativa ${i + 1} com ${model} falhou:`, error.message);
+            
+            // Se não for a última tentativa, espera um pouco
+            if (i < MAX_RETRIES - 1) {
+                await new Promise(res => setTimeout(res, 1000 * (i + 1)));
+            }
         }
     }
 
-    throw new Error(`Falha na comunicação com a IA após ${MAX_RETRIES} tentativas. Erro: ${lastError?.message || 'Desconhecido'}`);
+    throw lastError;
+};
+
+const callOpenAI = async (messages, response_format = { type: "text" }) => {
+    // Verificação de segurança
+    if (!openAIApiKey) {
+        throw new Error("Chave de API não configurada. Por favor, insira sua chave nas configurações.");
+    }
+
+    // Lógica de Fallback: Tenta GPT-5.1, se falhar, tenta GPT-4.1
+    try {
+        return await attemptCallOpenAI("gpt-5.1", messages, response_format);
+    } catch (error51) {
+        console.warn("%c[FALLBACK] GPT-5.1 falhou ou excedeu limites. Alternando para GPT-4.1.", "color: orange; font-weight: bold;", error51);
+        
+        try {
+            return await attemptCallOpenAI("gpt-4.1", messages, response_format);
+        } catch (error41) {
+            console.error("GPT-4.1 também falhou.", error41);
+            throw new Error(`Falha crítica: Ambos os modelos (5.1 e 4.1) falharam. Verifique sua chave API ou cota. Erro final: ${error41.message}`);
+        }
+    }
 };
 
 
@@ -160,8 +165,6 @@ const buildUserMessageContent = (prompt, teamData) => {
 };
 
 const generateStructure = async (params, promptType) => {
-  if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
-  
   const { projectName, description, team, teamData, responsiblePerson, creationDate, platformLink } = params;
   const persona = getBaseSystemPersona(team);
   const teamContext = buildTeamContext(teamData);
@@ -476,15 +479,13 @@ const generateContentInSingleCall = async (params, structures, persona, knowledg
 };
 
 export const generateFullDocumentContent = async (params, structures, progressCallback) => {
-    if (!openAIApiKey) throw new Error("A API OpenAI não foi inicializada.");
-    
     const { projectName } = params;
     const persona = getBaseSystemPersona(params.team);
     
     progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
     const knowledgeBase = buildTeamContext(params.teamData);
     
-    console.log(`[INFO] Usando estratégia de chamada única com GPT-4.1.`);
+    console.log(`[INFO] Iniciando geração. Tentará GPT-5.1 com fallback para GPT-4.1.`);
     const fullHtmlContent = await generateContentInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
 
     return {

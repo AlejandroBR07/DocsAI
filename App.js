@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header.js';
 import CreationModal from './components/CreationModal.js';
 import DocumentPreview from './components/DocumentPreview.js';
-import Onboarding from './components/Onboarding.js';
 import ApiKeySetup from './components/ApiKeySetup.js';
+import Onboarding from './components/Onboarding.js';
 import ConfirmationModal from './components/ConfirmationModal.js';
-import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner, SettingsIcon, UserIcon } from './components/Icons.js';
+import { PlusIcon, DocumentIcon, TrashIcon, InfoIcon, SearchIcon, LoadingSpinner, UserIcon } from './components/Icons.js';
 import { Team } from './types.js';
 import { initializeAiService, validateApiKey } from './services/openAIService.js';
 
@@ -62,75 +62,6 @@ const ResponsibleModal = ({ isOpen, onClose, currentResponsible, onResponsibleSa
 };
 
 
-const ApiSettingsModal = ({ isOpen, onClose, onApiKeySet }) => {
-  const [apiKey, setApiKey] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [apiError, setApiError] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      setApiKey('');
-      setApiError('');
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleVerifyAndSave = async (e) => {
-    e.preventDefault();
-    if (!apiKey.trim() || isVerifying) return;
-    setIsVerifying(true);
-    setApiError('');
-    const isValid = await validateApiKey(apiKey.trim());
-    setIsVerifying(false);
-    if (isValid) {
-      onApiKeySet(apiKey.trim());
-      onClose();
-    } else {
-      setApiError('A chave de API fornecida é inválida. Verifique e tente novamente.');
-    }
-  };
-
-  return (
-    React.createElement('div', {
-      className: "fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4 animate-fade-in",
-      onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "api-settings-title"
-    },
-      React.createElement('div', {
-        className: "bg-gray-800 rounded-lg shadow-xl w-full max-w-lg transform transition-all animate-slide-up border border-gray-700",
-        onClick: (e) => e.stopPropagation()
-      },
-        React.createElement('div', { className: "p-6 flex items-center gap-3" },
-          React.createElement(SettingsIcon, { className: "h-6 w-6 text-indigo-400" }),
-          React.createElement('h3', { id: "api-settings-title", className: "text-lg leading-6 font-bold text-white" }, "Configurar Chave de API")
-        ),
-        React.createElement('form', { onSubmit: handleVerifyAndSave },
-          React.createElement('div', { className: "p-6 space-y-4" },
-            React.createElement('label', { htmlFor: "api-key-change", className: "block text-sm font-medium text-gray-300 mb-2" }, "Nova Chave de API da OpenAI"),
-            React.createElement('input', {
-              id: "api-key-change", type: "password", value: apiKey,
-              onChange: (e) => setApiKey(e.target.value),
-              className: "w-full bg-gray-700 border border-gray-600 text-white rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500",
-              placeholder: "Cole sua nova chave para configurá-la ou alterá-la", autoFocus: true
-            }),
-            apiError && React.createElement('p', { className: 'text-sm text-red-400' }, apiError),
-            React.createElement('div', { className: "text-center text-sm text-gray-500" },
-              React.createElement('a', { href: "https://platform.openai.com/account/api-keys", target: "_blank", rel: "noopener noreferrer", className: "text-indigo-400 hover:text-indigo-300 underline" }, "Obtenha uma chave de API no painel da OpenAI")
-            )
-          ),
-          React.createElement('div', { className: "bg-gray-800/50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-700" },
-            React.createElement('button', { type: "button", className: "w-full justify-center rounded-md border border-gray-600 px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 shadow-sm hover:bg-gray-600 sm:w-auto sm:text-sm", onClick: onClose }, "Cancelar"),
-            React.createElement('button', { type: "submit", disabled: isVerifying || !apiKey.trim(), className: "w-full justify-center rounded-md border border-transparent px-4 py-2 bg-indigo-600 text-base font-medium text-white shadow-sm hover:bg-indigo-700 sm:w-auto sm:text-sm disabled:opacity-50 flex items-center gap-2" },
-              isVerifying ? React.createElement(LoadingSpinner, null) : null, isVerifying ? 'Verificando...' : 'Salvar Chave'
-            )
-          )
-        )
-      )
-    )
-  );
-};
-
-
 const App = () => {
   const [currentTeam, setCurrentTeam] = useState(Team.Developers);
   const [documents, setDocuments] = useState([]);
@@ -138,12 +69,11 @@ const App = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isApiInitialized, setIsApiInitialized] = useState(false);
-  const [apiKeyStatus, setApiKeyStatus] = useState('unknown'); // 'unknown', 'valid', 'invalid'
+  const [apiKeyStatus, setApiKeyStatus] = useState('unknown'); // valid, invalid, unknown
   
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
 
-  const [isApiSettingsModalOpen, setIsApiSettingsModalOpen] = useState(false);
   const [isResponsibleModalOpen, setIsResponsibleModalOpen] = useState(false);
   const [lastViewedDocId, setLastViewedDocId] = useState(null);
   const [isExitingPreview, setIsExitingPreview] = useState(false);
@@ -154,8 +84,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.3.7";
-    const LATEST_CHANGE = "Corrigido bug de formatação com acentos graves duplos para código em linha.";
+    const APP_VERSION = "v1.4.1";
+    const LATEST_CHANGE = "Revertido para input de API Key do usuário com fallback de modelo (GPT-5.1 -> GPT-4.1).";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,
@@ -166,19 +96,9 @@ const App = () => {
       
     const loadData = async () => {
       try {
-        const savedApiKey = localStorage.getItem('synapsedocs-apikey');
-        if (savedApiKey) {
-          const isValid = await validateApiKey(savedApiKey);
-          setApiKeyStatus(isValid ? 'valid' : 'invalid');
-          if (initializeAiService(savedApiKey)) {
-            setIsApiInitialized(true);
-          }
-        } else {
-            setApiKeyStatus('invalid');
-        }
-
         const savedDocs = localStorage.getItem('synapsedocs-documents');
         const savedTeam = localStorage.getItem('synapsedocs-team');
+        const savedApiKey = localStorage.getItem('synapsedocs-api-key');
         const hasOnboarded = localStorage.getItem('synapsedocs-onboarded');
         const savedResponsible = localStorage.getItem('synapsedocs-responsible');
 
@@ -193,6 +113,18 @@ const App = () => {
         }
         if (hasOnboarded && savedResponsible) { // Require both to skip onboarding
           setShowOnboarding(false);
+        }
+
+        if (savedApiKey) {
+          const isValid = await validateApiKey(savedApiKey);
+          if (isValid) {
+            initializeAiService(savedApiKey);
+            setIsApiInitialized(true);
+            setApiKeyStatus('valid');
+          } else {
+            setApiKeyStatus('invalid');
+            localStorage.removeItem('synapsedocs-api-key'); // Clear invalid key
+          }
         }
       } catch (error) {
           console.error("Failed to load from local storage", error);
@@ -270,17 +202,23 @@ const App = () => {
     setSearchResults(results);
   }, [searchQuery, documents]);
 
-
-  const handleApiKeySet = (apiKey) => {
-    localStorage.setItem('synapsedocs-apikey', apiKey);
+  const handleApiKeySet = (key) => {
+    initializeAiService(key);
+    localStorage.setItem('synapsedocs-api-key', key);
+    setIsApiInitialized(true);
     setApiKeyStatus('valid');
-    if (initializeAiService(apiKey)) {
-      setIsApiInitialized(true);
-    } else {
-        setApiKeyStatus('invalid');
-        console.error("Failed to initialize API with provided key.");
+  };
+
+  const handleOpenApiSettings = () => {
+    // If user wants to reset key
+    const confirmReset = window.confirm("Deseja redefinir sua chave de API?");
+    if (confirmReset) {
+      localStorage.removeItem('synapsedocs-api-key');
+      setIsApiInitialized(false);
+      setApiKeyStatus('unknown');
     }
   };
+
 
   const handleDocumentCreate = (title, content) => {
     const newDocument = {
@@ -346,7 +284,7 @@ const App = () => {
   const filteredDocuments = documents.filter((doc) => doc.team === currentTeam);
 
   if (!isApiInitialized) {
-      return React.createElement('div', { className: "animate-fade-in"}, React.createElement(ApiKeySetup, { onApiKeySet: handleApiKeySet }));
+    return React.createElement(ApiKeySetup, { onApiKeySet: handleApiKeySet });
   }
 
   if (showOnboarding) {
@@ -374,7 +312,7 @@ const App = () => {
               setCurrentTeam(team);
               setSearchQuery(''); // Clear search when changing teams
             }, 
-            onOpenApiSettings: () => setIsApiSettingsModalOpen(true),
+            onOpenApiSettings: handleOpenApiSettings,
             onOpenResponsibleSettings: () => setIsResponsibleModalOpen(true),
             apiKeyStatus: apiKeyStatus,
             responsiblePerson: responsiblePerson
@@ -429,10 +367,9 @@ const App = () => {
                   React.createElement('h2', { className: "text-3xl font-bold" }, `Documentos de ${currentTeam}`),
                   React.createElement('button', {
                     onClick: () => setIsModalOpen(true),
-                    disabled: apiKeyStatus !== 'valid',
-                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed",
+                    className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-transform transform hover:scale-105",
                     "aria-label": "Criar novo documento",
-                    title: apiKeyStatus !== 'valid' ? 'Configure uma chave de API válida para criar documentos.' : 'Criar novo documento'
+                    title: "Criar novo documento"
                   },
                     React.createElement(PlusIcon, null),
                     React.createElement('span', null, "Novo Documento")
@@ -473,9 +410,8 @@ const App = () => {
                     React.createElement('p', { className: "text-gray-400 mb-6" }, `Sua jornada começa aqui. Crie seu primeiro documento para a equipe de ${currentTeam}.`),
                     React.createElement('button', {
                       onClick: () => setIsModalOpen(true),
-                      disabled: apiKeyStatus !== 'valid',
-                      className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 mx-auto transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed",
-                      title: apiKeyStatus !== 'valid' ? 'Configure uma chave de API válida para criar documentos.' : 'Criar primeiro documento'
+                      className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 mx-auto transition-transform transform hover:scale-105",
+                      title: "Criar primeiro documento"
                     },
                       React.createElement(PlusIcon, null),
                       React.createElement('span', null, "Criar Primeiro Documento")
@@ -512,12 +448,6 @@ const App = () => {
         onClose: () => setIsResponsibleModalOpen(false),
         currentResponsible: responsiblePerson,
         onResponsibleSave: setResponsiblePerson
-      }),
-
-      React.createElement(ApiSettingsModal, {
-        isOpen: isApiSettingsModalOpen,
-        onClose: () => setIsApiSettingsModalOpen(false),
-        onApiKeySet: handleApiKeySet
       })
     )
   );
