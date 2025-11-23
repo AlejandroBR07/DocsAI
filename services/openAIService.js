@@ -40,7 +40,7 @@ const callOpenAI = async (messages, response_format = { type: "text" }) => {
                     "Authorization": `Bearer ${openAIApiKey}`
                 },
                 body: JSON.stringify({
-                    model: "gpt-4.1",
+                    model: "gpt-5.1",
                     messages: messages,
                     response_format: response_format,
                 })
@@ -484,7 +484,7 @@ export const generateFullDocumentContent = async (params, structures, progressCa
     progressCallback({ progress: 10, message: 'Construindo base de conhecimento...' });
     const knowledgeBase = buildTeamContext(params.teamData);
     
-    console.log(`[INFO] Usando estratégia de chamada única com GPT-4.1.`);
+    console.log(`[INFO] Usando estratégia de chamada única com GPT-5.1.`);
     const fullHtmlContent = await generateContentInSingleCall(params, structures, persona, knowledgeBase, progressCallback);
 
     return {
