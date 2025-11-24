@@ -84,8 +84,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.4.2";
-    const LATEST_CHANGE = "Otimização de retry: Fallback imediato para GPT-4.1 em caso de limite de tokens.";
+    const APP_VERSION = "v1.4.3";
+    const LATEST_CHANGE = "Correção de bug: Tags <br> aparecendo explicitamente em citações (blockquotes).";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,

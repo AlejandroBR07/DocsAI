@@ -293,7 +293,7 @@ const markdownToHtml = (markdown) => {
                 const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 html += `<pre><code>${escapedCode}</code></pre>\n`;
                 break;
-            case 'blockquote': html += `<blockquote>${processInline(currentBlock.content.join('<br>'))}</blockquote>\n`; break;
+            case 'blockquote': html += `<blockquote>${currentBlock.content.map(processInline).join('<br>')}</blockquote>\n`; break;
         }
         currentBlock = { type: null, content: [] };
     };
