@@ -84,8 +84,8 @@ const App = () => {
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const APP_VERSION = "v1.4.1";
-    const LATEST_CHANGE = "Revertido para input de API Key do usuário com fallback de modelo (GPT-5.1 -> GPT-4.1).";
+    const APP_VERSION = "v1.4.2";
+    const LATEST_CHANGE = "Otimização de retry: Fallback imediato para GPT-4.1 em caso de limite de tokens.";
 
     console.log(
         `%c TradeSynapse %c ${APP_VERSION} %c ${LATEST_CHANGE}`,

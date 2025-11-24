@@ -26,7 +26,7 @@ export const validateApiKey = async (apiKey) => {
 
 // Função auxiliar para realizar a chamada com um modelo específico
 const attemptCallOpenAI = async (model, messages, response_format) => {
-    const MAX_RETRIES = 2; // Reduzido pois temos fallback de modelo
+    const MAX_RETRIES = 2; 
     let lastError = null;
 
     for (let i = 0; i < MAX_RETRIES; i++) {
@@ -50,10 +50,18 @@ const attemptCallOpenAI = async (model, messages, response_format) => {
                 const errorData = await apiResponse.json();
                 const defaultMessage = `Erro na comunicação com modelo ${model}.`;
                 let userMessage = errorData.error?.message || defaultMessage;
+                const errorCode = errorData.error?.code;
 
                 console.error(`Erro da API OpenAI (${model}):`, errorData);
 
-                // Se for erro de rate limit, auth ou server error, lançamos erro para tentar o próximo modelo ou retry
+                // OTIMIZAÇÃO: Se o erro for de limite de contexto (tokens), NÃO adianta tentar de novo com o mesmo modelo.
+                // Falhamos imediatamente para que o fallback (GPT-4.1) seja acionado na função pai.
+                if (apiResponse.status === 400 && (userMessage.includes("token") || userMessage.includes("context_length") || errorCode === 'context_length_exceeded')) {
+                    console.warn(`[Smart Fail] Limite de tokens excedido no modelo ${model}. Abortando retentativas para acionar fallback.`);
+                    throw new Error(userMessage); 
+                }
+
+                // Se for outro tipo de erro (ex: 500 server error), lançamos erro para o catch tentar novamente (se ainda houver tentativas)
                 throw new Error(userMessage);
 
             } else { 
@@ -68,6 +76,12 @@ const attemptCallOpenAI = async (model, messages, response_format) => {
             }
         } catch (error) {
             lastError = error;
+            
+            // Se o erro contém "token" ou "context", não fazemos retry no mesmo modelo, repassamos o erro para subir o fallback
+            if (error.message.includes("token") || error.message.includes("context_length")) {
+                throw error; 
+            }
+
             console.warn(`Tentativa ${i + 1} com ${model} falhou:`, error.message);
             
             // Se não for a última tentativa, espera um pouco
